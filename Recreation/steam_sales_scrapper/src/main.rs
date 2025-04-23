@@ -16,7 +16,8 @@ struct Cli{
     path: std::path::PathBuf,
 }*/
 
-#[derive(Deserialize, Debug)]
+// Structs
+#[derive(Deserialize, Serialize, Debug)]
 struct App{
     #[serde(rename = "appid")]
     app_id: usize,
@@ -39,6 +40,7 @@ struct PriceOverview{
     final_price: f64,
 }
 
+// Get data from files
 fn get_api_key() -> String {
     dotenv().ok();
     let steam_api_token = std::env::var("STEAM_API_KEY").expect("STEAM_API_KEY must be set");
@@ -60,6 +62,22 @@ fn get_load_path() -> String{
     return load_fp;
 }
 
+fn get_cache_path() -> String{
+    let cache_path_str = "./cache.json";
+    let path = Path::new(cache_path_str);
+    let mut cache_fp = String::from("");
+    if !path.is_file(){
+        File::create_new(cache_path_str).expect("Failed to create cache file");
+        println!("File created: {}", cache_fp);
+        cache_fp = path.display().to_string();
+    } 
+    else{
+        cache_fp = path.display().to_string();
+    }
+    return cache_fp;
+}
+
+// API Functions 
 async fn get_all_games() -> Result<String> {
     let http_client = reqwest::Client::new();
     let steam_key = get_api_key();
@@ -72,26 +90,199 @@ async fn get_all_games() -> Result<String> {
         .text()
         .await
         .expect("Failed to get data");
-    
     Ok(resp)
 }
 
-fn write_to_load_file(data: String){
-    let path = get_load_path();
-    write(path, data).expect("Data could not be saved.");
+async fn get_game_data(app_id : usize) -> Result<String>{
+    let http_client = reqwest::Client::new();
+    let filters = "basic,price_overview";
+    let url = format!("https://store.steampowered.com/api/appdetails?appids={}&filters={}", app_id, filters);
+    let resp = http_client.get(url)
+        .send()
+        .await
+        .expect("Failed to get response")
+        .text()
+        .await
+        .expect("Failed to get data");
+    Ok(resp)
 }
 
-async fn search_by_keyphrase(keyphrase: &str) -> Result<Vec<String>>{
+async fn get_price(app_id : usize) -> Result<PriceOverview>{
+    let mut overview = PriceOverview {
+        currency: String::from(""), 
+        discount_percent: 0, 
+        initial: 0.0, 
+        final_price: 0.0,
+    };
+    match get_game_data(app_id).await {
+        Ok(success) => {
+            let body : Value = serde_json::from_str(&success).expect("Could convert to JSON");
+            let price_overview : &Value = &body[app_id.to_string()]["data"]["price_overview"];
+            let data = body[app_id.to_string()]["success"].clone();
+            match data{
+                serde_json::Value::Bool(true) => {
+                    overview.final_price = price_overview["final"].as_f64().unwrap()/100.0;
+                    overview.initial = price_overview["initial"].as_f64().unwrap()/100.0;
+                    overview.discount_percent = price_overview["discount_percent"].as_f64().unwrap() as usize;
+                    overview.currency = price_overview["currency"].to_string();
+                },
+                serde_json::Value::Bool(false) => {
+                    eprintln!("Error: No data available for game.");
+                    std::process::exit(exitcode::DATAERR);
+                },
+                _ => panic!("Something strange occurred")
+            }
+        },
+        Err(e) => {
+            println!("{}", e);
+        }
+    }
+    Ok(overview)
+}
+
+// Caching Functions
+async fn load_cached_games() -> Result<Vec<App>> {
+    let filepath = get_cache_path();
+    let data = read_to_string(filepath).unwrap();
+    let temp = serde_json::from_str::<Vec<App>>(&data);
+    return temp;
+}
+
+async fn update_cached_games(){
     let mut games_list : Vec<App> = Vec::new();
+    match load_cached_games().await{
+        Ok(data) => games_list = data,
+        Err(e) => println!("No cached data.")
+    }
+    let mut temp : Vec<App> = Vec::new();
     match get_all_games().await {
         Ok(success) => {
+            println!("Updating cached data (this will take a while)...");
             let body : Value = serde_json::from_str(&success).expect("Could convert to JSON");
             let app_list:  &Value = &body["applist"]["apps"];
             let app_list_str = serde_json::to_string(&body["applist"]["apps"]).unwrap();
             let data = serde_json::from_str::<Vec<App>>(&app_list_str);
-            games_list = data.unwrap();
+            temp = data.unwrap();
         }, 
+        Err(e) => {
+            println!("Error: {}", e);
+        }
+    }
+    for game in temp.iter() {
+        let mut unique = true;
+        for cached_game in games_list.iter() {
+            if game.app_id == cached_game.app_id && game.name != "" {
+                unique = false;
+                break;
+            }
+        }
+        if unique && game.name != "".to_string() {
+            games_list.push(App {
+                name: game.name.clone(),
+                app_id: game.app_id.clone()
+            });
+        }
+    }
+    let data_str = serde_json::to_string(&games_list).unwrap();
+    write_to_file(get_cache_path(), data_str);
+    println!("Cache update complete")
+}
+
+// JSON Functions
+fn write_to_file(path: String, data: String){
+    write(path, data).expect("Data could not be saved.");
+}
+
+fn load_thresholds() -> Result<Vec<Threshold>> {
+    let filepath = get_load_path();
+    let data = read_to_string(filepath).unwrap();
+    let temp = serde_json::from_str::<Vec<Threshold>>(&data);
+    return temp;
+}
+
+async fn add_game(name: &str, price: f64){
+    let mut games_list : Vec<App> = Vec::new();
+    match load_cached_games().await {
+        Ok(data) => games_list = data,
         Err(e) => println!("Error: {}", e)
+    }
+    if games_list.len() == 0 {
+        update_cached_games().await;
+        match load_cached_games().await {
+            Ok(data) => games_list = data,
+            Err(e) => println!("Error: {}", e)
+        }
+    }
+    let mut thresholds : Vec<Threshold> = Vec::new();
+    match load_thresholds(){
+        Ok(data) => thresholds = data,
+        Err(e) => println!("Error: {}", e)
+    }
+    let mut title_exists = false;
+    for elem in games_list.iter(){
+        if name.to_owned() == elem.name {
+            title_exists = true;
+            match get_price(elem.app_id).await {
+                Ok(po) => {
+                    let mut unique : bool = true;
+                    for elem in thresholds.iter() {
+                        if elem.name == name.to_owned() {
+                            unique = false;
+                            break;
+                        }
+                    }
+                    if unique { 
+                        thresholds.push(Threshold {
+                            name: elem.name.clone(),
+                            app_id: elem.app_id.clone(),
+                            currency: po.currency.clone(),
+                            desired_price: price
+                        });
+                        let data_str = serde_json::to_string(&thresholds).unwrap();
+                        write_to_file(get_load_path(), data_str);
+                        println!("Successfully added \"{}\".", name);
+                    }
+                    else { println!("Duplicate title: \"{}\".", name); }
+                    
+                },
+                Err(e) => println!("{}", e)
+            }
+        }
+    }
+    if !title_exists { println!("\"{}\" is an incomplete/incorrect game title.", name); }
+}
+
+fn remove_game(name: &str){
+    let game_name = name.to_owned();
+    let mut thresholds : Vec<Threshold> = Vec::new();
+    match load_thresholds(){
+        Ok(data) => thresholds = data,
+        Err(e) => println!("Error: {}", e)
+    }
+    let idx = thresholds.iter().position(|app| *app.name == game_name);
+    if !idx.is_none(){
+        thresholds.remove(idx.unwrap());
+        let data_str = serde_json::to_string(&thresholds).unwrap();
+        write_to_file(get_load_path(), data_str);
+        println!("Successfully removed \"{}\".", name);
+    }
+    else { println!("Failed to remove: \"{}\".", name); }
+    
+}
+
+// Search Functions
+async fn search_by_keyphrase(keyphrase: &str) -> Result<Vec<String>>{
+    let mut games_list : Vec<App> = Vec::new();
+    match load_cached_games().await {
+        Ok(data) => games_list = data,
+        Err(e) => println!("Error: {}", e)
+    }
+    if games_list.len() == 0 {
+        update_cached_games().await;
+        match load_cached_games().await {
+            Ok(data) => games_list = data,
+            Err(e) => println!("Error: {}", e)
+        }
     }
     let mut search_list : Vec<String> = Vec::new();
     let re = Regex::new(keyphrase).unwrap();
@@ -144,129 +335,7 @@ async fn search_game(keyphrase: &str) {
     }
 }
 
-// Add error handling for incorrect string 
-async fn add_game(name: &str, price: f64){
-    let mut games_list : Vec<App> = Vec::new();
-    match get_all_games().await {
-        Ok(success) => {
-            let body : Value = serde_json::from_str(&success).expect("Could convert to JSON");
-            let app_list:  &Value = &body["applist"]["apps"];
-            let app_list_str = serde_json::to_string(&body["applist"]["apps"]).unwrap();
-            let data = serde_json::from_str::<Vec<App>>(&app_list_str);
-            games_list = data.unwrap();
-        }, 
-        Err(e) => {
-            println!("Error: {}", e);
-        }
-    }
-    let mut thresholds : Vec<Threshold> = Vec::new();
-    match load_thresholds(){
-        Ok(data) => thresholds = data,
-        Err(e) => println!("Error: {}", e)
-    }
-    for elem in games_list.iter(){
-        if name.to_owned() == elem.name {
-            match get_price(elem.app_id).await {
-                Ok(po) => {
-                    let mut unique : bool = true;
-                    for elem in thresholds.iter() {
-                        if elem.name == name.to_owned() {
-                            unique = false;
-                            break;
-                        }
-                    }
-                    if unique { 
-                        thresholds.push(Threshold {
-                            name: elem.name.clone(),
-                            app_id: elem.app_id.clone(),
-                            currency: po.currency.clone(),
-                            desired_price: price
-                        });
-                        let data_str = serde_json::to_string(&thresholds).unwrap();
-                        write_to_load_file(data_str);
-                        println!("Successfully added \"{}\".", name);
-                    }
-                    else { println!("Duplicate title: \"{}\".", name); }
-                    
-                },
-                Err(e) => println!("{}", e)
-            }
-        }
-    }
-}
-
-fn remove_game(name: &str){
-    let game_name = name.to_owned();
-    let mut thresholds : Vec<Threshold> = Vec::new();
-    match load_thresholds(){
-        Ok(data) => thresholds = data,
-        Err(e) => println!("Error: {}", e)
-    }
-    let idx = thresholds.iter().position(|app| *app.name == game_name);
-    if !idx.is_none(){
-        thresholds.remove(idx.unwrap());
-        let data_str = serde_json::to_string(&thresholds).unwrap();
-        write_to_load_file(data_str);
-        println!("Successfully removed \"{}\".", name);
-    }
-    else { println!("Failed to remove: \"{}\".", name); }
-    
-}
-
-async fn get_game_data(app_id : usize) -> Result<String>{
-    let http_client = reqwest::Client::new();
-    let filters = "basic,price_overview";
-    let url = format!("https://store.steampowered.com/api/appdetails?appids={}&filters={}", app_id, filters);
-    let resp = http_client.get(url)
-        .send()
-        .await
-        .expect("Failed to get response")
-        .text()
-        .await
-        .expect("Failed to get data");
-    Ok(resp)
-}
-
-async fn get_price(app_id : usize) -> Result<PriceOverview>{
-    let mut overview = PriceOverview {
-        currency: String::from(""), 
-        discount_percent: 0, 
-        initial: 0.0, 
-        final_price: 0.0,
-    };
-    match get_game_data(app_id).await {
-        Ok(success) => {
-            let body : Value = serde_json::from_str(&success).expect("Could convert to JSON");
-            let price_overview : &Value = &body[app_id.to_string()]["data"]["price_overview"];
-            let data = body[app_id.to_string()]["success"].clone();
-            match data{
-                serde_json::Value::Bool(true) => {
-                    overview.final_price = price_overview["final"].as_f64().unwrap()/100.0;
-                    overview.initial = price_overview["initial"].as_f64().unwrap()/100.0;
-                    overview.discount_percent = price_overview["discount_percent"].as_f64().unwrap() as usize;
-                    overview.currency = price_overview["currency"].to_string();
-                },
-                serde_json::Value::Bool(false) => {
-                    eprintln!("Error: No data available for game.");
-                    std::process::exit(exitcode::DATAERR);
-                },
-                _ => panic!("Something strange occurred")
-            }
-        },
-        Err(e) => {
-            println!("{}", e);
-        }
-    }
-    Ok(overview)
-}
-
-fn load_thresholds() -> Result<Vec<Threshold>> {
-    let filepath = get_load_path();
-    let data = read_to_string(filepath).unwrap();
-    let temp = serde_json::from_str::<Vec<Threshold>>(&data);
-    return temp;
-}
-
+// Output Functions
 async fn check_prices() -> String {
     let mut thresholds : Vec<Threshold> = Vec::new();
     match load_thresholds(){
@@ -292,6 +361,7 @@ async fn check_prices() -> String {
     return output;
 }
 
+// Main function
 #[tokio::main]
 async fn main(){
     //let args = Cli::parse();    
@@ -299,7 +369,7 @@ async fn main(){
     //let api_key = get_api_key();
     
     let command = "SEARCH";
-    let title = "The Last of Us™ Part II";
+    let title = "The Last of Us™";
     match command {
         "ADD" => add_game(title, 25.00).await,
         "REMOVE" => remove_game(title),
@@ -308,6 +378,10 @@ async fn main(){
             println!("{}", email_str);
         },
         "SEARCH" => search_game(title).await,
+        "CACHE" => {
+            println!("Caching started");
+            update_cached_games().await;
+        },
         &_ => println!("Unknown command: {}", command)
     }
 
