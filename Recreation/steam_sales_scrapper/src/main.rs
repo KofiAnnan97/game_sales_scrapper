@@ -10,6 +10,8 @@ use std::io;
 use std::process;
 use clap::{arg, command, value_parser, Arg, ArgAction, Command, ArgMatches};
 
+mod mailer;
+
 // Structs
 #[derive(Deserialize, Serialize, Debug)]
 struct App{
@@ -41,10 +43,10 @@ fn get_api_key() -> String {
     return steam_api_token;
 }
 
-fn get_email_address() -> String {
+fn get_recipient() -> String {
     dotenv().ok();
-    let email_address = std::env::var("EMAIL_ADDRESS").expect("EMAIL_ADDRESS must be set");
-    return email_address;
+    let recipient = std::env::var("RECIPIENT_EMAIL").expect("RECIPIENT_EMAIL must be set");
+    return recipient;
 }
 
 fn get_load_path() -> String{
@@ -397,7 +399,9 @@ async fn check_prices() -> String {
             Err(e) => println!("{}", e)
         }
     }
-    output = "Price Thresholds for the following have been met:".to_owned() + &output;
+    if !output.is_empty(){
+        output = "Price Thresholds for the following have been met:".to_owned() + &output;
+    }
     return output;
 }
 
@@ -511,9 +515,15 @@ async fn main(){
                 update_cached_games().await;
             }
             else if cmd.get_flag("email"){
-                println!("Sending email");
                 let email_str = check_prices().await;
-                println!("{}", email_str);
+                if email_str.is_empty(){
+                    println!("No game(s) on sale at price thresholds");
+                }
+                else {
+                    println!("Sending email...");
+                    let to_address = &get_recipient();
+                    mailer::send_email(to_address, "Steam Games At Desired Prices",&email_str);
+                }
             }
             else {
                 println!("No/incorrect command given. Use \'--help\' for assistance.");
