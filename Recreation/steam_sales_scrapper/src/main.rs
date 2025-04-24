@@ -4,17 +4,11 @@ use dotenv::dotenv;
 use serde_json::{Result, Value};
 use serde::{Deserialize, Serialize};
 use std::fs::{File, write, read_to_string};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use regex::Regex;
 use std::io;
 use std::process;
-
-/*use clap::Parser;
-#[derive(Parser)]
-struct Cli{
-    pattern: String,
-    path: std::path::PathBuf,
-}*/
+use clap::{arg, command, value_parser, Arg, ArgAction, Command, ArgMatches};
 
 // Structs
 #[derive(Deserialize, Serialize, Debug)]
@@ -45,6 +39,12 @@ fn get_api_key() -> String {
     dotenv().ok();
     let steam_api_token = std::env::var("STEAM_API_KEY").expect("STEAM_API_KEY must be set");
     return steam_api_token;
+}
+
+fn get_email_address() -> String {
+    dotenv().ok();
+    let email_address = std::env::var("EMAIL_ADDRESS").expect("EMAIL_ADDRESS must be set");
+    return email_address;
 }
 
 fn get_load_path() -> String{
@@ -157,7 +157,7 @@ async fn update_cached_games(){
     let mut temp : Vec<App> = Vec::new();
     match get_all_games().await {
         Ok(success) => {
-            println!("Updating cached data (this will take a while)...");
+            println!("Updating cached game titles (this will take a while)...");
             let body : Value = serde_json::from_str(&success).expect("Could convert to JSON");
             let app_list:  &Value = &body["applist"]["apps"];
             let app_list_str = serde_json::to_string(&body["applist"]["apps"]).unwrap();
@@ -404,40 +404,120 @@ async fn check_prices() -> String {
 // Main function
 #[tokio::main]
 async fn main(){
-    //let args = Cli::parse();    
-    //println!("Pattern: {:?}, Path: {:?}", args.pattern, args.path);
-    //let api_key = get_api_key();
-    
-    let command = "SEARCH";
-    let title = "The Last of Us™";
-    let price = 30.00;
-    match command {
-        "SEARCH" => search_game(title).await,
-        "ADD" => add_game(title, price).await,
-        "UPDATE" => update_game(title, price),
-        "REMOVE" => remove_game(title),
-        "LIST" => list_game_thresholds(),
-        "CACHE" => {
-            println!("Caching started");
-            update_cached_games().await;
-        },
-        "CHECK" => {
-            let email_str = check_prices().await;
-            println!("{}", email_str);
-        },
-        &_ => println!("Unknown command: {}", command)
-    }
+    let title_arg = arg!(-t --title "Full title of game")
+        .action(ArgAction::Set)
+        .value_parser(clap::value_parser!(String))
+        .required(true);
+    let price_arg = arg!(-p --price "Price threshold for game (f64)")
+        .action(ArgAction::Set)
+        .value_parser(clap::value_parser!(f64))
+        .required(true);
+    let keyphrase_arg = arg!(-k --keyphrase "Provide a keyphrase for matching to game titles")
+        .action(ArgAction::Set)
+        .value_parser(clap::value_parser!(String))
+        .required(true);
 
-    // Add data and check prices
-    /*add_game("The Last of Us™ Part I, 25.00).await;
-    add_game("Kunitsu-Gami: Path of the Goddess", 20.00).await;
-    add_game("South of Midnight", 20.00).await;
-    add_game("Returnal™", 20.00).await;
-    add_game("Persona 3 Reload", 30.00).await;
-    add_game("The First Berserker: Khazan", 30.00).await;
-    add_game("Indiana Jones and the Great Circle", 30.00).await;
-    add_game("Sekiro™: Shadows Die Twice", 30.00).await;
-    add_game("Disgaea 7: Vows of the Virtueless", 30.00).await;
-    add_game("Disgaea 6 Complete", 25.00).await;
-    */
+    let cmd : ArgMatches = command!()
+        .about("A simple script for checking prices on Steam games.")
+        .subcommand(
+            Command::new("search")
+                .about("Search for a game")
+                .arg(keyphrase_arg.clone())
+        )
+        .subcommand(
+            Command::new("add")
+                .about("Add a game to price thresholds")
+                .args([title_arg.clone(), price_arg.clone()])
+        )
+        .subcommand(
+            Command::new("update")
+                .about("Update price threshold for game")
+                .args([title_arg.clone(), price_arg.clone()])
+        )
+        .subcommand(
+            Command::new("remove")
+                .about("Remove game from price thresholds")
+                .arg(title_arg.clone())
+        )
+        .arg(
+            Arg::new("list")
+                .short('l')
+                .long("list-all")
+                .exclusive(true)
+                .action(ArgAction::SetTrue)
+                .conflicts_with_all(["cache", "email"])
+                .required(false)
+                .help("List all game price thresholds")
+        )
+        .arg(
+            Arg::new("cache")
+                .short('c')
+                .long("update-cache")
+                .exclusive(true)
+                .action(ArgAction::SetTrue)
+                .conflicts_with_all(["list", "email"])
+                .required(false)
+                .help("Updated cached list of games")
+        )
+        .arg(
+            Arg::new("email")
+                .short('e')
+                .long("send-email")
+                .exclusive(true)
+                .action(ArgAction::SetTrue)
+                .conflicts_with_all(["list", "cache"])
+                .required(false)
+                .help("Send email if game(s) are below price threshold")
+        )
+    .get_matches();
+
+    match cmd.subcommand() {
+        Some(("search", search_args)) => {
+            if search_args.contains_id("keyphrase"){
+                let keyphrase = search_args.get_one::<String>("keyphrase").unwrap().clone();
+                search_game(&keyphrase).await;
+            }
+        },
+        Some(("add", add_args)) => {
+            if add_args.contains_id("title"){
+                if add_args.contains_id("price"){
+                    let title = add_args.get_one::<String>("title").unwrap().clone();
+                    let price = add_args.get_one::<f64>("price").unwrap().clone();
+                    add_game(&title, price).await;
+                }                
+            }
+        },
+        Some(("update", update_args)) => {
+            if update_args.contains_id("title"){
+                if update_args.contains_id("price"){
+                    let title = update_args.get_one::<String>("title").unwrap().clone();
+                    let price = update_args.get_one::<f64>("price").unwrap().clone();
+                    update_game(&title, price);
+                }                
+            }
+        },
+        Some(("remove", remove_args)) => {
+            if remove_args.contains_id("title"){
+                let title = remove_args.get_one::<String>("title").unwrap().clone();
+                remove_game(&title);
+            }
+        },
+        _ => {
+            if cmd.get_flag("list") {
+                list_game_thresholds();
+            }
+            else if cmd.get_flag("cache"){
+                println!("Caching started");
+                update_cached_games().await;
+            }
+            else if cmd.get_flag("email"){
+                println!("Sending email");
+                let email_str = check_prices().await;
+                println!("{}", email_str);
+            }
+            else {
+                println!("No/incorrect command given. Use \'--help\' for assistance.");
+            }
+        }      
+    };
 }
