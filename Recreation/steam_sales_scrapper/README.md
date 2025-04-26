@@ -15,6 +15,8 @@ The purpose of this script is to scrape the Steam API to determine whether a gam
     SMTP_USERNAME={smtp_username}
     SMTP_PWD={stmp_password}
     ```
+4. Run one the commands below (supports cargo commands).
+5. [Optional] Tweak and run set_cron.sh (for Unix-based) to automate when and how often the script is run.
 
 ## Supported Commands
 Use the`--help` flag in command line to get more information on the supported commands. Here's a brief description and example of each command.
@@ -42,10 +44,7 @@ Use the`--help` flag in command line to get more information on the supported co
     ```bash 
     steam_sales_scrapper --update-cache
     ```
-- `EMAIL` := produce a string containing the games that have reached the desired threshold
+- `EMAIL` := sends an email (using SMTP) containing a list of games that are below user defined price threshold for each game. No email is sent if no game has reached their price threshold.
     ```bash 
     steam_sales_scrapper --send-email
     ```
-
-## TODO
-- automate script execution

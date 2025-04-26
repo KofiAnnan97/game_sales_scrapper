@@ -3,6 +3,7 @@ use lettre::transport::smtp::authentication::{Credentials, Mechanism};
 use dotenv::dotenv;
 
 pub fn send_email(recipient: &str, subject: &str, body: &str) {
+    dotenv().ok();
     let smtp_host = std::env::var("SMTP_HOST").expect("SMTP_HOST must be set");
     let smtp_port : u16 = std::env::var("SMTP_PORT").expect("SMTP_PORT must be set")
                                                     .parse().expect("Not a valid u16");

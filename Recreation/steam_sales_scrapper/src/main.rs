@@ -4,11 +4,11 @@ use dotenv::dotenv;
 use serde_json::{Result, Value};
 use serde::{Deserialize, Serialize};
 use std::fs::{File, write, read_to_string};
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use regex::Regex;
 use std::io;
-use std::process;
-use clap::{arg, command, value_parser, Arg, ArgAction, Command, ArgMatches};
+use std::io::Write;
+use clap::{arg, command, Arg, ArgAction, Command, ArgMatches};
 
 mod mailer;
 
@@ -154,16 +154,15 @@ async fn update_cached_games(){
     let mut games_list : Vec<App> = Vec::new();
     match load_cached_games().await{
         Ok(data) => games_list = data,
-        Err(e) => println!("No cached data.")
+        Err(e) => println!("No cached data. {}", e)
     }
     let mut temp : Vec<App> = Vec::new();
     match get_all_games().await {
         Ok(success) => {
             println!("Updating cached game titles (this will take a while)...");
             let body : Value = serde_json::from_str(&success).expect("Could convert to JSON");
-            let app_list:  &Value = &body["applist"]["apps"];
-            let app_list_str = serde_json::to_string(&body["applist"]["apps"]).unwrap();
-            let data = serde_json::from_str::<Vec<App>>(&app_list_str);
+            let app_list = serde_json::to_string(&body["applist"]["apps"]).unwrap();
+            let data = serde_json::from_str::<Vec<App>>(&app_list);
             temp = data.unwrap();
         }, 
         Err(e) => {
@@ -345,15 +344,15 @@ async fn search_game(keyphrase: &str) {
             for (idx, title) in search_list.iter().enumerate() {
                 println!("[{}] {}", idx, title);
             }
-            println!("[q] Cancel");
+            println!("[q] Quit");
             let mut input = String::new();
-            println!("Please choose a value or type \"q\": ");
+            print!("Please choose a value or quit using \"q\": ");
+            let _ = io::stdout().flush();
             io::stdin()
                 .read_line(&mut input)
                 .expect("Failed to read user input");
-            let parse_idx = input.parse::<i32>();
             if input.trim() == "q" {
-                println!("Cancelling prompt");
+                println!("Search terminated.");
             }
             else {
                 match input.trim().parse::<i32>() {
@@ -361,7 +360,8 @@ async fn search_game(keyphrase: &str) {
                         if idx >= 0 {
                             input = String::new();
                             let title = &search_list[idx as usize];
-                            println!("Provide price threshold (as float): ");
+                            print!("Provide price threshold (as float): ");
+                            let _ = io::stdout().flush();
                             io::stdin()
                                 .read_line(&mut input)
                                 .expect("Failed to read user input");
@@ -507,27 +507,21 @@ async fn main(){
             }
         },
         _ => {
-            if cmd.get_flag("list") {
-                list_game_thresholds();
-            }
+            if cmd.get_flag("list") { list_game_thresholds(); }
             else if cmd.get_flag("cache"){
                 println!("Caching started");
                 update_cached_games().await;
             }
             else if cmd.get_flag("email"){
                 let email_str = check_prices().await;
-                if email_str.is_empty(){
-                    println!("No game(s) on sale at price thresholds");
-                }
+                if email_str.is_empty(){ println!("No game(s) on sale at price thresholds"); }
                 else {
                     println!("Sending email...");
                     let to_address = &get_recipient();
                     mailer::send_email(to_address, "Steam Games At Desired Prices",&email_str);
                 }
             }
-            else {
-                println!("No/incorrect command given. Use \'--help\' for assistance.");
-            }
+            else { println!("No/incorrect command given. Use \'--help\' for assistance."); }
         }      
     };
 }
