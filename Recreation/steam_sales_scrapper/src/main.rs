@@ -1,7 +1,7 @@
 extern crate exitcode;
 
 use dotenv::dotenv;
-use serde_json::{Result, Value};
+use serde_json::{Result, Value, Error};
 use serde::{Deserialize, Serialize};
 use std::fs::{File, write, read_to_string};
 use std::path::Path;
@@ -201,7 +201,7 @@ fn load_thresholds() -> Result<Vec<Threshold>> {
     return temp;
 }
 
-async fn add_game(name: &str, price: f64){
+async fn check_game(name: &str) -> Option<App> {
     let mut games_list : Vec<App> = Vec::new();
     match load_cached_games().await {
         Ok(data) => games_list = data,
@@ -214,43 +214,48 @@ async fn add_game(name: &str, price: f64){
             Err(e) => println!("Error: {}", e)
         }
     }
+    for elem in games_list.iter(){
+        if name.to_owned() == elem.name {
+            return Ok::<App, Error>(App {
+                name: name.to_owned(),
+                app_id: elem.app_id
+            }).ok();
+        }
+    }
+    None
+}
+
+async fn add_game(app: App, price: f64){
     let mut thresholds : Vec<Threshold> = Vec::new();
     match load_thresholds(){
         Ok(data) => thresholds = data,
         Err(e) => println!("Error: {}", e)
     }
-    let mut title_exists = false;
-    for elem in games_list.iter(){
-        if name.to_owned() == elem.name {
-            title_exists = true;
-            match get_price(elem.app_id).await {
-                Ok(po) => {
-                    let mut unique : bool = true;
-                    for elem in thresholds.iter() {
-                        if elem.name == name.to_owned() {
-                            unique = false;
-                            break;
-                        }
-                    }
-                    if unique { 
-                        thresholds.push(Threshold {
-                            name: elem.name.clone(),
-                            app_id: elem.app_id.clone(),
-                            currency: po.currency.clone(),
-                            desired_price: price
-                        });
-                        let data_str = serde_json::to_string(&thresholds).unwrap();
-                        write_to_file(get_load_path(), data_str);
-                        println!("Successfully added \"{}\".", name);
-                    }
-                    else { println!("Duplicate title: \"{}\".", name); }
-                    
-                },
-                Err(e) => println!("{}", e)
+    match get_price(app.app_id).await {
+        Ok(po) => {
+            let mut unique : bool = true;
+            for elem in thresholds.iter() {
+                if elem.name == app.name {
+                    unique = false;
+                    break;
+                }
             }
-        }
+            if unique { 
+                thresholds.push(Threshold {
+                    name: app.name.clone(),
+                    app_id: app.app_id.clone(),
+                    currency: po.currency.clone(),
+                    desired_price: price
+                });
+                let data_str = serde_json::to_string(&thresholds).unwrap();
+                write_to_file(get_load_path(), data_str);
+                println!("Successfully added \"{}\".", app.name);
+            }
+            else { println!("Duplicate title: \"{}\".", app.name); }
+                    
+        },
+        Err(e) => println!("{}", e)
     }
-    if !title_exists { println!("\"{}\" is an incomplete/incorrect game title.", name); }
 }
 
 fn remove_game(name: &str){
@@ -336,37 +341,32 @@ async fn search_by_keyphrase(keyphrase: &str) -> Result<Vec<String>>{
     Ok(search_list)
 }
 
-async fn search_game(keyphrase: &str) {
+async fn search_game(keyphrase: &str) -> Option<String>{ 
     match search_by_keyphrase(keyphrase).await {
-        Ok(data) => {
-            let search_list = data;
-            println!("Search Results: ");
-            for (idx, title) in search_list.iter().enumerate() {
-                println!("[{}] {}", idx, title);
+        Ok(search_list) => {
+            println!("Did you mean one of the following?");
+            for (idx, game_title) in search_list.iter().enumerate() {
+                println!("  [{}] {}", idx, game_title);
             }
-            println!("[q] Quit");
+            println!("  [q] Quit");
             let mut input = String::new();
-            print!("Please choose a value or quit using \"q\": ");
+            print!("Type integer corresponding to game title or type \"q\" to quit: ");
             let _ = io::stdout().flush();
             io::stdin()
                 .read_line(&mut input)
                 .expect("Failed to read user input");
             if input.trim() == "q" {
-                println!("Add terminated.");
+                eprintln!("Request terminated.");
             }
             else {
-                match input.trim().parse::<i32>() {
+                match input.trim().parse::<usize>() {
                     Ok(idx) => {
-                        if idx >= 0 {
-                            input = String::new();
-                            let title = &search_list[idx as usize];
-                            print!("Provide price threshold (as float): ");
-                            let _ = io::stdout().flush();
-                            io::stdin()
-                                .read_line(&mut input)
-                                .expect("Failed to read user input");
-                            let price : f64 = input.trim().parse().unwrap();
-                            add_game(&title, price).await;
+                        if idx < search_list.len(){
+                            let title = search_list[idx].clone();
+                            return Ok::<std::string::String, Error>(title).ok();
+                        }
+                        else if idx >= search_list.len(){
+                            eprintln!("Integer \"{}\" is invalid. Terminating request.", idx);
                         }
                     },
                     Err(e) => println!("Invalid input: {}\nError: {}", input, e)
@@ -375,6 +375,7 @@ async fn search_game(keyphrase: &str) {
         }, 
         Err(e) => println!("Error: {}", e)
     }
+    None
 }
 
 // Output Functions
@@ -479,7 +480,22 @@ async fn main(){
         Some(("search", search_args)) => {
             if search_args.contains_id("keyphrase"){
                 let keyphrase = search_args.get_one::<String>("keyphrase").unwrap().clone();
-                search_game(&keyphrase).await;
+                match search_game(&keyphrase).await {
+                    Some(title) =>{
+                        let mut input = String::new();
+                        print!("Provide price threshold (as float): ");
+                        let _ = io::stdout().flush();
+                        io::stdin()
+                            .read_line(&mut input)
+                            .expect("Failed to read user input");
+                        let price : f64 = input.trim().parse().unwrap();
+                        match check_game(&title).await {
+                            Some(data) => add_game(data, price).await,
+                            None => println!("Something went wrong")
+                        }
+                    },
+                    None => ()
+                }    
             }
         },
         Some(("add", add_args)) => {
@@ -487,7 +503,25 @@ async fn main(){
                 if add_args.contains_id("price"){
                     let title = add_args.get_one::<String>("title").unwrap().clone();
                     let price = add_args.get_one::<f64>("price").unwrap().clone();
-                    add_game(&title, price).await;
+                    let mut app = App {name: String::from(""), app_id: 0};
+                    match check_game(&title).await {
+                        Some(data) => app = data,
+                        None => ()
+                    }
+                    if &app.name != "" { 
+                        add_game(app, price).await; 
+                    }
+                    else {
+                        match search_game(&title).await {
+                            Some(t) => {
+                                match check_game(&t).await {
+                                    Some(data) => add_game(data, price).await,
+                                    None => println!("Something went wrong")
+                                }
+                            }
+                            None => ()
+                        }      
+                    }
                 }                
             }
         },
