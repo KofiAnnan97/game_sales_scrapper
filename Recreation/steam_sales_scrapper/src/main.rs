@@ -542,9 +542,9 @@ async fn main(){
             }
             else if cmd.get_flag("email"){
                 let email_str = check_prices().await;
+                println!("Email Contents:\n{}\n", email_str);
                 if email_str.is_empty(){ println!("No game(s) on sale at price thresholds"); }
                 else {
-                    println!("Email Contents:\n{}\n", email_str);
                     println!("Sending email...");
                     let to_address = &get_recipient();
                     mailer::send_email(to_address, "Steam Games At Desired Prices",&email_str);

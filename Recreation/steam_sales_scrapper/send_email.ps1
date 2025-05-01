@@ -1,12 +1,12 @@
 # Go to script directory
 Set-Location -Path $PSScriptRoot
 
-# Create log directory for Windows
-$logFolder = "$PSScriptRoot\log\windows"
-if(-not(Test-Path -path $logFolder) -and (Test-Path $logFolder -IsValid)){
-    New-Item -Path "$PSScriptRoot\log\windows" -ItemType Directory
+# Create log directory
+$LogFolder = "$PSScriptRoot\log"
+if(-not(Test-Path -path $LogFolder) -and (Test-Path $LogFolder -IsValid)){
+    New-Item -Path $LogFolder -ItemType Directory
 }
 
 # Run script to get game sales
-$dateTime = (Get-Date -Format "yyyy_dd_MM_HH_mm")
-cargo run -- --send-email| Out-String | Set-Content $logFolder\$dateTime"_email.log"
+$DateTime = (Get-Date -Format "yyyy_dd_MM_HH_mm")
+cargo run -- --send-email| Out-String | Set-Content $LogFolder\$DateTime"_email.log"
