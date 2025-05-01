@@ -1,12 +1,13 @@
 # Steam Sales Scrapper
-The purpose of this script is to scrape the Steam Web API to determine whether a game has reached a specified price threshold. If one or more games fall below the user-defined limit an email will be sent containing a list of games along with their respective prices.
+The purpose of this script is to scrape the Steam Web API to determine whether a game has reached a specified price threshold. If one or more games fall below the user-defined limit an email will be sent containing a list of games along with their respective prices. 
+
+Officially tested on Ubuntu 24.04 and Windows 11.
 
 ## Quick Start
 1. Setup SMTP server/service (TLS required/optional)
 2. Nagivate to project folder and run `cargo build`
 3. In the project folder, create `.env` with the following:
     ```
-    DOMAIN={your_domain}
     STEAM_API_KEY={your_steam_api_key}
     RECIPIENT_EMAIL={destination_email_address}
     SMTP_HOST={smtp_host_domain}
@@ -15,8 +16,19 @@ The purpose of this script is to scrape the Steam Web API to determine whether a
     SMTP_USERNAME={smtp_username}
     SMTP_PWD={stmp_password}
     ```
-4. Run one the commands below (supports commands from cargo).
-5. [Optional] Tweak and run set_cron.sh (for Unix-based systems) to automate when and how often the script is run.
+4. Add games and their respective price threshold using the [support commands](#supported-commands) below (supports commands from cargo).
+5. [Optional] Automate emails
+    - **For Unix-based systems:** Update and run set_cron.sh with root priviledges.
+    - **For Windows systems:** (using Task Scheduler)
+        1. Navigate to `Task Scheduler` and select **Create Basic Task**. Provide a name and optional description.
+        2. In the `Trigger` section, set the desired frequency of execution.
+        3. In the `Action` section, select the **Start a program** option
+            - Set the **Program/script** field to your Powershell executable path (typically located at "C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe").
+            - Set **Add arguments(optional)** text field to 
+                ```
+                -ExecutionPolicy Bypass -File "C:\path\to\steam_sales_scrapper\send_email.ps1"
+                ```
+        4. Review and click `Finish`.
 
 ## Supported Commands
 Use the`--help` flag in command line to get more information on the supported commands. Here's a brief description and example of each command.
