@@ -5,9 +5,9 @@ use clap::{arg, command, Arg, ArgAction, Command, ArgMatches};
 use clap::parser::ValueSource;
 
 // Internal libraries
-use steam_sales_scrapper::store_api::{steam, gog};
-use steam_sales_scrapper::email::mailer;
-use steam_sales_scrapper::data::{settings, thresholds};
+use game_sales_scrapper::store_api::{steam, gog};
+use game_sales_scrapper::email::mailer;
+use game_sales_scrapper::data::{settings, thresholds};
 
 fn get_recipient() -> String {
     dotenv().ok();

@@ -1,5 +1,5 @@
 [package]
-name = "steam_sales_scrapper"
+name = "game_sales_scrapper"
 version = "0.1.0"
 authors = ["Elinam Gbordzoe <elinamgbordzoe@gmail.com>"]
 edition = "2024"
