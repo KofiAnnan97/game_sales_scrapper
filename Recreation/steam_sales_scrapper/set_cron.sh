@@ -2,7 +2,7 @@
 
 # This bash script uses /etc/cron.d to store the CRON job
 CRON_DIR="/etc/cron.d"
-CRON_FILE="steam-sales-scrapper"
+CRON_FILE="game-sales-scrapper"
 
 # CRON file for automation if it does not exist
 if [ ! -f "$CRON_DIR/$CRON_FILE" ]; then
