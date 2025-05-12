@@ -85,7 +85,7 @@ async fn main(){
         .required(false);
 
     let cmd : ArgMatches = command!()
-        .about("A simple script for checking prices on Steam games.")
+        .about("A simple script for checking prices on games.")
         .subcommand(
             Command::new("config")
                 .about("Set which store fronts are searched")
@@ -198,7 +198,7 @@ async fn main(){
                                 Err(e) => println!("Error: {}", e)
                             }
                             if search_list.len() > 0 {
-                                println!("Did you mean one of the following?");
+                                println!("GOG search results:");
                                 for (i, game) in search_list.iter().enumerate(){
                                     println!("  [{}] {}", i, game.title);
                                 }
@@ -229,7 +229,7 @@ async fn main(){
                                 }
                             }
                             else{
-                                println!("Could not find a game title matching \"{}\" on Gog", title);
+                                println!("Could not find a game title matching \"{}\" on GOG.", title);
                             }
                         }
                     }

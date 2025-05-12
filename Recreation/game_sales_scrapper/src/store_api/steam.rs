@@ -205,7 +205,7 @@ pub async fn search_game(keyphrase: &str) -> Option<String>{
     match search_by_keyphrase(keyphrase).await {
         Ok(search_list) => {
             if search_list.len() > 0 {
-                println!("Did you mean one of the following?");
+                println!("Steam search results:");
                 for (idx, game_title) in search_list.iter().enumerate() {
                     println!("  [{}] {}", idx, game_title);
                 }
@@ -235,7 +235,7 @@ pub async fn search_game(keyphrase: &str) -> Option<String>{
                 }
             }
             else {
-                println!("Could not find a game title matching \"{}\" on Steam", keyphrase);
+                println!("Could not find a game title matching \"{}\" on Steam.", keyphrase);
             }
         }, 
         Err(e) => println!("Error: {}", e)

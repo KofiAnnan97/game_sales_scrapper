@@ -1,4 +1,4 @@
-# Games Sales Scrapper
+# Game Sales Scrapper
 The purpose of this script is to scrape the Steam Web API to determine whether a game has reached a specified price threshold. If one or more games fall below the user-defined limit an email will be sent containing a list of games along with their respective prices. 
 
 Officially tested on Ubuntu 24.04 and Windows 11.
