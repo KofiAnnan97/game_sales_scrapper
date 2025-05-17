@@ -162,8 +162,8 @@ async fn main(){
             else {
                 let search_steam = config_args.value_source("steam").unwrap();
                 let search_gog = config_args.value_source("gog").unwrap();
-                if search_steam == ValueSource::CommandLine { selected.push(String::from("steam")); }
-                if search_gog == ValueSource::CommandLine { selected.push(String::from("gog"))}
+                if search_steam == ValueSource::CommandLine { selected.push(settings::STEAM_STORE_ID.to_owned()); }
+                if search_gog == ValueSource::CommandLine { selected.push(settings::GOG_STORE_ID.to_owned())}
             }
             settings::update_selected_stores(selected);
         },
@@ -174,9 +174,9 @@ async fn main(){
                     let price = add_args.get_one::<f64>("price").unwrap().clone();
                     let selected_stores = settings::get_selected_stores();
                     for store in selected_stores.iter(){
-                        if store == "steam" {
+                        if store == settings::STEAM_STORE_ID {
                             match steam::check_game(&title).await {
-                                Some(app) => thresholds::add_steam_game(app, price).await,
+                                Some(data) => thresholds::add_steam_game(data, price).await,
                                 None => {
                                     match steam::search_game(&title).await {
                                         Some(t) => {
@@ -191,7 +191,7 @@ async fn main(){
                                 }
                             }
                         } 
-                        if store == "gog" {
+                        if store == settings::GOG_STORE_ID {
                             let mut search_list : Vec<gog::Game> = Vec::new();
                             match gog::search_game_by_title(&title).await {
                                 Ok(data) => search_list = data,

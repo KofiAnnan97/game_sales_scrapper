@@ -7,10 +7,13 @@ use crate::data::json;
 
 static FILE_PATH : &str = "./config.json";
 
+pub const STEAM_STORE_ID : &str = "steam";
+pub const GOG_STORE_ID : &str = "gog";
+
 pub fn get_available_stores() -> Vec<String> {
     return vec![
-        String::from("steam"),
-        String::from("gog"),
+        String::from(STEAM_STORE_ID),
+        String::from(GOG_STORE_ID),
     ];
 }
 
@@ -42,7 +45,6 @@ pub fn get_selected_stores() -> Vec<String> {
     let data = read_to_string(filepath).unwrap();
     let body : Value = serde_json::from_str(&data).expect("Could convert to JSON");
     let selected = serde_json::to_string(&body["selected_stores"]).unwrap();
-    //println!("{:?}", body["selected_stores"]);
     match serde_json::from_str::<Vec<String>>(&selected){
         Ok(data) => stores = data,
         Err(e) => eprintln!("Error: {}", e)
@@ -53,10 +55,8 @@ pub fn get_selected_stores() -> Vec<String> {
 pub fn update_selected_stores(selected: Vec<String>) {
     match load_data(){
         Ok(data) => {
-            //println!("{:?}", data);
             let mut settings = data;
             *settings.get_mut("selected_stores").unwrap() = json!(selected);
-            //println!("{:?}", settings["selected_stores"]);
             let settings_str = serde_json::to_string(&settings);
             json::write_to_file(get_path(), settings_str.expect("Cannot update store search settings"));
         },

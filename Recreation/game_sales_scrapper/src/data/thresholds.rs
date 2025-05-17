@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Result;
 use std::fs::read_to_string;
 
-use crate::data::json;
+use crate::data::{json, settings};
 use crate::store_api::{steam, gog};
 
 static FILE_PATH : &str = "./thresholds.json";
@@ -60,7 +60,7 @@ pub fn add_alias(title: &str, new_alias: &str){
     }
 }
 
-pub async fn add_steam_game(app: steam::App, price: f64){
+pub async fn add_steam_game(app: steam::Game, price: f64){
     let mut thresholds : Vec<GameThreshold> = Vec::new();
     match load_data(){
         Ok(data) => thresholds = data,
@@ -72,7 +72,8 @@ pub async fn add_steam_game(app: steam::App, price: f64){
             for elem in thresholds.iter() {
                 if is_threshold(&app.name, elem) {
                     unique = false;
-                    update_steam_id(&elem.title, app.app_id);
+                    update_id(&elem.title, settings::STEAM_STORE_ID, app.app_id);
+                    println!("Updated Steam ID for \"{}\".", app.name);
                     break;
                 }
             }
@@ -105,7 +106,8 @@ pub fn add_gog_game(game: &gog::Game, price: f64){
     for elem in thresholds.iter(){
         if is_threshold(&game.title, elem) {
             unique = false;
-            update_gog_id(&elem.title, game.id as usize);
+            update_id(&elem.title, settings::GOG_STORE_ID, game.id as usize);
+            println!("Updated GOD ID for \"{}\".", game.title);
             break;
         }
     }
@@ -120,7 +122,7 @@ pub fn add_gog_game(game: &gog::Game, price: f64){
         });
         let data_str = serde_json::to_string(&thresholds).unwrap();
         json::write_to_file(get_path(), data_str);
-        println!("Successfully added \"{}\".", game.title);
+        println!("Successfully added GOG \"{}\".", game.title);
     }
     //else { println!("Duplicate title: \"{}\".", game.title); }
 }
@@ -129,7 +131,7 @@ pub fn update_price(title: &str, price: f64) {
     let mut thresholds : Vec<GameThreshold> = Vec::new();
     match load_data(){
         Ok(data) => thresholds = data,
-        Err(e) => eprintln!("update_price Error: {}", e)
+        Err(e) => eprintln!("Error: {}", e)
     };
     let idx = thresholds.iter().position(|threshold| is_threshold(title, threshold));
     if !idx.is_none() {
@@ -152,33 +154,30 @@ pub fn update_price(title: &str, price: f64) {
     }
 }
 
-pub fn update_steam_id(title: &str, id: usize){
+pub fn update_id(title: &str, store_type: &str, id: usize){
     let mut thresholds : Vec<GameThreshold> = Vec::new();
     match load_data(){
         Ok(data) => thresholds = data,
-        Err(e) => eprintln!("update_price Error: {}", e)
+        Err(e) => eprintln!("Error: {}", e)
     };
     let idx = thresholds.iter().position(|threshold| is_threshold(title, threshold));
     if !idx.is_none() {
+        let mut updated_id : bool = false;
         let i = idx.unwrap();
-        thresholds[i].steam_id = id;
-        let data_str = serde_json::to_string(&thresholds).expect("Could not convert Steam id update to string.");
-        json::write_to_file(get_path(), data_str);
-    }
-}
-
-pub fn update_gog_id(title: &str, id: usize){
-    let mut thresholds : Vec<GameThreshold> = Vec::new();
-    match load_data(){
-        Ok(data) => thresholds = data,
-        Err(e) => eprintln!("update_price Error: {}", e)
-    };
-    let idx = thresholds.iter().position(|threshold| is_threshold(title, threshold));
-    if !idx.is_none() {
-        let i = idx.unwrap();
-        thresholds[i].gog_id = id;
-        let data_str = serde_json::to_string(&thresholds).expect("Could not convert GOG id update to string.");
-        json::write_to_file(get_path(), data_str);
+        if store_type == settings::STEAM_STORE_ID {
+            thresholds[i].steam_id = id;
+            updated_id = true;
+        }
+        else if store_type == settings::GOG_STORE_ID {
+            thresholds[i].gog_id = id;
+            updated_id = true;
+        }
+        else{ eprintln!("Unknown store type: {}", store_type); }
+        if updated_id {
+            let update_err = format!("Could not convert the {} id update to a string object.", store_type);
+            let data_str = serde_json::to_string(&thresholds).expect(&update_err);
+            json::write_to_file(get_path(), data_str);
+        }  
     }
 }
 

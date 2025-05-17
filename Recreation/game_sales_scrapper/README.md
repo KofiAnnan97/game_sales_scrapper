@@ -1,7 +1,14 @@
 # Game Sales Scrapper
-The purpose of this script is to scrape the Steam Web API to determine whether a game has reached a specified price threshold. If one or more games fall below the user-defined limit an email will be sent containing a list of games along with their respective prices. 
+The purpose of this script is to scrape the Steam Web API and GOG API to determine whether a game has reached a specified price threshold. If one or more games fall below the user-defined limit an email will be sent containing a list of games along with their respective prices. 
 
 Officially tested on Ubuntu 24.04 and Windows 11.
+
+### Supported Stores
+- **Steam**
+- **Good Old Games (GOG)**
+
+## Roadmap
+- [ ] Retrieve pricing data from Steam bundles
 
 ## Quick Start
 1. Setup SMTP server/service (TLS required/optional)
@@ -25,9 +32,6 @@ Officially tested on Ubuntu 24.04 and Windows 11.
         ```
         Set-ExecutionPolicy RemoteSigned
         ```
-
-## Roadmap
-- [ ] Retrieve pricing data from Steam bundles
 
 ## Supported Commands
 Use the`--help` flag in command line to get more information on the supported commands. Here's a brief description and example of each command.

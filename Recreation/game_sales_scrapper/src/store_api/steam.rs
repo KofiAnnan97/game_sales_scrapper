@@ -12,7 +12,7 @@ static CACHE_FILE_PATH : &str = "./steam_game_titles_cache.json";
 
 // Structs
 #[derive(Deserialize, Serialize, Debug)]
-pub struct App{
+pub struct Game{
     #[serde(rename = "appid")]
     pub app_id: usize,
     pub name: String,
@@ -37,26 +37,26 @@ fn get_cache_path() -> String{
     return json::get_path(CACHE_FILE_PATH);
 }
 
-pub async fn load_cached_games() -> Result<Vec<App>> {
+pub async fn load_cached_games() -> Result<Vec<Game>> {
     let filepath = get_cache_path();
     let data = read_to_string(filepath).unwrap();
-    let temp = serde_json::from_str::<Vec<App>>(&data);
+    let temp = serde_json::from_str::<Vec<Game>>(&data);
     return temp;
 }
 
 pub async fn update_cached_games(){
-    let mut games_list : Vec<App> = Vec::new();
+    let mut games_list : Vec<Game> = Vec::new();
     match load_cached_games().await{
         Ok(data) => games_list = data,
         Err(e) => println!("No cached data. {}", e)
     }
-    let mut temp : Vec<App> = Vec::new();
+    let mut temp : Vec<Game> = Vec::new();
     match get_all_games().await {
         Ok(success) => {
             println!("Updating cached game titles (this will take a while)...");
             let body : Value = serde_json::from_str(&success).expect("Could convert to JSON");
             let app_list = serde_json::to_string(&body["applist"]["apps"]).unwrap();
-            let data = serde_json::from_str::<Vec<App>>(&app_list);
+            let data = serde_json::from_str::<Vec<Game>>(&app_list);
             temp = data.unwrap();
         }, 
         Err(e) => {
@@ -72,7 +72,7 @@ pub async fn update_cached_games(){
             }
         }
         if unique && game.name != "".to_string() {
-            games_list.push(App {
+            games_list.push(Game {
                 name: game.name.clone(),
                 app_id: game.app_id.clone()
             });
@@ -152,8 +152,8 @@ pub async fn get_price(app_id : usize) -> Result<PriceOverview>{
 }
 
 // Command Functions
-pub async fn check_game(name: &str) -> Option<App> {
-    let mut games_list : Vec<App> = Vec::new();
+pub async fn check_game(name: &str) -> Option<Game> {
+    let mut games_list : Vec<Game> = Vec::new();
     match load_cached_games().await {
         Ok(data) => games_list = data,
         Err(e) => println!("Error: {}", e)
@@ -167,7 +167,7 @@ pub async fn check_game(name: &str) -> Option<App> {
     }
     for elem in games_list.iter(){
         if name.to_owned() == elem.name {
-            return Ok::<App, Error>(App {
+            return Ok::<Game, Error>(Game {
                 name: name.to_owned(),
                 app_id: elem.app_id
             }).ok();
@@ -178,7 +178,7 @@ pub async fn check_game(name: &str) -> Option<App> {
 
 // Search Functions
 async fn search_by_keyphrase(keyphrase: &str) -> Result<Vec<String>>{
-    let mut games_list : Vec<App> = Vec::new();
+    let mut games_list : Vec<Game> = Vec::new();
     match load_cached_games().await {
         Ok(data) => games_list = data,
         Err(e) => println!("Error: {}", e)
