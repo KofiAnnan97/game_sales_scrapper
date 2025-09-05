@@ -9,6 +9,8 @@ Officially tested on Ubuntu 24.04 and Windows 11.
 
 ## Roadmap
 - [ ] Retrieve pricing data from Steam bundles
+- [X] Add alias request when adding a game threshold (through cli prompts or as parameter)
+- [X] Give panic message if config command not used before adding game thresholds
 
 ## Quick Start
 1. Setup SMTP server/service (TLS required/optional)
@@ -35,7 +37,7 @@ Officially tested on Ubuntu 24.04 and Windows 11.
 
 ## Supported Commands
 Use the`--help` flag in command line to get more information on the supported commands. Here's a brief description and example of each command.
-- `config` := sets what store fronts are used to search for games. Use `-a` to search through all supported store fronts and can be configured to be more granular. 
+- `config` := sets what store fronts are used to search for games and enable aliases for game titles (on by default). Use `-a` to search through all supported store fronts and can be configured to be more granular. 
     ```bash 
     game_sales_scrapper config -a
     ```

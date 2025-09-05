@@ -22,7 +22,7 @@ fn get_path() -> String{
     match metadata(&path_str){
         Ok(md) => {
             if md.len() == 0 {
-                let settings = json!({"selected_stores": []});
+                let settings = json!({"selected_stores": [], "alias_enabled": 1});
                 let settings_str = serde_json::to_string(&settings);
                 json::write_to_file(FILE_PATH.to_string(), settings_str.expect("Initial settings could not be created.")); 
             }
@@ -43,13 +43,29 @@ pub fn get_selected_stores() -> Vec<String> {
     let filepath = get_path();
     let mut stores : Vec<String> = Vec::new();
     let data = read_to_string(filepath).unwrap();
-    let body : Value = serde_json::from_str(&data).expect("Could convert to JSON");
+    let body : Value = serde_json::from_str(&data).expect("Get selected stores - could not convert to JSON");
     let selected = serde_json::to_string(&body["selected_stores"]).unwrap();
     match serde_json::from_str::<Vec<String>>(&selected){
         Ok(data) => stores = data,
         Err(e) => eprintln!("Error: {}", e)
     };
     return stores;
+}
+
+pub fn get_alias_state() -> bool {
+    let filepath = get_path();
+    let mut state : bool = true;
+    let data = read_to_string(filepath).unwrap();
+    let body : Value = serde_json::from_str(&data).expect("Get alias state - could not convert to JSON");
+    let alias_enabled =serde_json::to_string(&body["alias_enabled"]).unwrap();
+    match serde_json::from_str::<i32>(&alias_enabled){
+        Ok(state_val) => {
+            if state_val == 1 { state = true; }
+            else { state = false; }
+        },
+        Err(e) => eprintln!("Error: {}", e)
+    }
+    return state;
 }
 
 pub fn update_selected_stores(selected: Vec<String>) {
@@ -59,6 +75,18 @@ pub fn update_selected_stores(selected: Vec<String>) {
             *settings.get_mut("selected_stores").unwrap() = json!(selected);
             let settings_str = serde_json::to_string(&settings);
             json::write_to_file(get_path(), settings_str.expect("Cannot update store search settings"));
+        },
+        Err(e) => eprintln!("Error: {}", e)
+    }
+}
+
+pub fn update_alias_state(is_enabled: i32){
+    match load_data(){
+        Ok(data) => {
+            let mut settings = data;
+            *settings.get_mut("alias_enabled").unwrap() = json!(is_enabled);
+            let settings_str = serde_json::to_string(&settings);
+            json::write_to_file(get_path(), settings_str.expect("Cannot set state of aliases"));
         },
         Err(e) => eprintln!("Error: {}", e)
     }

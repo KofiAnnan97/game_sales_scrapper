@@ -10,7 +10,7 @@ static FILE_PATH : &str = "./thresholds.json";
 #[derive(Deserialize, Serialize, Debug)]
 pub struct GameThreshold{
     pub title: String,
-    pub aliases: Vec<String>,
+    pub alias: String,
     pub steam_id: usize,
     pub gog_id: usize,
     pub currency: String,
@@ -29,38 +29,10 @@ pub fn load_data() -> Result<Vec<GameThreshold>> {
 }
 
 fn is_threshold(title: &str, thres: &GameThreshold) -> bool {
-    if title == thres.title {
-        return true;
-    }
-    else {
-        for alias in thres.aliases.iter(){
-            if title == alias {
-                return true;
-            }
-        }
-    }
-    return false;
+    return title == thres.title || title == thres.alias;
 }
 
-pub fn add_alias(title: &str, new_alias: &str){
-    let mut thresholds : Vec<GameThreshold> = Vec::new();
-    match load_data(){
-        Ok(data) => thresholds = data,
-        Err(e) => eprintln!("update_price Error: {}", e)
-    };
-    let idx = thresholds.iter().position(|threshold| is_threshold(title, threshold));
-    if !idx.is_none() {
-        let i = idx.unwrap();
-        thresholds[i].aliases.push(new_alias.to_string());
-        let data_str = serde_json::to_string(&thresholds).expect("Could not convert GOG id update to string.");
-        json::write_to_file(get_path(), data_str);
-    }
-    else {
-        println!("Could not find threshold with title : \"{}\"", title);
-    }
-}
-
-pub async fn add_steam_game(app: steam::Game, price: f64){
+pub async fn add_steam_game(alias: String, app: steam::Game, price: f64){
     let mut thresholds : Vec<GameThreshold> = Vec::new();
     match load_data(){
         Ok(data) => thresholds = data,
@@ -80,7 +52,7 @@ pub async fn add_steam_game(app: steam::Game, price: f64){
             if unique { 
                 thresholds.push(GameThreshold {
                     title: app.name.clone(),
-                    aliases: Vec::new(),
+                    alias: alias,
                     steam_id: app.app_id.clone(),
                     gog_id: 0,
                     currency: po.currency[1..po.currency.len()-1].to_string(),
@@ -96,7 +68,7 @@ pub async fn add_steam_game(app: steam::Game, price: f64){
     }
 }
 
-pub fn add_gog_game(game: &gog::Game, price: f64){
+pub fn add_gog_game(alias: String, game: &gog::Game, price: f64){
     let mut thresholds : Vec<GameThreshold> = Vec::new();
     match load_data(){
         Ok(data) => thresholds = data,
@@ -114,7 +86,7 @@ pub fn add_gog_game(game: &gog::Game, price: f64){
     if unique { 
         thresholds.push(GameThreshold {
             title: game.title.clone(),
-            aliases: Vec::new(),
+            alias: alias,
             steam_id: 0,
             gog_id: game.id as usize,
             currency: game.price.currency.clone(),
@@ -125,6 +97,24 @@ pub fn add_gog_game(game: &gog::Game, price: f64){
         println!("Successfully added GOG \"{}\".", game.title);
     }
     //else { println!("Duplicate title: \"{}\".", game.title); }
+}
+
+pub fn update_alias(title: &str, new_alias: &str){
+    let mut thresholds : Vec<GameThreshold> = Vec::new();
+    match load_data(){
+        Ok(data) => thresholds = data,
+        Err(e) => eprintln!("update_price Error: {}", e)
+    };
+    let idx = thresholds.iter().position(|threshold| is_threshold(title, threshold));
+    if !idx.is_none() {
+        let i = idx.unwrap();
+        thresholds[i].alias = new_alias.to_string();
+        let data_str = serde_json::to_string(&thresholds).expect("Could not convert GOG id update to string.");
+        json::write_to_file(get_path(), data_str);
+    }
+    else {
+        println!("Could not find threshold with title : \"{}\"", title);
+    }
 }
 
 pub fn update_price(title: &str, price: f64) {
@@ -161,6 +151,7 @@ pub fn update_id(title: &str, store_type: &str, id: usize){
         Err(e) => eprintln!("Error: {}", e)
     };
     let idx = thresholds.iter().position(|threshold| is_threshold(title, threshold));
+    //println!("{:?}", idx);
     if !idx.is_none() {
         let mut updated_id : bool = false;
         let i = idx.unwrap();

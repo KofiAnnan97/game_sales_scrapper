@@ -73,6 +73,10 @@ async fn main(){
         .action(ArgAction::Set)
         .value_parser(clap::value_parser!(f64))
         .required(true);
+    let alias_arg = arg!(-a --alias "Add an alias to Game title (optional)")
+        .action(ArgAction::Set)
+        .value_parser(clap::value_parser!(String))
+        .required(false);
     let steam_store_arg = arg!(-s --steam "Search Steam game store")
         .action(ArgAction::SetTrue)
         .required(false);
@@ -83,6 +87,10 @@ async fn main(){
         .action(ArgAction::SetTrue)
         .exclusive(true)
         .required(false);
+    let alias_state_arg = arg!(-i --alias_state "Enable aliases for game titles (Possible options: [0,1])")
+        .action(ArgAction::Set)
+        .value_parser(clap::value_parser!(i32))
+        .required(false);
 
     let cmd : ArgMatches = command!()
         .about("A simple script for checking prices on games.")
@@ -92,13 +100,14 @@ async fn main(){
                 .args([
                     steam_store_arg.clone(), 
                     gog_store_arg.clone(), 
-                    all_stores_arg.clone()
+                    all_stores_arg.clone(),
+                    alias_state_arg.clone()
                 ])
         )
         .subcommand(
             Command::new("add")
                 .about("Add a game to price thresholds")
-                .args([title_arg.clone(), price_arg.clone()])
+                .args([title_arg.clone(), price_arg.clone(), alias_arg.clone()])
         )
         .subcommand(
             Command::new("update")
@@ -154,102 +163,125 @@ async fn main(){
 
     match cmd.subcommand() {
         Some(("config", config_args)) => {
-            let mut selected : Vec<String> = Vec::new();
+            let search_steam = config_args.value_source("steam").unwrap();
+            let search_gog = config_args.value_source("gog").unwrap();
             let search_all = config_args.value_source("all_stores").unwrap();
-            if search_all == ValueSource::CommandLine {
-               selected = settings::get_available_stores();
-            } 
-            else {
-                let search_steam = config_args.value_source("steam").unwrap();
-                let search_gog = config_args.value_source("gog").unwrap();
-                if search_steam == ValueSource::CommandLine { selected.push(settings::STEAM_STORE_ID.to_owned()); }
-                if search_gog == ValueSource::CommandLine { selected.push(settings::GOG_STORE_ID.to_owned())}
+            
+            let mut selected : Vec<String> = Vec::new();
+            if search_steam == ValueSource::CommandLine { selected.push(settings::STEAM_STORE_ID.to_string()); }
+            if search_gog == ValueSource::CommandLine { selected.push(settings::GOG_STORE_ID.to_string()); }
+            if search_all == ValueSource::CommandLine { selected = settings::get_available_stores(); } 
+            if selected.len() > 0 {
+                settings::update_selected_stores(selected);
             }
-            settings::update_selected_stores(selected);
+            if config_args.contains_id("alias_state"){
+                let alias_state : i32 = config_args.get_one::<i32>("alias_state").unwrap().clone();
+                if alias_state == 0 || alias_state == 1{
+                    settings::update_alias_state(alias_state);
+                }
+                else {
+                    panic!("The alias state must be set to 0 or 1 not \'{}\'", alias_state);
+                }
+            }
         },
         Some(("add", add_args)) => {
-            if add_args.contains_id("title"){
-                if add_args.contains_id("price"){
-                    let mut title = add_args.get_one::<String>("title").unwrap().clone();
-                    let price = add_args.get_one::<f64>("price").unwrap().clone();
-                    let selected_stores = settings::get_selected_stores();
-                    for store in selected_stores.iter(){
-                        if store == settings::STEAM_STORE_ID {
-                            match steam::check_game(&title).await {
-                                Some(data) => thresholds::add_steam_game(data, price).await,
-                                None => {
-                                    match steam::search_game(&title).await {
-                                        Some(t) => {
-                                            title = t.clone();
-                                            match steam::check_game(&t).await {
-                                                Some(data) => thresholds::add_steam_game(data, price).await,
-                                                None => eprintln!("Something went wrong")
-                                            }
-                                        }
-                                        None => ()
+            let selected_stores = settings::get_selected_stores();
+            if selected_stores.len() == 0 {
+                panic!("Please configure which stores to query. Run \'game_sales_scrapper config --help\' for more info.");
+            }
+            let mut alias = String::new();
+            if add_args.contains_id("alias") && settings::get_alias_state() {
+                alias = add_args.get_one::<String>("alias").unwrap().clone();
+            }
+            else if settings::get_alias_state() {
+                let mut input = String::new();
+                print!("Do you want to assign an alias [Y\\N]? ");
+                let _ = io::stdout().flush();                
+                io::stdin()
+                    .read_line(&mut input)
+                    .expect("Failed to permission to assign alias.");
+                if input.trim() == "Yes" || input.trim() == "Y" || input.trim() == "YES"{
+                    print!("Alias name: ");
+                    let _ = io::stdout().flush();
+                    let mut alias_name = String::new();
+                    io::stdin()
+                        .read_line(&mut alias_name)
+                        .expect("Failed to read alias.");
+                    alias = alias_name.trim().to_string();
+                }
+            }
+            let mut title = add_args.get_one::<String>("title").unwrap().clone();
+            let price = add_args.get_one::<f64>("price").unwrap().clone();
+            for store in selected_stores.iter(){
+                if store == settings::STEAM_STORE_ID {
+                    match steam::check_game(&title).await {
+                        Some(data) => thresholds::add_steam_game(alias.clone(), data, price).await,
+                        None => {
+                            match steam::search_game(&title).await {
+                                Some(t) => {
+                                    println!("Steam search results:");
+                                    title = t.clone();
+                                    match steam::check_game(&t).await {
+                                            Some(data) => thresholds::add_steam_game(alias.clone(), data, price).await,
+                                            None => eprintln!("Something went wrong")
                                     }
                                 }
-                            }
-                        } 
-                        if store == settings::GOG_STORE_ID {
-                            let mut search_list : Vec<gog::Game> = Vec::new();
-                            match gog::search_game_by_title(&title).await {
-                                Ok(data) => search_list = data,
-                                Err(e) => println!("Error: {}", e)
-                            }
-                            if search_list.len() > 0 {
-                                println!("GOG search results:");
-                                for (i, game) in search_list.iter().enumerate(){
-                                    println!("  [{}] {}", i, game.title);
-                                }
-                                println!("  [q] Quit");
-                                let mut input = String::new();
-                                print!("Type integer corresponding to game title or type \"q\" to quit: ");
-                                let _ = io::stdout().flush();
-                                io::stdin()
-                                    .read_line(&mut input)
-                                    .expect("Failed to read user input");
-                                if input.trim() == "q" {
-                                    eprintln!("Request terminated.");
-                                }
-                                else {
-                                    match input.trim().parse::<usize>() {
-                                        Ok(idx) => {
-                                            if idx < search_list.len(){
-                                                title = search_list[idx].title.clone();
-                                                let game = &search_list[idx];
-                                                thresholds::add_gog_game(game, price);
-                                            }
-                                            else if idx >= search_list.len(){
-                                                eprintln!("Integer \"{}\" is invalid. Request terminated.", idx);
-                                            }
-                                        },
-                                        Err(e) => println!("Invalid input: {}\nError: {}", input, e)
-                                    }
-                                }
-                            }
-                            else{
-                                println!("Could not find a game title matching \"{}\" on GOG.", title);
+                                None => ()
                             }
                         }
                     }
-                }                
+                } 
+                if store == settings::GOG_STORE_ID {
+                    let mut search_list : Vec<gog::Game> = Vec::new();
+                    match gog::search_game_by_title(&title).await {
+                        Ok(data) => search_list = data,
+                        Err(e) => println!("Error: {}", e)
+                    }
+                    if search_list.len() > 0 {
+                        println!("GOG search results:");
+                        for (i, game) in search_list.iter().enumerate(){
+                            println!("  [{}] {}", i, game.title);
+                        }
+                        println!("  [q] Quit");
+                        let mut input = String::new();
+                        print!("Type integer corresponding to game title or type \"q\" to quit: ");
+                        let _ = io::stdout().flush();
+                        io::stdin()
+                            .read_line(&mut input)
+                            .expect("Failed to read user input");
+                        if input.trim() == "q" {
+                            eprintln!("Request terminated.");
+                        }
+                        else {
+                            match input.trim().parse::<usize>() {
+                                Ok(idx) => {
+                                    if idx < search_list.len(){
+                                        title = search_list[idx].title.clone();
+                                        let game = &search_list[idx];
+                                        thresholds::add_gog_game(alias.clone(), game, price);
+                                    }
+                                    else if idx >= search_list.len(){
+                                        eprintln!("Integer \"{}\" is invalid. Request terminated.", idx);
+                                    }
+                                },
+                                Err(e) => println!("Invalid input: {}\nError: {}", input, e)
+                            }
+                        }
+                    }
+                    else{
+                        println!("Could not find a game title matching \"{}\" on GOG.", title);
+                    }
+                }
             }
         },
         Some(("update", update_args)) => {
-            if update_args.contains_id("title"){
-                if update_args.contains_id("price"){
-                    let title = update_args.get_one::<String>("title").unwrap().clone();
-                    let price = update_args.get_one::<f64>("price").unwrap().clone();
-                    thresholds::update_price(&title, price);
-                }                
-            }
+            let title = update_args.get_one::<String>("title").unwrap().clone();
+            let price = update_args.get_one::<f64>("price").unwrap().clone();
+            thresholds::update_price(&title, price);
         },
         Some(("remove", remove_args)) => {
-            if remove_args.contains_id("title"){
-                let title = remove_args.get_one::<String>("title").unwrap().clone();
-                thresholds::remove(&title);
-            }
+            let title = remove_args.get_one::<String>("title").unwrap().clone();
+            thresholds::remove(&title);
         },
         _ => {
             if cmd.get_flag("thresholds") { thresholds::list_games(); }
