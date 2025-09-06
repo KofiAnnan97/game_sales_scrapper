@@ -23,6 +23,7 @@ async fn check_prices() -> String {
     }
     let mut steam_output = String::from("");
     let mut gog_output = String::from("");
+    let http_client = reqwest::Client::new();
     for elem in thresholds.iter(){
         if elem.steam_id != 0 {
             match steam::get_price(elem.steam_id).await {
@@ -38,17 +39,38 @@ async fn check_prices() -> String {
             }
         }
         if elem.gog_id != 0 {
-            match gog::get_price(&elem.title).await {
-                Some(po) => {
-                    let current_price = po.final_amount.parse::<f64>().unwrap();
-                    if elem.desired_price >= current_price {
-                        let price_str = format!("\n\t- {} : {} -> {} {} ({}% off)", 
-                                            elem.title, po.base_amount, po.final_amount, 
-                                            po.currency, po.discount_percentage);
-                        gog_output.push_str(&price_str);
-                    }
-                },
-                None => ()
+            if gog::VERSION == 1{
+                match gog::get_price(&elem.title).await {
+                    Some(po) => {
+                        let current_price = po.final_amount.parse::<f64>().unwrap();
+                        if elem.desired_price >= current_price {
+                            let price_str = format!("\n\t- {} : {} -> {} {} ({}% off)", 
+                                                elem.title, po.base_amount, po.final_amount, 
+                                               po.currency, po.discount_percentage);
+                            gog_output.push_str(&price_str);
+                        }
+                    },
+                    None => ()
+                }
+            }
+            if gog::VERSION == 2{
+                match gog::get_price_v2(&elem.title, &http_client).await {
+                    Some(po) => {
+                        let current_price = po.final_money.amount.parse::<f64>().unwrap();
+                        if elem.desired_price >= current_price {
+                            let mut discount = String::new();
+                            match po.discount {
+                                Some(d) => discount = d,
+                                None => (),
+                            }
+                            let price_str = format!("\n\t- {} : {} -> {} {} ({}% off)", 
+                                                elem.title, po.base_money.amount, po.final_money.amount, 
+                                                po.base_money.currency, discount);
+                            gog_output.push_str(&price_str);
+                        }
+                    },
+                    None => ()
+                }
             }
         }
     }
@@ -171,17 +193,11 @@ async fn main(){
             if search_steam == ValueSource::CommandLine { selected.push(settings::STEAM_STORE_ID.to_string()); }
             if search_gog == ValueSource::CommandLine { selected.push(settings::GOG_STORE_ID.to_string()); }
             if search_all == ValueSource::CommandLine { selected = settings::get_available_stores(); } 
-            if selected.len() > 0 {
-                settings::update_selected_stores(selected);
-            }
+            if selected.len() > 0 { settings::update_selected_stores(selected); }
             if config_args.contains_id("alias_state"){
                 let alias_state : i32 = config_args.get_one::<i32>("alias_state").unwrap().clone();
-                if alias_state == 0 || alias_state == 1{
-                    settings::update_alias_state(alias_state);
-                }
-                else {
-                    panic!("The alias state must be set to 0 or 1 not \'{}\'", alias_state);
-                }
+                if alias_state == 0 || alias_state == 1{ settings::update_alias_state(alias_state); }
+                else { panic!("The alias state must be set to 0 or 1 not \'{}\'", alias_state); }
             }
         },
         Some(("add", add_args)) => {
@@ -212,6 +228,7 @@ async fn main(){
             }
             let mut title = add_args.get_one::<String>("title").unwrap().clone();
             let price = add_args.get_one::<f64>("price").unwrap().clone();
+            let http_client = reqwest::Client::new();
             for store in selected_stores.iter(){
                 if store == settings::STEAM_STORE_ID {
                     match steam::check_game(&title).await {
@@ -232,10 +249,10 @@ async fn main(){
                     }
                 } 
                 if store == settings::GOG_STORE_ID {
-                    let mut search_list : Vec<gog::Game> = Vec::new();
-                    match gog::search_game_by_title(&title).await {
+                    let mut search_list : Vec<gog::GameV2> = Vec::new();
+                    match gog::search_game_by_title_v2(&title, &http_client).await {
                         Ok(data) => search_list = data,
-                        Err(e) => println!("Error: {}", e)
+                        Err(e) => println!("Search GOG Game Error: {}", e)
                     }
                     if search_list.len() > 0 {
                         println!("GOG search results:");

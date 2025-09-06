@@ -32,7 +32,7 @@ fn is_threshold(title: &str, thres: &GameThreshold) -> bool {
     return title == thres.title || title == thres.alias;
 }
 
-pub async fn add_steam_game(alias: String, app: steam::Game, price: f64){
+pub async fn add_steam_game(new_alias: String, app: steam::Game, price: f64){
     let mut thresholds : Vec<GameThreshold> = Vec::new();
     match load_data(){
         Ok(data) => thresholds = data,
@@ -52,7 +52,7 @@ pub async fn add_steam_game(alias: String, app: steam::Game, price: f64){
             if unique { 
                 thresholds.push(GameThreshold {
                     title: app.name.clone(),
-                    alias: alias,
+                    alias: new_alias,
                     steam_id: app.app_id.clone(),
                     gog_id: 0,
                     currency: po.currency[1..po.currency.len()-1].to_string(),
@@ -68,7 +68,7 @@ pub async fn add_steam_game(alias: String, app: steam::Game, price: f64){
     }
 }
 
-pub fn add_gog_game(alias: String, game: &gog::Game, price: f64){
+pub fn add_gog_game(new_alias: String, game: &gog::GameV2, price: f64){
     let mut thresholds : Vec<GameThreshold> = Vec::new();
     match load_data(){
         Ok(data) => thresholds = data,
@@ -76,20 +76,27 @@ pub fn add_gog_game(alias: String, game: &gog::Game, price: f64){
     }
     let mut unique : bool = true;
     for elem in thresholds.iter(){
-        if is_threshold(&game.title, elem) {
+        if is_threshold(&game.title, elem){
             unique = false;
-            update_id(&elem.title, settings::GOG_STORE_ID, game.id as usize);
+            let game_id = game.id.parse::<u64>().unwrap();
+            update_id(&elem.title, settings::GOG_STORE_ID, game_id as usize);
             println!("Updated GOD ID for \"{}\".", game.title);
             break;
         }
     }
     if unique { 
+        let mut currency_code = String::new();
+        match &game.price {
+            Some(price_data) => currency_code = price_data.base_money.currency.clone(),
+            None => currency_code = "USD".to_string(),
+        }
         thresholds.push(GameThreshold {
             title: game.title.clone(),
-            alias: alias,
+            alias: new_alias,
             steam_id: 0,
-            gog_id: game.id as usize,
-            currency: game.price.currency.clone(),
+            gog_id: game.id.parse::<u64>().unwrap() as usize,
+            //currency: game.price.currency.clone(), // Version 1
+            currency: currency_code,
             desired_price: price
         });
         let data_str = serde_json::to_string(&thresholds).unwrap();
