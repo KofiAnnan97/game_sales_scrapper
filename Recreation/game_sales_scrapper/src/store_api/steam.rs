@@ -10,6 +10,11 @@ use crate::data::json;
 
 static CACHE_FILE_PATH : &str = "./steam_game_titles_cache.json";
 
+static API_BASE_URL : &str = "https://api.steampowered.com";
+static STORE_BASE_URL : &str = "https://store.steampowered.com";
+static SEARCH_ENDPOINT : &str = "/ISteamApps/GetAppList/v2";
+static DETAILS_ENDPOINT : &str = "/api/appdetails";
+
 // Structs
 #[derive(Deserialize, Serialize, Debug)]
 pub struct Game{
@@ -88,7 +93,7 @@ async fn get_all_games() -> Result<String> {
     let http_client = reqwest::Client::new();
     let steam_key = get_api_key();
     let format = "json";
-    let url = format!("https://api.steampowered.com/ISteamApps/GetAppList/v2/?key={}&format={}",steam_key, format);
+    let url = format!("{}{}/?key={}&format={}", API_BASE_URL, SEARCH_ENDPOINT, steam_key, format);
     let resp = http_client.get(url)
         .send()
         .await
@@ -102,7 +107,7 @@ async fn get_all_games() -> Result<String> {
 async fn get_game_data(app_id : usize) -> Result<String>{
     let http_client = reqwest::Client::new();
     let filters = "basic,price_overview";
-    let url = format!("https://store.steampowered.com/api/appdetails?appids={}&filters={}", app_id, filters);
+    let url = format!("{}{}?appids={}&filters={}", STORE_BASE_URL, DETAILS_ENDPOINT, app_id, filters);
     let resp = http_client.get(url)
         .send()
         .await
@@ -122,7 +127,7 @@ pub async fn get_price(app_id : usize) -> Result<PriceOverview>{
     };
     match get_game_data(app_id).await {
         Ok(success) => {
-            let body : Value = serde_json::from_str(&success).expect("Could convert to JSON");
+            let body : Value = serde_json::from_str(&success).expect("Could convert to game data json");
             let data = body[app_id.to_string()]["success"].clone();
             match data{
                 serde_json::Value::Bool(true) => {

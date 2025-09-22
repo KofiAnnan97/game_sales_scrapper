@@ -3,7 +3,7 @@ use serde_json::Result;
 use std::fs::read_to_string;
 
 use crate::data::{json, settings};
-use crate::store_api::{steam, gog};
+use crate::store_api::{steam, gog}; //, humble_bundle};
 
 static FILE_PATH : &str = "./thresholds.json";
 
@@ -13,6 +13,7 @@ pub struct GameThreshold{
     pub alias: String,
     pub steam_id: usize,
     pub gog_id: usize,
+    //pub humble_bundle_id: String,
     pub currency: String,
     pub desired_price: f64,
 }
@@ -55,6 +56,7 @@ pub async fn add_steam_game(new_alias: String, app: steam::Game, price: f64){
                     alias: new_alias,
                     steam_id: app.app_id.clone(),
                     gog_id: 0,
+                    //humble_bundle_id: "".to_string(),
                     currency: po.currency[1..po.currency.len()-1].to_string(),
                     desired_price: price
                 });
@@ -68,7 +70,7 @@ pub async fn add_steam_game(new_alias: String, app: steam::Game, price: f64){
     }
 }
 
-pub fn add_gog_game(new_alias: String, game: &gog::GameV2, price: f64){
+pub fn add_gog_game(new_alias: String, game: &gog::GameInfo, price: f64){
     let mut thresholds : Vec<GameThreshold> = Vec::new();
     match load_data(){
         Ok(data) => thresholds = data,
@@ -95,16 +97,48 @@ pub fn add_gog_game(new_alias: String, game: &gog::GameV2, price: f64){
             alias: new_alias,
             steam_id: 0,
             gog_id: game.id.parse::<u64>().unwrap() as usize,
+            //humble_bundle_id: "".to_string(),
             //currency: game.price.currency.clone(), // Version 1
             currency: currency_code,
             desired_price: price
         });
         let data_str = serde_json::to_string(&thresholds).unwrap();
         json::write_to_file(get_path(), data_str);
-        println!("Successfully added GOG \"{}\".", game.title);
+        println!("Successfully added GOG game \"{}\".", game.title);
     }
     //else { println!("Duplicate title: \"{}\".", game.title); }
 }
+
+/*pub fn add_humble_bundle_game(new_alias: String, game: &humble_bundle::GameInfo, price: f64){
+    let mut thresholds : Vec<GameThreshold> = Vec::new();
+    match load_data(){
+        Ok(data) => thresholds = data,
+        Err(e) => println!("Error: {}", e)
+    }
+    let mut unique : bool = true;
+    for elem in thresholds.iter(){
+        if is_threshold(&game.human_name, elem){
+            unique = false;
+            update_id_str(&elem.title, settings::HUMBLE_BUNDLE_STORE_ID, &game.human_name);
+            println!("Updated Humble Bundle ID for \"{}\".", game.human_url);
+            break;
+        }
+    }
+    if unique { 
+        thresholds.push(GameThreshold {
+            title: game.human_name.clone(),
+            alias: new_alias,
+            steam_id: 0,
+            gog_id: 0,
+            humble_bundle_id: game.human_url.to_string(),
+            currency: game.current_price.currency.clone(),
+            desired_price: price
+        });
+        let data_str = serde_json::to_string(&thresholds).unwrap();
+        json::write_to_file(get_path(), data_str);
+        println!("Successfully added Humble Bundle game \"{}\".", game.human_name);
+    }
+}*/
 
 pub fn update_alias(title: &str, new_alias: &str){
     let mut thresholds : Vec<GameThreshold> = Vec::new();
@@ -162,15 +196,42 @@ pub fn update_id(title: &str, store_type: &str, id: usize){
     if !idx.is_none() {
         let mut updated_id : bool = false;
         let i = idx.unwrap();
-        if store_type == settings::STEAM_STORE_ID {
-            thresholds[i].steam_id = id;
-            updated_id = true;
+        match store_type{
+            settings::STEAM_STORE_ID => {
+                thresholds[i].steam_id = id;
+                updated_id = true;
+            },
+            settings::GOG_STORE_ID => {
+                thresholds[i].gog_id = id;
+                updated_id = true;
+            },
+            _ => eprintln!("Unknown store type: {}", store_type),
         }
-        else if store_type == settings::GOG_STORE_ID {
-            thresholds[i].gog_id = id;
-            updated_id = true;
+        if updated_id {
+            let update_err = format!("Could not convert the {} id update to a string object.", store_type);
+            let data_str = serde_json::to_string(&thresholds).expect(&update_err);
+            json::write_to_file(get_path(), data_str);
+        }  
+    }
+}
+
+pub fn update_id_str(title: &str, store_type: &str, id: &str){
+    let mut thresholds : Vec<GameThreshold> = Vec::new();
+    match load_data(){
+        Ok(data) => thresholds = data,
+        Err(e) => eprintln!("Error: {}", e)
+    };
+    let idx = thresholds.iter().position(|threshold| is_threshold(title, threshold));
+    if !idx.is_none() {
+        let mut updated_id : bool = false;
+        let i = idx.unwrap();
+        match store_type {
+            /*settings::HUMBLE_BUNDLE_STORE_ID => {
+                thresholds[i].humble_bundle_id = id.to_string();
+                updated_id = true;
+            },*/
+            _ => eprintln!("Unknown store type: {}", store_type),
         }
-        else{ eprintln!("Unknown store type: {}", store_type); }
         if updated_id {
             let update_err = format!("Could not convert the {} id update to a string object.", store_type);
             let data_str = serde_json::to_string(&thresholds).expect(&update_err);

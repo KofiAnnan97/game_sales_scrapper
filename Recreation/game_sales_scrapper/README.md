@@ -11,6 +11,10 @@ Officially tested on Ubuntu 24.04 and Windows 11.
 - [ ] Retrieve pricing data from Steam bundles
 - [X] Add alias request when adding a game threshold (through cli prompts or as parameter)
 - [X] Give panic message if config command not used before adding game thresholds
+- [X] Add bulk insert option for game thresholds
+- [ ] Change logic to only show "Update ID" if the id was actually updated not just called 
+- [ ] Set up Humble Bundle Storefront
+- [ ] Set up Epic Game Store Storefront
 
 ## Quick Start
 1. Setup SMTP server/service (TLS required/optional)

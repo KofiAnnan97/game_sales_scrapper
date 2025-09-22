@@ -98,8 +98,11 @@ pub async fn get_price(title: &str) -> Option<PriceOverview> {
 
 // Version 2
 
+static BASE_URL : &str = "https://catalog.gog.com";
+static CATALOG_ENDPOINT : &str = "/v1/catalog";
+
 #[derive(Deserialize, Serialize, Debug)]
-pub struct GameV2 {
+pub struct GameInfo {
     pub id: String,
     pub title: String,
     pub price: Option<Price>,
@@ -178,7 +181,7 @@ pub struct FinalMoney {
     pub discount: String,
 }
 
-pub async fn search_game_by_title_v2(title: &str, http_client: &reqwest::Client) -> Result<Vec<GameV2>>{
+pub async fn search_game_by_title_v2(title: &str, http_client: &reqwest::Client) -> Result<Vec<GameInfo>>{
     let limit = 48;
     let order = "desc:score";
     let product_type = "in:game";
@@ -186,8 +189,8 @@ pub async fn search_game_by_title_v2(title: &str, http_client: &reqwest::Client)
     let country_code = "US";
     let locale = "en-US";
     let currency = "USD";
-    let url = format!("https://catalog.gog.com/v1/catalog?limit={}&query=like:{}&order={}&productType={}&page={}&countryCode={}&locale={}&currencyCode={}", 
-                      limit, title, order, product_type, page, country_code, locale, currency);
+    let url = format!("{}{}?limit={}&query=like:{}&order={}&productType={}&page={}&countryCode={}&locale={}&currencyCode={}", 
+                      BASE_URL, CATALOG_ENDPOINT, limit, title, order, product_type, page, country_code, locale, currency);
     let resp = http_client.get(url)
         .send()
         .await
@@ -197,7 +200,7 @@ pub async fn search_game_by_title_v2(title: &str, http_client: &reqwest::Client)
         .expect("Failed to get data");
     let body : Value = serde_json::from_str(&resp).expect("Could not convert GOG search to JSON");
     let products = serde_json::to_string(&body["products"]).unwrap();
-    let games_list : Vec<GameV2> = serde_json::from_str::<Vec<GameV2>>(&products)?;
+    let games_list : Vec<GameInfo> = serde_json::from_str::<Vec<GameInfo>>(&products)?;
     Ok(games_list)    
 }
 
@@ -209,8 +212,8 @@ pub async fn get_price_v2(title: &str, http_client: &reqwest::Client) -> Option<
     let country_code = "US";
     let locale = "en-US";
     let currency = "USD";
-    let url = format!("https://catalog.gog.com/v1/catalog?limit={}&query=like:{}&order={}&productType={}&page={}&countryCode={}&locale={}&currencyCode={}", 
-                      limit, title, order, product_type, page, country_code, locale, currency);
+    let url = format!("{}{}?limit={}&query=like:{}&order={}&productType={}&page={}&countryCode={}&locale={}&currencyCode={}", 
+                      BASE_URL, CATALOG_ENDPOINT, limit, title, order, product_type, page, country_code, locale, currency);
     let resp = http_client.get(url)
         .send()
         .await

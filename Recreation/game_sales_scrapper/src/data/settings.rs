@@ -9,11 +9,13 @@ static FILE_PATH : &str = "./config.json";
 
 pub const STEAM_STORE_ID : &str = "steam";
 pub const GOG_STORE_ID : &str = "gog";
+//pub const HUMBLE_BUNDLE_STORE_ID : &str = "humble_bundle";
 
 pub fn get_available_stores() -> Vec<String> {
     return vec![
         String::from(STEAM_STORE_ID),
         String::from(GOG_STORE_ID),
+        //String::from(HUMBLE_BUNDLE_STORE_ID),
     ];
 }
 
