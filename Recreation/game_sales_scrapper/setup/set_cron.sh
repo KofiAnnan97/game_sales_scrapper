@@ -15,5 +15,5 @@ SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 
 # Configure as a system wide cron job
 chmod +x "$SCRIPT_DIR/send_email.sh"
-echo "$SCHEDULE root $SCRIPT_DIR/send_email.sh -p $SCRIPT_DIR >> $SCRIPT_DIR/log/email_history.log 2>&1" > "$CRON_DIR/$CRON_FILE"
+echo "$SCHEDULE root $SCRIPT_DIR/send_email.sh -p $SCRIPT_DIR >> $SCRIPT_DIR/../log/email_history.log 2>&1" > "$CRON_DIR/$CRON_FILE"
 chmod 600 "$CRON_DIR/$CRON_FILE"
