@@ -8,7 +8,7 @@ use std::io::Write;
 
 use crate::data::json;
 
-static CACHE_FILE_PATH : &str = "./steam_game_titles_cache.json";
+static CACHE_FILENAME : &str = "steam_game_titles_cache.json";
 
 static API_BASE_URL : &str = "https://api.steampowered.com";
 static STORE_BASE_URL : &str = "https://store.steampowered.com";
@@ -37,9 +37,12 @@ fn get_api_key() -> String {
     return steam_api_token;
 }
 
-// Caching Functrions
+// Caching Functions
 fn get_cache_path() -> String{
-    return json::get_path(CACHE_FILE_PATH);
+    let mut cache_file_path = json::get_data_path();
+    cache_file_path.push_str("/");
+    cache_file_path.push_str(CACHE_FILENAME);
+    return json::get_path(&cache_file_path);
 }
 
 pub async fn load_cached_games() -> Result<Vec<Game>> {
@@ -56,7 +59,8 @@ pub async fn update_cached_games(){
         Err(e) => println!("No cached data. {}", e)
     }
     let mut temp : Vec<Game> = Vec::new();
-    match get_all_games().await {
+    let client = reqwest::Client::new();
+    match get_all_games(&client).await {
         Ok(success) => {
             println!("Updating cached game titles (this will take a while)...");
             let body : Value = serde_json::from_str(&success).expect("Could convert to JSON");
@@ -89,12 +93,11 @@ pub async fn update_cached_games(){
 }
 
 // API Functions 
-async fn get_all_games() -> Result<String> {
-    let http_client = reqwest::Client::new();
+async fn get_all_games(client: &reqwest::Client) -> Result<String> {
     let steam_key = get_api_key();
     let format = "json";
     let url = format!("{}{}/?key={}&format={}", API_BASE_URL, SEARCH_ENDPOINT, steam_key, format);
-    let resp = http_client.get(url)
+    let resp = client.get(url)
         .send()
         .await
         .expect("Failed to get response")
@@ -104,11 +107,10 @@ async fn get_all_games() -> Result<String> {
     Ok(resp)
 }
 
-async fn get_game_data(app_id : usize) -> Result<String>{
-    let http_client = reqwest::Client::new();
+async fn get_game_data(app_id : usize, client: &reqwest::Client) -> Result<String>{
     let filters = "basic,price_overview";
     let url = format!("{}{}?appids={}&filters={}", STORE_BASE_URL, DETAILS_ENDPOINT, app_id, filters);
-    let resp = http_client.get(url)
+    let resp = client.get(url)
         .send()
         .await
         .expect("Failed to get response")
@@ -118,14 +120,14 @@ async fn get_game_data(app_id : usize) -> Result<String>{
     Ok(resp)
 }
 
-pub async fn get_price(app_id : usize) -> Result<PriceOverview>{
+pub async fn get_price(app_id : usize, client: &reqwest::Client) -> Result<PriceOverview>{
     let mut overview = PriceOverview {
-        currency: String::from(""), 
-        discount_percent: 0, 
-        initial: 0.0, 
+        currency: String::from(""),
+        discount_percent: 0,
+        initial: 0.0,
         final_price: 0.0,
     };
-    match get_game_data(app_id).await {
+    match get_game_data(app_id, &client).await {
         Ok(success) => {
             let body : Value = serde_json::from_str(&success).expect("Could convert to game data json");
             let data = body[app_id.to_string()]["success"].clone();
@@ -206,7 +208,7 @@ async fn search_by_keyphrase(keyphrase: &str) -> Result<Vec<String>>{
     Ok(search_list)
 }
 
-pub async fn search_game(keyphrase: &str) -> Option<String>{ 
+pub async fn search_game(keyphrase: &str) -> Option<String>{
     match search_by_keyphrase(keyphrase).await {
         Ok(search_list) => {
             if search_list.len() > 0 {

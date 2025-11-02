@@ -7,4 +7,5 @@ target/
 
 # Data
 *.json
+*.csv
 log/

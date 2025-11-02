@@ -5,7 +5,7 @@ use std::fs::read_to_string;
 use crate::data::{json, settings};
 use crate::store_api::{steam, gog}; //, humble_bundle};
 
-static FILE_PATH : &str = "./thresholds.json";
+static THRESHOLD_FILENAME : &str = "thresholds.json";
 
 #[derive(Deserialize, Serialize, Debug)]
 pub struct GameThreshold{
@@ -19,7 +19,10 @@ pub struct GameThreshold{
 }
 
 pub fn get_path() -> String {
-    return json::get_path(FILE_PATH);
+    let mut thresh_path = json::get_data_path();
+    thresh_path.push_str("/");
+    thresh_path.push_str(THRESHOLD_FILENAME);
+    return json::get_path(&thresh_path);
 }
 
 pub fn load_data() -> Result<Vec<GameThreshold>> {
@@ -33,20 +36,21 @@ fn is_threshold(title: &str, thres: &GameThreshold) -> bool {
     return title == thres.title || title == thres.alias;
 }
 
-pub async fn add_steam_game(new_alias: String, app: steam::Game, price: f64){
+pub async fn add_steam_game(new_alias: String, app: steam::Game, price: f64, client: &reqwest::Client){
     let mut thresholds : Vec<GameThreshold> = Vec::new();
     match load_data(){
         Ok(data) => thresholds = data,
         Err(e) => println!("Error: {}", e)
     }
-    match steam::get_price(app.app_id).await {
+    match steam::get_price(app.app_id, &client).await {
         Ok(po) => {
             let mut unique : bool = true;
             for elem in thresholds.iter() {
                 if is_threshold(&app.name, elem) {
                     unique = false;
-                    update_id(&elem.title, settings::STEAM_STORE_ID, app.app_id);
-                    println!("Updated Steam ID for \"{}\".", app.name);
+                    if elem.steam_id == 0 {
+                        update_id(&elem.title, settings::STEAM_STORE_ID, app.app_id);
+                    }
                     break;
                 }
             }
@@ -80,9 +84,10 @@ pub fn add_gog_game(new_alias: String, game: &gog::GameInfo, price: f64){
     for elem in thresholds.iter(){
         if is_threshold(&game.title, elem){
             unique = false;
-            let game_id = game.id.parse::<u64>().unwrap();
-            update_id(&elem.title, settings::GOG_STORE_ID, game_id as usize);
-            println!("Updated GOD ID for \"{}\".", game.title);
+            if elem.gog_id == 0 {
+                let game_id = game.id.parse::<u64>().unwrap();
+                update_id(&elem.title, settings::GOG_STORE_ID, game_id as usize);
+            }
             break;
         }
     }
@@ -119,8 +124,9 @@ pub fn add_gog_game(new_alias: String, game: &gog::GameInfo, price: f64){
     for elem in thresholds.iter(){
         if is_threshold(&game.human_name, elem){
             unique = false;
-            update_id_str(&elem.title, settings::HUMBLE_BUNDLE_STORE_ID, &game.human_name);
-            println!("Updated Humble Bundle ID for \"{}\".", game.human_url);
+            if elem.humble_bundle_id.len() == 0 {
+                update_id_str(&elem.title, settings::HUMBLE_BUNDLE_STORE_ID, &game.human_name);
+            }
             break;
         }
     }
@@ -211,7 +217,14 @@ pub fn update_id(title: &str, store_type: &str, id: usize){
             let update_err = format!("Could not convert the {} id update to a string object.", store_type);
             let data_str = serde_json::to_string(&thresholds).expect(&update_err);
             json::write_to_file(get_path(), data_str);
-        }  
+            let mut store_name = "";
+            match store_type {
+                settings::STEAM_STORE_ID => store_name = "Steam",
+                settings::GOG_STORE_ID => store_name = "GOG",
+                _ => (),
+            }
+            println!("Updated {} ID for \"{}\"", store_name, title);
+        }
     }
 }
 
@@ -236,6 +249,12 @@ pub fn update_id_str(title: &str, store_type: &str, id: &str){
             let update_err = format!("Could not convert the {} id update to a string object.", store_type);
             let data_str = serde_json::to_string(&thresholds).expect(&update_err);
             json::write_to_file(get_path(), data_str);
+            let mut store_name = "";
+            /*match store_type {
+                settings::HUMBLE_BUNDLE_STORE_ID => store_name = "Humble Bundle",
+                _ => (),
+            }*/
+            println!("Updated {} ID for \"{}\"", store_name, title);
         }  
     }
 }

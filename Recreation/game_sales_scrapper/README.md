@@ -12,9 +12,8 @@ Officially tested on Ubuntu 24.04 and Windows 11.
 - [X] Add alias request when adding a game threshold (through cli prompts or as parameter)
 - [X] Give panic message if config command not used before adding game thresholds
 - [X] Add bulk insert option for game thresholds
-- [ ] Change logic to only show "Update ID" if the id was actually updated not just called 
+- [X] Change logic to only show "Update ID" if the id was actually updated not just called 
 - [ ] Set up Humble Bundle Storefront
-- [ ] Set up Epic Game Store Storefront
 
 ## Quick Start
 1. Setup SMTP server/service (TLS required/optional)
@@ -42,34 +41,46 @@ Officially tested on Ubuntu 24.04 and Windows 11.
 ## Supported Commands
 Use the`--help` flag in command line to get more information on the supported commands. Here's a brief description and example of each command.
 - `config` := sets what store fronts are used to search for games and enable aliases for game titles (on by default). Use `-a` to search through all supported store fronts and can be configured to be more granular. 
-    ```bash 
+    ```commandline
     game_sales_scrapper config -a
     ```
 - `add` := add a specified game (title must be exact to work).
-    ```bash 
+    ```commandline
     game_sales_scrapper add --title <title> --price <price>
     ```
+- `bulk_insert` := add multiple games with a price threshold using a CSV file.
+    ```commandline
+    game_sales_scrapper bulk_insert --file <file.csv>
+    ```
+    CSV Example:
+    ```text
+    games, price
+    Hollow Knight, 9.99
+    Cyberpunk 2077, 19.99
+    Hades, 9.99
+    Stardew Valley, 7.99
+    ```
 - `update` := update price threshold for a specified game.
-    ```bash 
+    ```commandline
     game_sales_scrapper update --title <title> --price <price>
     ```
 - `remove` := remove a specified game.
-    ```bash 
+    ```commandline
     game_sales_scrapper remove --title <title>
     ```
 - `list-selected-stores` := list whether a store fronts is used to search for games.
-    ```bash 
+    ```commandline 
     game_sales_scrapper --list-selected-stores
     ```
 - `list-thresholds` := list all the stored price thresholds for selected games.
-    ```bash 
+    ```commandline
     game_sales_scrapper --list-thresholds
     ```
 - `update-cache` := update the locally stored cache of steam games (title and app ids).
-    ```bash 
+    ```commandline
     game_sales_scrapper --update-cache
     ```
 - `send-email` := sends an email (using SMTP) containing a list of games that are below user defined price threshold for each game. No email is sent if no game has reached their price threshold.
-    ```bash 
+    ```commandline 
     game_sales_scrapper --send-email
     ```

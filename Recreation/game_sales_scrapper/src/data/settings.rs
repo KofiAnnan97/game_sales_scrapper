@@ -1,11 +1,12 @@
 use std::vec;
+use std::env;
 use serde_json::Result;
 use serde_json::{Value, json};
 use std::fs::{read_to_string, metadata};
 
 use crate::data::json;
 
-static FILE_PATH : &str = "./config.json";
+static CONFIG_FILENAME : &str = "config.json";
 
 pub const STEAM_STORE_ID : &str = "steam";
 pub const GOG_STORE_ID : &str = "gog";
@@ -20,13 +21,16 @@ pub fn get_available_stores() -> Vec<String> {
 }
 
 fn get_path() -> String{
-    let path_str = json::get_path(FILE_PATH);
+    let mut config_path = json::get_data_path();
+    config_path.push_str("/");
+    config_path.push_str(CONFIG_FILENAME);
+    let path_str = json::get_path(&config_path);
     match metadata(&path_str){
         Ok(md) => {
             if md.len() == 0 {
                 let settings = json!({"selected_stores": [], "alias_enabled": 1});
                 let settings_str = serde_json::to_string(&settings);
-                json::write_to_file(FILE_PATH.to_string(), settings_str.expect("Initial settings could not be created.")); 
+                json::write_to_file(config_path.to_string(), settings_str.expect("Initial settings could not be created."));
             }
         },
         Err(e) => eprintln!("Error: {}", e)

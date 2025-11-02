@@ -57,7 +57,7 @@ async fn check_prices() -> String {
     let http_client = reqwest::Client::new();
     for elem in thresholds.iter(){
         if elem.steam_id != 0 {
-            match steam::get_price(elem.steam_id).await {
+            match steam::get_price(elem.steam_id, &http_client).await {
                 Ok(po) => {
                     if elem.desired_price >= po.final_price {
                         let price_str = format!("\n\t- {} : {} -> {} {} ({}% off)", 
@@ -94,9 +94,9 @@ async fn check_prices() -> String {
                                 Some(d) => discount = d,
                                 None => (),
                             }
-                            let price_str = format!("\n\t- {} : {} -> {} {} ({}% off)", 
+                            let price_str = format!("\n\t- {} : {} -> {} {} ({} off)",
                                                 elem.title, po.base_money.amount, po.final_money.amount, 
-                                                po.base_money.currency, discount);
+                                                po.base_money.currency, discount[1..].to_string());
                             gog_output.push_str(&price_str);
                         }
                     },
@@ -131,14 +131,14 @@ async fn check_prices() -> String {
     return output;
 }
 
-async fn steam_insert_sequence(alias: &str, mut title: &str, price: f64) {
+async fn steam_insert_sequence(alias: &str, title: &str, price: f64, client: &reqwest::Client) {
     match steam::check_game(title).await {
-        Some(data) => thresholds::add_steam_game(alias.to_string(), data, price).await,
+        Some(data) => thresholds::add_steam_game(alias.to_string(), data, price, &client).await,
         None => {
             match steam::search_game(title).await {
                 Some(t) => {
                     match steam::check_game(&t).await {
-                            Some(data) => thresholds::add_steam_game(alias.to_string(), data, price).await,
+                            Some(data) => thresholds::add_steam_game(alias.to_string(), data, price, &client).await,
                             None => eprintln!("Something went wrong")
                     }
                 }
@@ -148,7 +148,7 @@ async fn steam_insert_sequence(alias: &str, mut title: &str, price: f64) {
     }
 }
 
-async fn gog_insert_sequence(alias: &str, mut title: &str, price: f64, client: &reqwest::Client){
+async fn gog_insert_sequence(alias: &str, title: &str, price: f64, client: &reqwest::Client){
     let mut search_list : Vec<gog::GameInfo> = Vec::new();
     match gog::search_game_by_title_v2(title, &client).await {
         Ok(data) => search_list = data,
@@ -173,7 +173,7 @@ async fn gog_insert_sequence(alias: &str, mut title: &str, price: f64, client: &
             match input.trim().parse::<usize>() {
                 Ok(idx) => {
                     if idx < search_list.len(){
-                        title = &search_list[idx].title;
+                        //title = &search_list[idx].title;
                         let game = &search_list[idx];
                         thresholds::add_gog_game(alias.to_string(), game, price);
                     }
@@ -190,13 +190,13 @@ async fn gog_insert_sequence(alias: &str, mut title: &str, price: f64, client: &
     }
 }
 
-/*async fn humble_bundle_insert_sequence(alias: &str, mut title: &str, price: f64, client: &reqwest::Client){
+/*async fn humble_bundle_insert_sequence(alias: &str, title: &str, price: f64, client: &reqwest::Client){
     let mut search_list: Vec<humble_bundle::GameInfo> = Vec::new();
-    match humble_bundle::search_game_v2(&title, &http_client) {
-        Ok(data) => search_list = data,
-        Err(e) => println!("Search GOG Game Error: {}", e)
-    }
-    match humble_bundle::search_game(&title, &http_client).await {
+    humble_bundle::search_game_v2(&title).await //{
+        //Ok(data) => search_list = data,
+        //Err(e) => println!("Search GOG Game Error: {}", e)
+    //}
+    /*match humble_bundle::search_game(&title, &http_client).await {
         Ok(data) => search_list = data,
         Err(e) => println!("Search GOG Game Error: {}", e)
     }
@@ -233,7 +233,7 @@ async fn gog_insert_sequence(alias: &str, mut title: &str, price: f64, client: &
     }
     else{
         println!("Could not find a game title matching \"{}\" on Humble Bundle.", title);
-    }
+    }*/
 }*/
 
 // Main function
@@ -374,12 +374,12 @@ async fn main(){
                 alias = add_args.get_one::<String>("alias").unwrap().clone();
             }
             else { alias = set_game_alias(); }
-            let mut title = add_args.get_one::<String>("title").unwrap().clone();
+            let title = add_args.get_one::<String>("title").unwrap().clone();
             let price = add_args.get_one::<f64>("price").unwrap().clone();
             let http_client = reqwest::Client::new();
             for store in selected_stores.iter(){
                 if store == settings::STEAM_STORE_ID {
-                    steam_insert_sequence(&alias, &title, price).await;
+                    steam_insert_sequence(&alias, &title, price, &http_client).await;
                 } 
                 if store == settings::GOG_STORE_ID {
                     gog_insert_sequence(&alias, &title, price, &http_client).await;
@@ -390,7 +390,6 @@ async fn main(){
             }
         },
         Some(("bulk_insert", bulk_args)) => {
-            let http_client = reqwest::Client::new();
             let selected_stores = storefront_check();
             let mut game_list: Vec<csv::DesiredGamePrice> = Vec::new();
             let file_path = bulk_args.get_one::<String>("file").unwrap().clone();
@@ -398,14 +397,15 @@ async fn main(){
                 Ok(gl) => game_list = gl,
                 Err(e) => eprintln!("Could not parse file: {}\n{}", file_path, e),
             }
+            let http_client = reqwest::Client::new();
             for game in game_list.iter(){
-                println!("Game: \"{}\"", game.name);
+                println!("INSERT GAME -> \"{}\"", game.name);
                 let title = &game.name;
                 let alias = set_game_alias();
                 let price: f64 = game.price;
                 for store in selected_stores.iter(){
                     if store == settings::STEAM_STORE_ID {
-                        steam_insert_sequence(&alias, &title, price).await;
+                        steam_insert_sequence(&alias, &title, price, &http_client).await;
                     }
                     if store == settings::GOG_STORE_ID {
                         gog_insert_sequence(&alias, &title, price, &http_client).await;
