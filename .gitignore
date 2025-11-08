@@ -1,0 +1,15 @@
+#IDE Settings
+.vscode
+.idea
+
+# Secrets
+.env
+
+# Rust Build
+Cargo.lock
+target/
+
+# Data
+*.json
+*.csv
+log/
