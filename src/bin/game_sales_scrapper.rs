@@ -1,5 +1,4 @@
 use dotenv::dotenv;
-use game_sales_scrapper::gog::Price;
 use std::io::Write;
 use std::io;
 use clap::{arg, command, Arg, ArgAction, Command, ArgMatches};
@@ -7,10 +6,9 @@ use clap::parser::ValueSource;
 
 // Internal libraries
 use game_sales_scrapper::stores::{steam, gog}; //, humble_bundle};
-//use game_sales_scrapper::stores::gog::HtmlInfo;
 use game_sales_scrapper::alerting::email;
 use game_sales_scrapper::file_ops::{csv, settings, thresholds, 
-                                   structs::{SaleInfo}};
+                                   structs::{SaleInfo, SimpleGameThreshold, GameThreshold}};
 
 fn get_recipient() -> String {
     dotenv().ok();
@@ -49,7 +47,7 @@ fn set_game_alias() -> String {
 }
 
 async fn check_prices() -> String {
-    let mut thresholds : Vec<thresholds::GameThreshold> = Vec::new();
+    let mut thresholds : Vec<GameThreshold> = Vec::new();
     match thresholds::load_data(){
         Ok(data) => thresholds = data,
         Err(e) => println!("Error: {}", e)
@@ -135,7 +133,7 @@ async fn check_prices() -> String {
 }
 
 async fn check_prices_v2() -> String {
-    let mut thresholds : Vec<thresholds::GameThreshold> = Vec::new();
+    let mut thresholds : Vec<GameThreshold> = Vec::new();
     match thresholds::load_data(){
         Ok(data) => thresholds = data,
         Err(e) => println!("Error: {}", e)
@@ -338,7 +336,7 @@ async fn main(){
                 .args([&title_arg, &price_arg, &alias_arg])
         )
         .subcommand(
-            Command::new("bulk_insert")
+            Command::new("bulk-insert")
                 .about("Add multiple games via CSV file")
                 .args([&file_arg])
         )
@@ -435,9 +433,9 @@ async fn main(){
                 }*/
             }
         },
-        Some(("bulk_insert", bulk_args)) => {
+        Some(("bulk-insert", bulk_args)) => {
             let selected_stores = storefront_check();
-            let mut game_list: Vec<csv::DesiredGamePrice> = Vec::new();
+            let mut game_list: Vec<SimpleGameThreshold> = Vec::new();
             let file_path = bulk_args.get_one::<String>("file").unwrap().clone();
             match csv::parse_game_prices(&file_path){
                 Ok(gl) => game_list = gl,

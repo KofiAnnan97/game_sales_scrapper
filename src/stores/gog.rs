@@ -113,7 +113,7 @@ pub struct GameInfo {
     #[serde(rename="storeLink")]
     pub store_link: String,
     #[serde(rename="coverVertical", skip)]
-    cover: String,
+    c_vertical: String,
     #[serde(skip)]
     developers: Vec<String>,
     #[serde(skip)]

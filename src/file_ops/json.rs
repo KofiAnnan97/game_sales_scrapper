@@ -1,11 +1,11 @@
 use dotenv::dotenv;
-use std::{fs, env};
+use std::{fs};
 use std::fs::{File, write};
 use std::path::Path;
 
 pub fn get_path(path_str: &str) -> String{
     let path = Path::new(path_str);
-    let mut load_fp = String::from("");
+    let mut load_fp = String::new();
     if !path.is_file(){
         File::create_new(path_str).expect("Failed to create load file");
         load_fp = path.display().to_string();

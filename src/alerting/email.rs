@@ -1,5 +1,5 @@
 use lettre::{Message, SmtpTransport, Transport};
-use lettre::message::{Mailbox, MultiPart, SinglePart};
+use lettre::message::{MultiPart, SinglePart};
 use lettre::transport::smtp::authentication::{Credentials, Mechanism};
 use dotenv::dotenv;
 

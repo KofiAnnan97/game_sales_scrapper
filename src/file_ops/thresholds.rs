@@ -1,22 +1,11 @@
-use serde::{Deserialize, Serialize};
 use serde_json::Result;
 use std::fs::read_to_string;
 
 use crate::file_ops::{json, settings};
 use crate::stores::{steam, gog}; //, humble_bundle};
+use crate::file_ops::structs::{GameThreshold};
 
 static THRESHOLD_FILENAME : &str = "thresholds.json";
-
-#[derive(Deserialize, Serialize, Debug)]
-pub struct GameThreshold{
-    pub title: String,
-    pub alias: String,
-    pub steam_id: usize,
-    pub gog_id: usize,
-    //pub humble_bundle_id: String,
-    pub currency: String,
-    pub desired_price: f64,
-}
 
 pub fn get_path() -> String {
     let mut thresh_path = json::get_data_path();
@@ -92,11 +81,10 @@ pub fn add_gog_game(new_alias: String, game: &gog::GameInfo, price: f64){
         }
     }
     if unique { 
-        let mut currency_code = String::new();
-        match &game.price {
-            Some(price_data) => currency_code = price_data.base_money.currency.clone(),
-            None => currency_code = "USD".to_string(),
-        }
+        let currency_code = match &game.price {
+            Some(price_data) => price_data.base_money.currency.clone(),
+            None => "USD".to_string(),
+        };
         thresholds.push(GameThreshold {
             title: game.title.clone(),
             alias: new_alias,
