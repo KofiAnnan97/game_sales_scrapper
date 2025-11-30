@@ -6,7 +6,7 @@ use regex::Regex;
 use std::io;
 use std::io::Write;
 
-use crate::file_ops::json;
+use crate::file_ops::{json, structs::{SaleInfo}};
 
 static CACHE_FILENAME : &str = "steam_game_titles_cache.json";
 
@@ -156,6 +156,48 @@ pub async fn get_price(app_id : usize, client: &reqwest::Client) -> Result<Price
         }
     }
     Ok(overview)
+}
+
+pub async fn get_price_details(app_id : usize, client: &reqwest::Client) -> Result<SaleInfo>{
+    let mut sale_info = SaleInfo {
+        icon_link: String::new(),
+        title: String::new(),
+        original_price: String::new(),
+        current_price: String::new(),
+        discount_percentage: String::new(),
+        store_page_link: String::new(),
+    };
+    match get_game_data(app_id, &client).await {
+        Ok(success) => {
+            let body : Value = serde_json::from_str(&success).expect("Could convert to game data json");
+            let data = body[app_id.to_string()]["success"].clone();
+            match data{
+                serde_json::Value::Bool(true) => {
+                    let data : &Value = &body[app_id.to_string()]["data"];
+                    if *data != Value::Null {
+                        sale_info.icon_link = data["header_image"].as_str().unwrap().to_string();
+                        sale_info.title = data["name"].as_str().unwrap().to_string();
+                        sale_info.original_price = format!("{}", data["price_overview"]["initial"].as_f64().unwrap()/100.0);
+                        sale_info.current_price = format!("{}", data["price_overview"]["final"].as_f64().unwrap()/100.0);
+                        sale_info.discount_percentage = format!("{}", data["price_overview"]["discount_percent"].as_f64().unwrap() as usize);
+                        sale_info.store_page_link = format!("https://store.steampowered.com/app/{}", app_id);
+                    }
+                    else{
+                        eprintln!("Could not find pricing data for {:?}", &body[app_id.to_string()]["data"]["name"]);
+                    }
+                },
+                serde_json::Value::Bool(false) => {
+                    eprintln!("Error: No data available for game.");
+                    std::process::exit(exitcode::DATAERR);
+                },
+                _ => panic!("Something strange occurred")
+            }
+        },
+        Err(e) => {
+            println!("{}", e);
+        }
+    }
+    Ok(sale_info)
 }
 
 // Command Functions

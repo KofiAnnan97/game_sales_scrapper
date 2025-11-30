@@ -7,7 +7,8 @@ use clap::parser::ValueSource;
 // Internal libraries
 use game_sales_scrapper::stores::{steam, gog}; //, humble_bundle};
 use game_sales_scrapper::alerting::email;
-use game_sales_scrapper::file_ops::{csv, settings, thresholds};
+use game_sales_scrapper::file_ops::{csv, settings, thresholds, 
+                                   structs::{SaleInfo, SimpleGameThreshold, GameThreshold}};
 
 fn get_recipient() -> String {
     dotenv().ok();
@@ -46,7 +47,7 @@ fn set_game_alias() -> String {
 }
 
 async fn check_prices() -> String {
-    let mut thresholds : Vec<thresholds::GameThreshold> = Vec::new();
+    let mut thresholds : Vec<GameThreshold> = Vec::new();
     match thresholds::load_data(){
         Ok(data) => thresholds = data,
         Err(e) => println!("Error: {}", e)
@@ -128,6 +129,49 @@ async fn check_prices() -> String {
         humble_bundle_output = "\n\nHumble Bundle price thresholds that have been met:".to_owned() + &humble_bundle_output;
     }*/
     let output = steam_output + &gog_output; // + &humble_bundle_output;
+    return output;
+}
+
+async fn check_prices_v2() -> String {
+    let mut thresholds : Vec<GameThreshold> = Vec::new();
+    match thresholds::load_data(){
+        Ok(data) => thresholds = data,
+        Err(e) => println!("Error: {}", e)
+    }
+    let mut steam_sales: Vec<SaleInfo> = Vec::new();
+    let mut gog_sales: Vec<SaleInfo> = Vec::new();
+    let http_client = reqwest::Client::new();
+    for elem in thresholds.iter(){
+        if elem.steam_id != 0 {
+            match steam::get_price_details(elem.steam_id, &http_client).await {
+                Ok(info) => {
+                    let current_price = info.current_price.parse::<f64>().unwrap();
+                    if elem.desired_price >= current_price {
+                        steam_sales.push(info);
+                    }
+                },
+                Err(e) => println!("{}", e)
+            }
+        }
+        if elem.gog_id != 0 {
+            match gog::get_price_details(&elem.title, &http_client).await {
+                Some(info) => {
+                    let current_price = info.current_price.parse::<f64>().unwrap();
+                    if elem.desired_price >= current_price {
+                        gog_sales.push(info);
+                    }
+                },
+                None => ()
+            }
+        }
+    }
+    let mut output = String::new();
+    if !steam_sales.is_empty(){
+        output.push_str(&email::create_storefront_table_html("Steam", steam_sales));
+    }
+    if !gog_sales.is_empty(){
+        output.push_str(&email::create_storefront_table_html("Good Old Games (GOG)", gog_sales));
+    }
     return output;
 }
 
@@ -292,7 +336,7 @@ async fn main(){
                 .args([&title_arg, &price_arg, &alias_arg])
         )
         .subcommand(
-            Command::new("bulk_insert")
+            Command::new("bulk-insert")
                 .about("Add multiple games via CSV file")
                 .args([&file_arg])
         )
@@ -389,9 +433,9 @@ async fn main(){
                 }*/
             }
         },
-        Some(("bulk_insert", bulk_args)) => {
+        Some(("bulk-insert", bulk_args)) => {
             let selected_stores = storefront_check();
-            let mut game_list: Vec<csv::DesiredGamePrice> = Vec::new();
+            let mut game_list: Vec<SimpleGameThreshold> = Vec::new();
             let file_path = bulk_args.get_one::<String>("file").unwrap().clone();
             match csv::parse_game_prices(&file_path){
                 Ok(gl) => game_list = gl,
@@ -430,13 +474,13 @@ async fn main(){
                 steam::update_cached_games().await;
             }
             else if cmd.get_flag("email"){
-                let email_str = check_prices().await;
+                let email_str = check_prices_v2().await;
                 println!("Email Contents:\n{}\n", email_str);
                 if email_str.is_empty(){ println!("No game(s) on sale at price thresholds"); }
                 else {
                     println!("Sending email...");
                     let to_address = &get_recipient();
-                    email::send(to_address, "Steam Games At Desired Prices",&email_str);
+                    email::send_with_html(to_address, "Check Out Which Games Are On Sale",&email_str);
                 }
             }
             else { println!("No/incorrect command given. Use \'--help\' for assistance."); }

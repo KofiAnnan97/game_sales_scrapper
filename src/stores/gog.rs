@@ -3,6 +3,8 @@ use serde::{Deserialize, Serialize};
 use std::f64;
 use std::collections::HashMap;
 
+use crate::file_ops::structs::{SaleInfo};
+
 pub static VERSION: u32 = 2;
 
 // Version 1
@@ -106,8 +108,10 @@ pub struct GameInfo {
     pub id: String,
     pub title: String,
     pub price: Option<Price>,
-    #[serde(rename="coverHorizontal", skip)]
-    c_horizontal: String,
+    #[serde(rename="coverHorizontal")]
+    pub c_horizontal: String,
+    #[serde(rename="storeLink")]
+    pub store_link: String,
     #[serde(rename="coverVertical", skip)]
     c_vertical: String,
     #[serde(skip)]
@@ -136,8 +140,6 @@ pub struct GameInfo {
     screenshots: Vec<String>,
     #[serde(skip)]
     slug: String,
-    #[serde(rename="storeLink", skip)]
-    store_link: String,
     #[serde(rename="storeReleaseDate", skip)]
     store_release_date: String,
     #[serde(skip)]
@@ -226,6 +228,44 @@ pub async fn get_price_v2(title: &str, http_client: &reqwest::Client) -> Option<
         let price_data = serde_json::to_string(&products[0]["price"]).unwrap();
         let price = serde_json::from_str::<Price>(&price_data).unwrap();
         return Ok::<Price, Error>(price).ok();
+    }
+    None 
+}
+
+pub async fn get_price_details(title: &str, http_client: &reqwest::Client) -> Option<SaleInfo> {
+    let limit = 1;
+    let order = "desc:score";
+    let product_type = "in:game";
+    let page = 1;
+    let country_code = "US";
+    let locale = "en-US";
+    let currency = "USD";
+    let url = format!("{}{}?limit={}&query=like:{}&order={}&productType={}&page={}&countryCode={}&locale={}&currencyCode={}", 
+                      BASE_URL, CATALOG_ENDPOINT, limit, title, order, product_type, page, country_code, locale, currency);
+    let resp = http_client.get(url)
+        .send()
+        .await
+        .expect("Failed to get response")
+        .text()
+        .await
+        .expect("Failed to get data");
+    let body: Value = serde_json::from_str(&resp).expect("Could not convert to JSON");
+    if let Some(products) = body["products"].as_array() {
+        let first_product = serde_json::to_string(&products[0]).unwrap();
+        let data = serde_json::from_str::<GameInfo>(&first_product).unwrap();
+        match data.price {
+            Some(po) => {
+                return Ok::<SaleInfo, Error>(SaleInfo{
+                    title: data.title,
+                    original_price: po.base_money.amount,
+                    current_price: po.final_money.amount, 
+                    discount_percentage: po.final_money.discount,
+                    icon_link: data.c_horizontal,
+                    store_page_link: data.store_link,
+                }).ok();
+            },
+            None => (),
+        }
     }
     None 
 }
