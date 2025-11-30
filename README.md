@@ -1,19 +1,19 @@
 # Game Sales Scrapper
-The purpose of this script is to scrape the Steam Web API and GOG API to determine whether a game has reached a specified price threshold. If one or more games fall below the user-defined limit an email will be sent containing a list of games along with their respective prices. 
+The purpose of this script is to scrape the game price data from PC storefronts to determine whether a game has reached 
+a desired, user-defined price. If any listed games fall below the price threshold an email will be sent containing all 
+applicable games.
 
-Officially tested on Ubuntu 24.04 and Windows 11.
+### Tested Environments
+| Operating System | Tested              |
+|------------------|---------------------|
+| Ubuntu 24.04     | :white_check_mark:  |
+| Windows 11       | :white_check_mark:  |
+
+Roadmap [[link](./Roadmap.md)]
 
 ### Supported Stores
 - **Steam**
 - **Good Old Games (GOG)**
-
-## Roadmap
-- [ ] Retrieve pricing data from Steam bundles
-- [X] Add alias request when adding a game threshold (through cli prompts or as parameter)
-- [X] Give panic message if config command not used before adding game thresholds
-- [X] Add bulk insert option for game thresholds
-- [X] Change logic to only show "Update ID" if the id was actually updated not just called 
-- [ ] Set up Humble Bundle Storefront
 
 ## Quick Start
 1. Setup SMTP server/service (TLS required/optional)
@@ -51,9 +51,9 @@ Use the`--help` flag in command line to get more information on the supported co
     ```commandline
     game_sales_scrapper add --title <title> --price <price>
     ```
-- `bulk_insert` := add multiple games with a price threshold using a CSV file.
+- `bulk-insert` := add multiple games with a price threshold using a CSV file.
     ```commandline
-    game_sales_scrapper bulk_insert --file <file.csv>
+    game_sales_scrapper bulk-insert --file <file.csv>
     ```
     CSV Example:
     ```text
@@ -71,7 +71,7 @@ Use the`--help` flag in command line to get more information on the supported co
     ```commandline
     game_sales_scrapper remove --title <title>
     ```
-- `list-selected-stores` := list whether a store fronts is used to search for games.
+- `list-selected-stores` := list whether a storefront is used to search for games.
     ```commandline 
     game_sales_scrapper --list-selected-stores
     ```
