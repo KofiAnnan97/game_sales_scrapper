@@ -5,7 +5,7 @@ pub mod alerting {
 pub mod stores {
     pub mod steam;
     pub mod gog;
-    //pub mod humble_bundle;
+    pub mod microsoft_store;
 }
 
 pub mod file_ops {
@@ -17,5 +17,5 @@ pub mod file_ops {
 }
 
 pub use alerting::email;
-pub use stores::{steam, gog}; //, humble_bundle};
+pub use stores::{steam, gog, microsoft_store};
 pub use file_ops::{structs, csv, json, settings, thresholds};

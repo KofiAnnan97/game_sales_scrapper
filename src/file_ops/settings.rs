@@ -10,13 +10,13 @@ static CONFIG_FILENAME : &str = "config.json";
 
 pub const STEAM_STORE_ID : &str = "steam";
 pub const GOG_STORE_ID : &str = "gog";
-//pub const HUMBLE_BUNDLE_STORE_ID : &str = "humble_bundle";
+pub const MICROSOFT_STORE_ID : &str = "microsoft_store";
 
 fn get_store_map() -> HashMap<String, String> {
     let store_map = HashMap::from([
         (STEAM_STORE_ID.to_string(), String::from("Steam")),
-        (GOG_STORE_ID.to_string(), String::from("GOG")),
-        //(HUMBLE_BUNDLE_STORE_ID.to_string(), String::from("Humble Bundle")),
+        (GOG_STORE_ID.to_string(), String::from("Good Old Games (GOG)")),
+        (MICROSOFT_STORE_ID.to_string(), String::from("Microsoft Store (PC)")),
     ]);
     store_map
 }

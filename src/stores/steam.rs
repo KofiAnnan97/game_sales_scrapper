@@ -258,7 +258,7 @@ pub async fn search_game(keyphrase: &str) -> Option<String>{
                 for (idx, game_title) in search_list.iter().enumerate() {
                     println!("  [{}] {}", idx, game_title);
                 }
-                println!("  [q] Quit");
+                println!("  [q] SKIP");
                 let mut input = String::new();
                 print!("Type integer corresponding to game title or type \"q\" to quit: ");
                 let _ = io::stdout().flush();
