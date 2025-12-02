@@ -22,7 +22,7 @@ pub struct GameThreshold{
     pub alias: String,
     pub steam_id: usize,
     pub gog_id: usize,
-    //pub humble_bundle_id: String,
+    pub microsoft_store_id: String,
     pub currency: String,
     pub desired_price: f64,
 }

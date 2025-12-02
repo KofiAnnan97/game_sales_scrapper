@@ -3,9 +3,9 @@ use lettre::message::{MultiPart, SinglePart};
 use lettre::transport::smtp::authentication::{Credentials, Mechanism};
 use dotenv::dotenv;
 
-use crate::file_ops::structs;
+use crate::structs::data::SaleInfo;
 
-pub fn send(recipient: &str, subject: &str, body: &str) {
+pub fn send_plain_text_msg(recipient: &str, subject: &str, body: &str) {
     dotenv().ok();
     let smtp_host = std::env::var("SMTP_HOST").expect("SMTP_HOST must be set");
     let smtp_port : u16 = std::env::var("SMTP_PORT").expect("SMTP_PORT must be set")
@@ -73,7 +73,7 @@ pub fn get_stylesheet() -> String {
     "#);
 }
 
-pub fn create_storefront_table_html(store_name: &str, sales: Vec<structs::SaleInfo>) -> String{
+pub fn create_storefront_table_html(store_name: &str, sales: Vec<SaleInfo>) -> String{
     let mut rows = String::new(); 
     for s_info in sales{
         rows += &format!("<tr>
@@ -121,7 +121,7 @@ pub fn create_html_body(sales_info_html: &str) -> String{
     "#, stylesheet, sales_info_html);
 }
 
-pub fn send_with_html(recipient: &str, subject: &str, body: &str) {
+pub fn send_html_msg(recipient: &str, subject: &str, body: &str) {
     dotenv().ok();
     let smtp_host = std::env::var("SMTP_HOST").expect("SMTP_HOST must be set");
     let smtp_port : u16 = std::env::var("SMTP_PORT").expect("SMTP_PORT must be set")

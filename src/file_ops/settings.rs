@@ -1,7 +1,8 @@
-use std::vec;
+//use std::vec;
 use serde_json::Result;
 use serde_json::{Value, json};
 use std::fs::{read_to_string, metadata};
+use std::collections::HashMap;
 
 use crate::file_ops::json;
 
@@ -9,14 +10,32 @@ static CONFIG_FILENAME : &str = "config.json";
 
 pub const STEAM_STORE_ID : &str = "steam";
 pub const GOG_STORE_ID : &str = "gog";
-//pub const HUMBLE_BUNDLE_STORE_ID : &str = "humble_bundle";
+pub const MICROSOFT_STORE_ID : &str = "microsoft_store";
+
+fn get_store_map() -> HashMap<String, String> {
+    let store_map = HashMap::from([
+        (STEAM_STORE_ID.to_string(), String::from("Steam")),
+        (GOG_STORE_ID.to_string(), String::from("Good Old Games (GOG)")),
+        (MICROSOFT_STORE_ID.to_string(), String::from("Microsoft Store (PC)")),
+    ]);
+    store_map
+}
 
 pub fn get_available_stores() -> Vec<String> {
-    return vec![
-        String::from(STEAM_STORE_ID),
-        String::from(GOG_STORE_ID),
-        //String::from(HUMBLE_BUNDLE_STORE_ID),
-    ];
+    let stores_map = get_store_map();
+    let mut available_stores: Vec<String> = Vec::new();
+    for key in stores_map.keys(){
+        available_stores.push(key.to_string());
+    }
+    available_stores
+}
+
+pub fn get_proper_store_name(id: &str) -> Option<String> {
+    let stores_map = get_store_map();
+    if stores_map.contains_key(id){
+        return Some(stores_map[id].clone());
+    }
+    None
 }
 
 fn get_path() -> String{
@@ -34,7 +53,7 @@ fn get_path() -> String{
         },
         Err(e) => eprintln!("Error: {}", e)
     }
-    return path_str;
+    path_str
 }
 
 pub fn load_data() -> Result<Value> {
@@ -54,7 +73,7 @@ pub fn get_selected_stores() -> Vec<String> {
         Ok(data) => stores = data,
         Err(e) => eprintln!("Error: {}", e)
     };
-    return stores;
+    stores
 }
 
 pub fn get_alias_state() -> bool {
@@ -70,7 +89,7 @@ pub fn get_alias_state() -> bool {
         },
         Err(e) => eprintln!("Error: {}", e)
     }
-    return state;
+    state
 }
 
 pub fn update_selected_stores(selected: Vec<String>) {
@@ -103,13 +122,14 @@ pub fn list_selected(){
     println!("Selected Stores");
     for a_store in available_stores.iter(){
         let mut is_selected = false;
+        let proper_name = get_proper_store_name(a_store).unwrap();
         for s_store in selected.iter() {
             if a_store == s_store {
                 is_selected = true;
                 break;
             }
         }
-        if is_selected { println!("  [X] {}", a_store); }
-        else { println!("  [ ] {}", a_store); }
+        if is_selected { println!("  [X] {}", proper_name); }
+        else { println!("  [ ] {}", proper_name); }
     }
 }

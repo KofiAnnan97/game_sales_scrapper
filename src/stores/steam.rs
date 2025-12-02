@@ -1,12 +1,13 @@
 use dotenv::dotenv;
 use serde_json::{Result, Value, Error};
-use serde::{Deserialize, Serialize};
 use std::fs::read_to_string;
 use regex::Regex;
 use std::io;
 use std::io::Write;
 
-use crate::file_ops::{json, structs::{SaleInfo}};
+use crate::file_ops::{json};
+use crate::structs::data::{SaleInfo};
+use crate::structs::steam_response::{Game, PriceOverview};
 
 static CACHE_FILENAME : &str = "steam_game_titles_cache.json";
 
@@ -14,21 +15,6 @@ static API_BASE_URL : &str = "https://api.steampowered.com";
 static STORE_BASE_URL : &str = "https://store.steampowered.com";
 static SEARCH_ENDPOINT : &str = "/ISteamApps/GetAppList/v2";
 static DETAILS_ENDPOINT : &str = "/api/appdetails";
-
-// Structs
-#[derive(Deserialize, Serialize, Debug)]
-pub struct Game{
-    #[serde(rename = "appid")]
-    pub app_id: usize,
-    pub name: String,
-}
-
-pub struct PriceOverview{
-    pub currency: String,
-    pub discount_percent: usize,
-    pub initial: f64,
-    pub final_price: f64,
-}
 
 // Secrets
 fn get_api_key() -> String {
@@ -94,10 +80,14 @@ pub async fn update_cached_games(){
 
 // API Functions 
 async fn get_all_games(client: &reqwest::Client) -> Result<String> {
-    let steam_key = get_api_key();
-    let format = "json";
-    let url = format!("{}{}/?key={}&format={}", API_BASE_URL, SEARCH_ENDPOINT, steam_key, format);
+    let steam_api_key = get_api_key();
+    let query_string = [
+        ("key", steam_api_key.as_str()),
+        ("format", "json"),
+    ];
+    let url = format!("{}{}/", API_BASE_URL, SEARCH_ENDPOINT);
     let resp = client.get(url)
+        .query(&query_string)
         .send()
         .await
         .expect("Failed to get response")
@@ -108,9 +98,14 @@ async fn get_all_games(client: &reqwest::Client) -> Result<String> {
 }
 
 async fn get_game_data(app_id : usize, client: &reqwest::Client) -> Result<String>{
-    let filters = "basic,price_overview";
-    let url = format!("{}{}?appids={}&filters={}", STORE_BASE_URL, DETAILS_ENDPOINT, app_id, filters);
+    let app_id_str = app_id.to_string();
+    let query_string = [
+        ("appids", app_id_str.as_str()),
+        ("filters", "basic,price_overview"),
+    ];
+    let url = format!("{}{}", STORE_BASE_URL, DETAILS_ENDPOINT);
     let resp = client.get(url)
+        .query(&query_string)
         .send()
         .await
         .expect("Failed to get response")
@@ -207,7 +202,7 @@ pub async fn check_game(name: &str) -> Option<Game> {
         Ok(data) => games_list = data,
         Err(e) => println!("Error: {}", e)
     }
-    if games_list.len() == 0 {
+    if games_list.is_empty() {
         update_cached_games().await;
         match load_cached_games().await {
             Ok(data) => games_list = data,
@@ -253,12 +248,12 @@ async fn search_by_keyphrase(keyphrase: &str) -> Result<Vec<String>>{
 pub async fn search_game(keyphrase: &str) -> Option<String>{
     match search_by_keyphrase(keyphrase).await {
         Ok(search_list) => {
-            if search_list.len() > 0 {
+            if !search_list.is_empty() {
                 println!("Steam search results:");
                 for (idx, game_title) in search_list.iter().enumerate() {
                     println!("  [{}] {}", idx, game_title);
                 }
-                println!("  [q] Quit");
+                println!("  [q] SKIP");
                 let mut input = String::new();
                 print!("Type integer corresponding to game title or type \"q\" to quit: ");
                 let _ = io::stdout().flush();
