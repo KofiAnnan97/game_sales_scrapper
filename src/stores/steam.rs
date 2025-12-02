@@ -1,12 +1,13 @@
 use dotenv::dotenv;
 use serde_json::{Result, Value, Error};
-use serde::{Deserialize, Serialize};
 use std::fs::read_to_string;
 use regex::Regex;
 use std::io;
 use std::io::Write;
 
-use crate::file_ops::{json, structs::{SaleInfo}};
+use crate::file_ops::{json};
+use crate::structs::data::{SaleInfo};
+use crate::structs::steam_response::{Game, PriceOverview};
 
 static CACHE_FILENAME : &str = "steam_game_titles_cache.json";
 
@@ -14,21 +15,6 @@ static API_BASE_URL : &str = "https://api.steampowered.com";
 static STORE_BASE_URL : &str = "https://store.steampowered.com";
 static SEARCH_ENDPOINT : &str = "/ISteamApps/GetAppList/v2";
 static DETAILS_ENDPOINT : &str = "/api/appdetails";
-
-// Structs
-#[derive(Deserialize, Serialize, Debug)]
-pub struct Game{
-    #[serde(rename = "appid")]
-    pub app_id: usize,
-    pub name: String,
-}
-
-pub struct PriceOverview{
-    pub currency: String,
-    pub discount_percent: usize,
-    pub initial: f64,
-    pub final_price: f64,
-}
 
 // Secrets
 fn get_api_key() -> String {

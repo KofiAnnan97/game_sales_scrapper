@@ -3,7 +3,7 @@ use lettre::message::{MultiPart, SinglePart};
 use lettre::transport::smtp::authentication::{Credentials, Mechanism};
 use dotenv::dotenv;
 
-use crate::file_ops::structs;
+use crate::structs::data::SaleInfo;
 
 pub fn send(recipient: &str, subject: &str, body: &str) {
     dotenv().ok();
@@ -73,7 +73,7 @@ pub fn get_stylesheet() -> String {
     "#);
 }
 
-pub fn create_storefront_table_html(store_name: &str, sales: Vec<structs::SaleInfo>) -> String{
+pub fn create_storefront_table_html(store_name: &str, sales: Vec<SaleInfo>) -> String{
     let mut rows = String::new(); 
     for s_info in sales{
         rows += &format!("<tr>

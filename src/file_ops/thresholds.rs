@@ -4,7 +4,10 @@ use std::fs::read_to_string;
 
 use crate::file_ops::{json, settings};
 use crate::stores::{steam, gog, microsoft_store};
-use crate::file_ops::structs::{GameThreshold};
+use crate::structs::steam_response::Game;
+use crate::structs::gog_response::GameInfo as GOGGameInfo;
+use crate::structs::microsoft_store_response::GameInfo as MSGameInfo;
+use crate::structs::data::GameThreshold;
 
 static THRESHOLD_FILENAME : &str = "thresholds.json";
 
@@ -26,7 +29,7 @@ fn is_threshold(title: &str, game_thresh: &GameThreshold) -> bool {
     title == game_thresh.title || title == game_thresh.alias
 }
 
-pub async fn add_steam_game(new_alias: String, app: steam::Game, price: f64, client: &reqwest::Client){
+pub async fn add_steam_game(new_alias: String, app: Game, price: f64, client: &reqwest::Client){
     let mut thresholds = load_data().unwrap_or_else(|_e|Vec::new());
     match steam::get_price(app.app_id, &client).await {
         Ok(po) => {
@@ -60,7 +63,7 @@ pub async fn add_steam_game(new_alias: String, app: steam::Game, price: f64, cli
     }
 }
 
-pub fn add_gog_game(new_alias: String, game: &gog::GameInfo, price: f64){
+pub fn add_gog_game(new_alias: String, game: &GOGGameInfo, price: f64){
     let mut thresholds = load_data().unwrap_or_else(|_e|Vec::new());
     let mut unique : bool = true;
     for elem in thresholds.iter(){
@@ -95,7 +98,7 @@ pub fn add_gog_game(new_alias: String, game: &gog::GameInfo, price: f64){
     //else { println!("Duplicate title: \"{}\".", game.title); }
 }
 
-pub fn add_microsoft_store_game(new_alias: String, game: &microsoft_store::GameInfo, price: f64){
+pub fn add_microsoft_store_game(new_alias: String, game: &MSGameInfo, price: f64){
     let mut thresholds = load_data().unwrap_or_else(|_e|Vec::new());
     let mut unique : bool = true;
     for elem in thresholds.iter(){

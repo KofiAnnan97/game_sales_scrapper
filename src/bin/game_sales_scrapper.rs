@@ -7,8 +7,10 @@ use clap::parser::ValueSource;
 // Internal libraries
 use game_sales_scrapper::stores::{steam, gog, microsoft_store};
 use game_sales_scrapper::alerting::email;
-use game_sales_scrapper::file_ops::{csv, settings, thresholds, 
-                                   structs::{SaleInfo, SimpleGameThreshold}};
+use game_sales_scrapper::file_ops::{csv, settings, thresholds};
+use game_sales_scrapper::structs::data::{SaleInfo, SimpleGameThreshold};
+use game_sales_scrapper::structs::gog_response::GameInfo as GOGGameInfo;
+use game_sales_scrapper::structs::microsoft_store_response::GameInfo as MSGameInfo;
 
 fn get_recipient() -> String {
     dotenv().ok();
@@ -45,7 +47,7 @@ async fn check_prices() -> String {
         }
         if elem.gog_id != 0 {
             if gog::VERSION == 1{
-                match gog::get_price(&elem.title).await {
+                match gog::get_price_details(&elem.title).await {
                     Some(po) => {
                         let current_price = po.final_amount.parse::<f64>().unwrap();
                         if elem.desired_price >= current_price {
@@ -59,7 +61,7 @@ async fn check_prices() -> String {
                 }
             }
             else if gog::VERSION == 2{
-                match gog::get_price_details(&elem.title, &http_client).await {
+                match gog::get_price_details_v2(&elem.title, &http_client).await {
                     Some(info) => {
                         let current_price = info.current_price.parse::<f64>().unwrap();
                         if elem.desired_price >= current_price {
@@ -115,7 +117,7 @@ async fn steam_insert_sequence(alias: &str, title: &str, price: f64, client: &re
 }
 
 async fn gog_insert_sequence(alias: &str, title: &str, price: f64, client: &reqwest::Client){
-    let mut search_list : Vec<gog::GameInfo> = Vec::new();
+    let mut search_list : Vec<GOGGameInfo> = Vec::new();
     match gog::search_game_by_title_v2(title, &client).await {
         Ok(data) => search_list = data,
         Err(e) => println!("Search GOG Game Error: {}", e)
@@ -157,7 +159,7 @@ async fn gog_insert_sequence(alias: &str, title: &str, price: f64, client: &reqw
 }
 
 async fn microsoft_store_insert_sequence(alias: &str, title: &str, price: f64, client: &reqwest::Client){
-    let mut search_list : Vec<microsoft_store::GameInfo> = Vec::new();
+    let mut search_list : Vec<MSGameInfo> = Vec::new();
     match microsoft_store::search_game_by_title(title, &client).await {
         Ok(data) => search_list = data,
         Err(e) => println!("Search Microsoft Store Error: {}", e)
@@ -400,7 +402,7 @@ async fn main(){
                 else {
                     println!("Sending email...");
                     let to_address = &get_recipient();
-                    email::send_with_html(to_address, "Check Out Which Games Are On Sale", &email_str);
+                    //email::send_with_html(to_address, "Check Out Which Games Are On Sale", &email_str);
                 }
             }
             else { println!("No/incorrect command given. Use \'--help\' for assistance."); }
