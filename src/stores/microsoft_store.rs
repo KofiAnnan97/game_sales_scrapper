@@ -77,6 +77,7 @@ pub async fn get_price_details(xbox_id: &str, http_client: &reqwest::Client) -> 
     let body: Value = serde_json::from_str(&resp).expect("Could not convert Microsoft Store game data to JSON");
     if let Some(data_str) = body.as_object() {
         let game_str = serde_json::to_string(data_str).unwrap();
+        //println!("{:?}", game_str);
         let game = serde_json::from_str::<GameInfo>(&game_str).unwrap();
         let mut discount_str = game.price_info.badge_text.unwrap_or_default();
         discount_str = if !discount_str.is_empty() {

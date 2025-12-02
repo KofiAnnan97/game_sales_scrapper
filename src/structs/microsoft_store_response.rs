@@ -108,14 +108,14 @@ pub struct GameInfo{
     #[serde(rename = "developerName")]
     developer_name: String,
     #[serde(rename = "durationInSeconds")]
-    duration_in_seconds: i32,
+    duration_in_seconds: i64,
     #[serde(rename = "hasAddOns")]
     has_add_ons: bool,
     #[serde(rename = "hasThirdPartyIAPs")]
     has_third_party_iaps: bool,
     language: String,
     #[serde(rename = "maxInstallSizeInBytes")]
-    max_install_size_in_bytes: i32,
+    max_install_size_in_bytes: i64,
     #[serde(rename = "mediaType")]
     media_type: String,
     #[serde(rename = "promoMessage")]
@@ -350,7 +350,7 @@ pub struct PriceInfo {
     force_to_display_price: bool,
     #[serde(rename = "narratorText")]
     narrator_text: String,
-    ownership: i32,
+    ownership: i64,
 }
 
 #[derive(Deserialize, Serialize, Debug)]
@@ -370,7 +370,7 @@ pub struct ProductRating {
     #[serde(rename = "ratingValueLogoUrl")]
     rating_value_logo_url: String,
     #[serde(rename = "ratingAge")]
-    rating_age: i32,
+    rating_age: i64,
     #[serde(rename = "restrictMetadata")]
     restrict_metadata: bool,
     #[serde(rename = "restrictPurchase")]
@@ -453,7 +453,7 @@ pub struct Trailers {
     #[serde(rename = "videoEncoding")]
     video_encoding: String,
     image: Image,
-    bitrate: i32,
+    bitrate: i64,
     #[serde(rename = "videoPositionInfo")]
     video_position_info: String,
     #[serde(rename = "sortOrder")]
