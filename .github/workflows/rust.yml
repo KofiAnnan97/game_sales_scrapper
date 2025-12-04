@@ -10,7 +10,7 @@ on:
       - "dev"
 env:
   CARGO_TERM_COLOR: always
-  PROJECT_PATH: "${{GITHUB_WORKSPACE}}"
+  PROJECT_PATH: "${{ GITHUB_WORKSPACE }}"
 jobs:
   build:
     runs-on: ubuntu-latest
