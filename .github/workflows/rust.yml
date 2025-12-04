@@ -11,7 +11,7 @@ on:
 env:
   CARGO_TERM_COLOR: always
   STEAM_API_KEY: ${{ secrets.STEAM_API_KEY }}
-  PROJECT_PATH: "${{ github.workspace }}
+  PROJECT_PATH: ${{ github.workspace }}
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -20,7 +20,7 @@ jobs:
     - name: Build
       run: cargo build --release --verbose
     - name: Working Directory
-      run: pwd && ls .
+      run: echo "Current Working Directory:" & pwd && ls .
     - name: Create env file
       run: bash ./setup/create_pipeline_env_file.sh
     - name: Run tests
