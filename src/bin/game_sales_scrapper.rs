@@ -429,7 +429,9 @@ async fn main(){
             else if cmd.get_flag("check-prices") {
                 let use_html = false;
                 let prices_str = check_prices(use_html).await;
-                println!("------------\nCHECK PRICES\n------------\n{}", prices_str);
+                if !prices_str.is_empty() {
+                    println!("------------\nCHECK PRICES\n------------\n{}", prices_str);
+                }
             }
             else if cmd.get_flag("email"){
                 let use_html = true;

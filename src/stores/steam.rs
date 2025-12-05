@@ -7,20 +7,25 @@ use std::io::Write;
 
 use crate::file_ops::{json};
 use crate::structs::data::{SaleInfo};
-use crate::structs::steam_response::{Game, PriceOverview};
+use crate::structs::steam_response::{App, PriceOverview};
 
 static CACHE_FILENAME : &str = "steam_game_titles_cache.json";
 
 static API_BASE_URL : &str = "https://api.steampowered.com";
 static STORE_BASE_URL : &str = "https://store.steampowered.com";
-static SEARCH_ENDPOINT : &str = "/ISteamApps/GetAppList/v2";
+
+static APP_LIST_ENDPOINT : &str = "/IStoreService/GetAppList/v1";
 static DETAILS_ENDPOINT : &str = "/api/appdetails";
 
 // Secrets
 fn get_api_key() -> String {
     dotenv().ok();
-    let steam_api_token = std::env::var("STEAM_API_KEY").expect("STEAM_API_KEY must be set");
-    return steam_api_token;
+    let mut steam_api_token = String::new();
+    match std::env::var("STEAM_API_KEY"){
+        Ok(token) => steam_api_token = token,
+        Err(_) => panic!("STEAM_API_KEY environment variable not found"),
+    };
+    steam_api_token
 }
 
 // Caching Functions
@@ -28,30 +33,41 @@ fn get_cache_path() -> String{
     let mut cache_file_path = json::get_data_path();
     cache_file_path.push_str("/");
     cache_file_path.push_str(CACHE_FILENAME);
-    return json::get_path(&cache_file_path);
+    json::get_path(&cache_file_path)
 }
 
-pub async fn load_cached_games() -> Result<Vec<Game>> {
+pub async fn load_cached_games() -> Result<Vec<App>> {
     let filepath = get_cache_path();
     let data = read_to_string(filepath).unwrap();
-    let temp = serde_json::from_str::<Vec<Game>>(&data);
-    return temp;
+    let cached_games = serde_json::from_str::<Vec<App>>(&data);
+    cached_games
+}
+
+pub async fn get_last_appid() -> String {
+    let cached_games = load_cached_games().await.unwrap_or(Vec::new());
+    if cached_games.len() > 0 {
+        if let Some(app) = cached_games.last() {
+            let app_id_str = format!("{}", app.app_id);
+            return String::from(app_id_str);
+        }
+    }
+    String::from("0")
 }
 
 pub async fn update_cached_games(){
-    let mut games_list : Vec<Game> = Vec::new();
+    let mut games_list : Vec<App> = Vec::new();
     match load_cached_games().await{
         Ok(data) => games_list = data,
         Err(e) => println!("No cached data. {}", e)
     }
-    let mut temp : Vec<Game> = Vec::new();
+    let mut temp : Vec<App> = Vec::new();
     let client = reqwest::Client::new();
     match get_all_games(&client).await {
         Ok(success) => {
             println!("Updating cached game titles (this will take a while)...");
-            let body : Value = serde_json::from_str(&success).expect("Could convert to JSON");
-            let app_list = serde_json::to_string(&body["applist"]["apps"]).unwrap();
-            let data = serde_json::from_str::<Vec<Game>>(&app_list);
+            let body : Value = serde_json::from_str(&success).expect("Could convert Steam app list to JSON");
+            let app_list = serde_json::to_string(&body["response"]["apps"]).unwrap();
+            let data = serde_json::from_str::<Vec<App>>(&app_list);
             temp = data.unwrap();
         }, 
         Err(e) => {
@@ -67,9 +83,11 @@ pub async fn update_cached_games(){
             }
         }
         if unique && game.name != "".to_string() {
-            games_list.push(Game {
+            games_list.push(App {
                 name: game.name.clone(),
-                app_id: game.app_id.clone()
+                app_id: game.app_id.clone(),
+                last_modified: game.last_modified,
+                price_change_number: game.price_change_number,
             });
         }
     }
@@ -81,11 +99,15 @@ pub async fn update_cached_games(){
 // API Functions 
 async fn get_all_games(client: &reqwest::Client) -> Result<String> {
     let steam_api_key = get_api_key();
+    let last_app_id = get_last_appid().await;
+    //println!("Last appid: {}", last_app_id);
     let query_string = [
         ("key", steam_api_key.as_str()),
-        ("format", "json"),
+        ("max_results", "40000"),
+        ("last_appid", &last_app_id),
+        ("format", "json")
     ];
-    let url = format!("{}{}/", API_BASE_URL, SEARCH_ENDPOINT);
+    let url = format!("{}{}/", API_BASE_URL, APP_LIST_ENDPOINT);
     let resp = client.get(url)
         .query(&query_string)
         .send()
@@ -196,8 +218,8 @@ pub async fn get_price_details(app_id : usize, client: &reqwest::Client) -> Resu
 }
 
 // Command Functions
-pub async fn check_game(name: &str) -> Option<Game> {
-    let mut games_list : Vec<Game> = Vec::new();
+pub async fn check_game(name: &str) -> Option<App> {
+    let mut games_list : Vec<App> = Vec::new();
     match load_cached_games().await {
         Ok(data) => games_list = data,
         Err(e) => println!("Error: {}", e)
@@ -211,9 +233,11 @@ pub async fn check_game(name: &str) -> Option<Game> {
     }
     for elem in games_list.iter(){
         if name.to_owned() == elem.name {
-            return Ok::<Game, Error>(Game {
+            return Ok::<App, Error>(App {
                 name: name.to_owned(),
-                app_id: elem.app_id
+                app_id: elem.app_id,
+                last_modified: elem.last_modified,
+                price_change_number: elem.price_change_number,
             }).ok();
         }
     }
@@ -221,8 +245,8 @@ pub async fn check_game(name: &str) -> Option<Game> {
 }
 
 // Search Functions
-async fn search_by_keyphrase(keyphrase: &str) -> Result<Vec<String>>{
-    let mut games_list : Vec<Game> = Vec::new();
+pub async fn search_by_keyphrase(keyphrase: &str) -> Result<Vec<String>>{
+    let mut games_list : Vec<App> = Vec::new();
     match load_cached_games().await {
         Ok(data) => games_list = data,
         Err(e) => println!("Error: {}", e)

@@ -3,8 +3,8 @@ use serde_json::Result;
 use std::fs::read_to_string;
 
 use crate::file_ops::{json, settings};
-use crate::stores::{steam, gog, microsoft_store};
-use crate::structs::steam_response::Game;
+use crate::stores::{steam}; //, gog, microsoft_store};
+use crate::structs::steam_response::App;
 use crate::structs::gog_response::GameInfo as GOGGameInfo;
 use crate::structs::microsoft_store_response::ProductInfo;
 use crate::structs::data::GameThreshold;
@@ -29,7 +29,7 @@ fn is_threshold(title: &str, game_thresh: &GameThreshold) -> bool {
     title == game_thresh.title || title == game_thresh.alias
 }
 
-pub async fn add_steam_game(new_alias: String, app: Game, price: f64, client: &reqwest::Client){
+pub async fn add_steam_game(new_alias: String, app: App, price: f64, client: &reqwest::Client){
     let mut thresholds = load_data().unwrap_or_else(|_e|Vec::new());
     match steam::get_price(app.app_id, &client).await {
         Ok(po) => {

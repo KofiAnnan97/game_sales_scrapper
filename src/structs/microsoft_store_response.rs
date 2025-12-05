@@ -212,7 +212,7 @@ pub struct GameInfo{
     #[serde(rename = "boxArtUrl")]
     pub box_icon_url: String,
     #[serde(rename = "heroImageUrl")]
-    hero_image_url: String,
+    hero_image_url: Option<String>,
     #[serde(rename = "iconUrlBackground")]
     icon_url_background: String,
     trailers: Vec<Trailers>,
