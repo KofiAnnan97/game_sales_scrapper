@@ -22,6 +22,8 @@ jobs:
     - name: Create env file
       run: bash ./setup/create_pipeline_env_file.sh && ls ./setup
     - name: Set up config for storefronts
-      run: cargo run -- config -a
+      run: cargo run --release -- config -a
+    - name: Cache Steam Games
+      run: cargo run --release -- --update-cache
     - name: Run tests
-      run: cargo test --release --verbose -- --test-threads=1
+      run: cargo test --release -- --test-threads=1

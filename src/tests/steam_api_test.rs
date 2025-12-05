@@ -2,7 +2,7 @@ static GAME_TITLE: &str = "Half-Life 2";
 static GAME_ID: usize = 220;
 
 #[cfg(test)]
-mod gog_api_tests {
+mod steam_api_tests {
     use crate::steam;
 
     // Constants
