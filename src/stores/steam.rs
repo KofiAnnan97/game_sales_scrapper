@@ -33,7 +33,7 @@ fn get_cache_path() -> String{
     let mut cache_file_path = json::get_data_path();
     cache_file_path.push_str("/");
     cache_file_path.push_str(CACHE_FILENAME);
-    return json::get_path(&cache_file_path);
+    json::get_path(&cache_file_path)
 }
 
 pub async fn load_cached_games() -> Result<Vec<App>> {
@@ -44,16 +44,14 @@ pub async fn load_cached_games() -> Result<Vec<App>> {
 }
 
 pub async fn get_last_appid() -> String {
-    match load_cached_games().await{
-        Ok(games) => {
-            if games.len() > 0 {
-                let app_id_str = format!("{}", games.last().unwrap().app_id);
-                String::from(app_id_str)
-            }
-            else { String::from("0") }
-        },
-        Err(_) => String::from("0"),
+    let cached_games = load_cached_games().await.unwrap_or(Vec::new());
+    if cached_games.len() > 0 {
+        if let Some(app) = cached_games.last() {
+            let app_id_str = format!("{}", app.app_id);
+            return String::from(app_id_str);
+        }
     }
+    String::from("0")
 }
 
 pub async fn update_cached_games(){
@@ -107,7 +105,7 @@ async fn get_all_games(client: &reqwest::Client) -> Result<String> {
         ("key", steam_api_key.as_str()),
         ("max_results", "40000"),
         ("last_appid", &last_app_id),
-        //("format", "json")
+        ("format", "json")
     ];
     let url = format!("{}{}/", API_BASE_URL, APP_LIST_ENDPOINT);
     let resp = client.get(url)
