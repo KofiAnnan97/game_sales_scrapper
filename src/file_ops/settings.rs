@@ -7,16 +7,24 @@ use std::collections::HashMap;
 use crate::file_ops::json;
 
 static CONFIG_FILENAME : &str = "config.json";
+static ALIAS_ENABLED : i32 = 1;
+static ALIAS_DISABLED : i32 = 0;
 
+// Store IDs
 pub const STEAM_STORE_ID : &str = "steam";
 pub const GOG_STORE_ID : &str = "gog";
 pub const MICROSOFT_STORE_ID : &str = "microsoft_store";
 
+// Store Names (Plain text)
+pub const STEAM_STORE_NAME : &str = "Steam";
+pub const GOG_STORE_NAME : &str = "Good Old Games (GOG)";
+pub const MICROSOFT_STORE_NAME : &str = "Microsoft Store (PC)";
+
 fn get_store_map() -> HashMap<String, String> {
     let store_map = HashMap::from([
-        (STEAM_STORE_ID.to_string(), String::from("Steam")),
-        (GOG_STORE_ID.to_string(), String::from("Good Old Games (GOG)")),
-        (MICROSOFT_STORE_ID.to_string(), String::from("Microsoft Store (PC)")),
+        (STEAM_STORE_ID.to_string(), STEAM_STORE_NAME.to_string()),
+        (GOG_STORE_ID.to_string(), GOG_STORE_NAME.to_string()),
+        (MICROSOFT_STORE_ID.to_string(), MICROSOFT_STORE_NAME.to_string()),
     ]);
     store_map
 }
@@ -96,7 +104,22 @@ pub fn update_selected_stores(selected: Vec<String>) {
     match load_data(){
         Ok(data) => {
             let mut settings = data;
-            *settings.get_mut("selected_stores").unwrap() = json!(selected);
+            let selected_stores = settings.get_mut("selected_stores").unwrap();
+            let selected_stores_str = serde_json::to_string(selected_stores).unwrap();
+            let mut unique_stores : Vec<String> = Vec::new();
+            match serde_json::from_str::<Vec<String>>(&selected_stores_str) {
+                Ok(stores) => {
+                    unique_stores = stores;
+                    if selected.is_empty() { unique_stores = selected.clone(); }
+                    for store in selected {
+                        if !unique_stores.contains(&store) {
+                            unique_stores.push(store);
+                        }
+                    }
+                }
+                Err(e) => assert!(false, "Error: {}", e),
+            }
+            *selected_stores = json!(unique_stores);
             let settings_str = serde_json::to_string(&settings);
             json::write_to_file(get_path(), settings_str.expect("Cannot update store search settings"));
         },
@@ -108,7 +131,8 @@ pub fn update_alias_state(is_enabled: i32){
     match load_data(){
         Ok(data) => {
             let mut settings = data;
-            *settings.get_mut("alias_enabled").unwrap() = json!(is_enabled);
+            let enabled_status = if is_enabled == ALIAS_ENABLED || is_enabled == ALIAS_DISABLED { is_enabled } else { ALIAS_DISABLED };
+            *settings.get_mut("alias_enabled").unwrap() = json!(enabled_status);
             let settings_str = serde_json::to_string(&settings);
             json::write_to_file(get_path(), settings_str.expect("Cannot set state of aliases"));
         },

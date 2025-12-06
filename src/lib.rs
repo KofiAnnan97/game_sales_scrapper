@@ -23,7 +23,7 @@ pub mod structs {
 }
 
 pub mod tests {
-    //pub mod settings_tests;
+    pub mod settings_tests;
     pub mod api_steam;
     pub mod api_gog;
     pub mod api_microsoft_store;
