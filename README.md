@@ -43,7 +43,7 @@ Roadmap: [[link](./Roadmap.md)]
 
 ## Supported Commands
 Use the`--help` flag in command line to get more information on the supported commands. Here's a brief description and example of each command.
-- `config` := sets what storefronts are used to search for games and enable aliases for game titles (on by default). Use `-a` to search through all supported storefronts and can be configured to be more granular. 
+- `config` := sets what storefronts are used to search for games and enable aliases for game titles (enabled by default). Use `-a` to search through all supported storefronts and can be configured to be more granular. 
     ```commandline
     game_sales_scrapper config -a
     ```
