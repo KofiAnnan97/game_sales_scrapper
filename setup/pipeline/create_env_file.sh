@@ -8,6 +8,7 @@ PROJECT_PATH=$(echo "$PROJECT_PATH")
 touch .env
 ENV_STR="STEAM_API_KEY=\"$STEAM_API_KEY\"
 PROJECT_PATH=\"$PROJECT_PATH\""
+TEST_PATH=\"$PROJECT_PATH\src\tests\""
 
 # Write to .env file
 echo "$ENV_STR" > .env
