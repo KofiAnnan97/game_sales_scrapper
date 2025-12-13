@@ -23,7 +23,7 @@ jobs:
     - name: Build
       run: cargo build --release --verbose
     - name: Create env file
-      run: bash ./setup/pipeline/create_env_file.sh
+      run: bash ./setup/actions/create_env_file.sh
     - name: Set up config for storefronts
       run: ./target/release/game_sales_scrapper config -a
     - name: Cache Steam games
@@ -37,7 +37,7 @@ jobs:
       - name: Build
         run: cargo build --release --verbose
       - name: Create env file
-        run: .\setup\pipeline\create_env_file.ps1
+        run: .\setup\actions\create_env_file.ps1
       - name: Set up config for storefronts
         run: .\target\release\game_sales_scrapper.exe config -a
       - name: Cache Steam games
