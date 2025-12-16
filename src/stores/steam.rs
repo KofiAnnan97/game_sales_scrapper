@@ -2,9 +2,9 @@ use dotenv::dotenv;
 use serde_json::{Result, Value, Error};
 use std::fs::read_to_string;
 use regex::Regex;
-use std::io;
-use std::io::Write;
-
+use std::io::{self, Write};
+use std::env;
+use std::path::PathBuf;
 use crate::file_ops::{json};
 use crate::structs::data::{SaleInfo};
 use crate::structs::steam_response::{App, PriceOverview};
@@ -20,8 +20,9 @@ static DETAILS_ENDPOINT : &str = "/api/appdetails";
 // Secrets
 fn get_api_key() -> String {
     dotenv().ok();
+    println!("{:?}", std::env::var("STEAM_API_KEY"));
     let mut steam_api_token = String::new();
-    match std::env::var("STEAM_API_KEY"){
+    match env::var("STEAM_API_KEY"){
         Ok(token) => steam_api_token = token,
         Err(_) => panic!("STEAM_API_KEY environment variable not found"),
     };
@@ -30,9 +31,8 @@ fn get_api_key() -> String {
 
 // Caching Functions
 fn get_cache_path() -> String{
-    let mut cache_file_path = json::get_data_path();
-    cache_file_path.push_str("/");
-    cache_file_path.push_str(CACHE_FILENAME);
+    let path_buf: PathBuf = [json::get_data_path(), CACHE_FILENAME.to_string()].iter().collect();
+    let cache_file_path = path_buf.display().to_string();
     json::get_path(&cache_file_path)
 }
 

@@ -1,4 +1,5 @@
 use std::io::{self, Write};
+use std::path::PathBuf;
 use serde_json::Result;
 use std::fs::read_to_string;
 
@@ -12,10 +13,9 @@ use crate::structs::data::GameThreshold;
 static THRESHOLD_FILENAME : &str = "thresholds.json";
 
 pub fn get_path() -> String {
-    let mut thresh_path = json::get_data_path();
-    thresh_path.push_str("/");
-    thresh_path.push_str(THRESHOLD_FILENAME);
-    json::get_path(&thresh_path)
+    let path_buf: PathBuf = [json::get_data_path(), THRESHOLD_FILENAME.to_string()].iter().collect();
+    let thresh_path = path_buf.display().to_string();
+    json::get_path(&thresh_path) //Creates file if it does not exist already
 }
 
 pub fn load_data() -> Result<Vec<GameThreshold>> {

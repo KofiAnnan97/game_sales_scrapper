@@ -3,6 +3,7 @@ use serde_json::Result;
 use serde_json::{Value, json};
 use std::fs::{read_to_string, metadata};
 use std::collections::HashMap;
+use std::path::PathBuf;
 
 use crate::file_ops::json;
 
@@ -47,10 +48,9 @@ pub fn get_proper_store_name(id: &str) -> Option<String> {
 }
 
 fn get_path() -> String{
-    let mut config_path = json::get_data_path();
-    config_path.push_str("/");
-    config_path.push_str(CONFIG_FILENAME);
-    let path_str = json::get_path(&config_path);
+    let path_buf: PathBuf = [json::get_data_path(), CONFIG_FILENAME.to_string()].iter().collect();
+    let config_path = path_buf.display().to_string();
+    let path_str = json::get_path(&config_path);  //Creates file if it does not exist already
     match metadata(&path_str){
         Ok(md) => {
             if md.len() == 0 {
