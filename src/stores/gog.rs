@@ -92,6 +92,7 @@ pub async fn search_game_by_title_v2(title: &str, http_client: &reqwest::Client)
         .await
         .expect("Failed to get data");
     let body : Value = serde_json::from_str(&resp).expect("Could not convert  search to JSON");
+    //println!("{:?}", body);
     let products = serde_json::to_string(&body["products"]).unwrap();
     let games_list : Vec<GameInfo> = serde_json::from_str::<Vec<GameInfo>>(&products)?;
     Ok(games_list)

@@ -22,9 +22,8 @@ static DETAILS_ENDPOINT : &str = "/api/appdetails";
 fn get_api_key() -> String {
     if cfg!(target_os = "windows") { dotenv_windows().ok(); }
     else if cfg!(target_os = "linux") { dotenv_linux().ok(); }
-    let mut steam_api_token = String::new();
-    match env::var("STEAM_API_KEY"){
-        Ok(token) => steam_api_token = token,
+    let steam_api_token = match env::var("STEAM_API_KEY"){
+        Ok(token) => token,
         Err(_) => panic!("STEAM_API_KEY environment variable not found"),
     };
     steam_api_token

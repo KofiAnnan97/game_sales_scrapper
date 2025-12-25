@@ -5,7 +5,7 @@ use std::env;
 use cfg_if::cfg_if;
 use lazy_static::lazy_static;
 use std::fs::{self, File, write};
-use std::path::{self, Path, PathBuf};
+use std::path::{Path, PathBuf};
 
 static TEST_VAR_NAME : &str = "TEST_PATH";
 static PROJECT_VAR_NAME : &str = "PROJECT_PATH";
@@ -25,13 +25,13 @@ pub fn enable_test_flag() {
 
 pub fn get_path(path_str: &str) -> String{
     let path = Path::new(path_str);
-    let mut load_fp = String::new();
+    let mut is_new = false;
     if !path.is_file(){
         File::create_new(path_str).expect("Failed to create load file");
-        load_fp = path.display().to_string();
-        println!("File created: {}", load_fp);
+        is_new = true;
     }
-    else{ load_fp = path.display().to_string(); }
+    let load_fp =  path.display().to_string();
+    if is_new { println!("File created: {}", load_fp); }
     load_fp
 }
 

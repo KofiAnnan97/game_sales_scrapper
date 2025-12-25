@@ -375,11 +375,11 @@ async fn main(){
             if test_flag == ValueSource::CommandLine { json::enable_test_flag(); }
 
             let selected_stores = storefront_check();
-            let mut alias = String::new();
-            if add_args.contains_id("alias") && settings::get_alias_state() {
-                alias = add_args.get_one::<String>("alias").unwrap().clone();
-            }
-            else { alias = thresholds::set_game_alias(); }
+            let alias = if add_args.contains_id("alias") && settings::get_alias_state() {
+                add_args.get_one::<String>("alias").unwrap().clone()
+            } else { 
+                thresholds::set_game_alias() 
+            };
             let title = add_args.get_one::<String>("title").unwrap().clone();
             let price = add_args.get_one::<f64>("price").unwrap().clone();
             let http_client = reqwest::Client::new();

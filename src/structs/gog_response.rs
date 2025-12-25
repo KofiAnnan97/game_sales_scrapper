@@ -49,39 +49,30 @@ pub struct GameInfo {
     pub c_horizontal: String,
     #[serde(rename="storeLink")]
     pub store_link: String,
-    #[serde(rename="coverVertical", skip)]
+    #[serde(rename="coverVertical")]
     c_vertical: String,
-    #[serde(skip)]
     developers: Vec<String>,
-    #[serde(skip)]
-    editions: Vec<String>,
-    #[serde(skip)]
+    editions: Vec<Editions>,
     features: Vec<HashMap<String, String>>,
-    #[serde(skip)]
     genres: Vec<HashMap<String, String>>,
-    #[serde(rename="operatingSystems", skip)]
+    #[serde(rename="operatingSystems")]
     os: Vec<String>,
-    #[serde(rename="productState", skip)]
+    #[serde(rename="productState")]
     product_state: String,
-    #[serde(rename="productType", skip)]
+    #[serde(rename="productType")]
     product_type: String,
-    #[serde(skip)]
     publishers: Vec<String>,
-    #[serde(skip)]
     ratings: Vec<HashMap<String, String>>,
-    #[serde(rename="releaseDate", skip)]
+    #[serde(rename="releaseDate")]
     release_date: String,
-    #[serde(rename="reviewsRating", skip)]
+    #[serde(rename="reviewsRating")]
     reviews_rating: u32,
-    #[serde(skip)]
     screenshots: Vec<String>,
-    #[serde(skip)]
     slug: String,
-    #[serde(rename="storeReleaseDate", skip)]
+    #[serde(rename="storeReleaseDate")]
     store_release_date: String,
-    #[serde(skip)]
     tags: Vec<HashMap<String,String>>,
-    #[serde(rename="userPreferredLanguage", skip)]
+    #[serde(rename="userPreferredLanguage")]
     user_pref_lang: UserPreferredLanguage,
 }
 
@@ -153,4 +144,12 @@ pub struct FinalMoney {
     pub amount: String,
     pub currency: String,
     pub discount: String,
+}
+
+#[derive(Deserialize, Serialize, Debug)]
+pub struct Editions{
+    id: u64,
+    #[serde(rename="isRootEdition")]
+    is_root_edition: bool,
+    name: String,
 }
