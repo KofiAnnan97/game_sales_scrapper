@@ -1,5 +1,5 @@
 # Game Sales Scrapper
-![GitHub Release](https://img.shields.io/github/v/release/KofiAnnan97/game_sales_scrapper?label=Version) ![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/KofiAnnan97/game_sales_scrapper/build.yml?label=Build) ![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/KofiAnnan97/game_sales_scrapper/tests.yml?label=Tests) ![GitHub last commit](https://img.shields.io/github/last-commit/KofiAnnan97/game_sales_scrapper?label=Last%20Commit)
+![GitHub Release](https://img.shields.io/github/v/release/KofiAnnan97/game_sales_scrapper?label=Latest%20Version) ![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/KofiAnnan97/game_sales_scrapper/build.yml?label=Build) ![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/KofiAnnan97/game_sales_scrapper/tests.yml?label=Tests) ![GitHub last commit](https://img.shields.io/github/last-commit/KofiAnnan97/game_sales_scrapper?label=Last%20Commit)
 
 Roadmap: [[link](./Roadmap.md)]
 
