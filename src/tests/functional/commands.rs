@@ -92,14 +92,28 @@ fn get_sample_csv(filename: &str) -> String {
 #[test]
 fn config_cmd() {
     clear_settings();
-    let _ = Command::new("cargo")
+    let _ = if cfg!(target_os = "windows") {
+        Command::new("cmd")
+            .args(["/C","cargo","run","--","config","-s","-g","--test_flag"])
+            .output()
+            .expect("failed to execute process")
+    } else {
+        Command::new("cargo")
             .args(["run","--","config","-s","-g","--test_flag"])
             .output()
-            .expect("failed to execute process");
-    let _ = Command::new("cargo")
+            .expect("failed to execute process")
+    };
+    let _ = if cfg!(target_os = "windows") {
+        Command::new("cmd")
+            .args(["/C","cargo","run","--","config","-i","0","--test_flag"])
+            .output()
+            .expect("failed to execute process")
+    } else {    
+        Command::new("cargo")
             .args(["run","--","config","-i","0","--test_flag"])
             .output()
-            .expect("failed to execute process");
+            .expect("failed to execute process")
+    };
     let stores = load_stores();
     let mut steam_present = false;
     let mut gog_present = false;
@@ -197,10 +211,17 @@ fn update_price_cmd() {
 
     // update threshold using game title
     let mut new_price = "19.99";
-    let _ = Command::new("cargo")
+    let _ = if cfg!(target_os = "windows") {
+        Command::new("cmd")
+            .args(["/C","cargo","run","--","update","-t",title,"-p",new_price,"--test_flag"])
+            .output()
+            .expect("failed to execute process")
+    } else{
+        Command::new("cargo")
             .args(["run","--","update","-t",title,"-p",new_price,"--test_flag"])
             .output()
-            .expect("failed to execute process");
+            .expect("failed to execute process")
+    };
     let mut thresholds = load_thresholds();
     assert_eq!(1, thresholds.len(), "There should only be 1 threshold");
     assert_eq!(title, thresholds[0].title, "The game title should be {title} not {}", thresholds[0].title);
@@ -208,10 +229,17 @@ fn update_price_cmd() {
 
     // update price using alias
     new_price = "34.99";
-    let _ = Command::new("cargo")
+    let _ = if cfg!(target_os = "windows") {
+        Command::new("cmd")
+            .args(["/C","cargo","run","--","update","-t",alias,"-p",new_price,"--test_flag"])
+            .output()
+            .expect("failed to execute process")
+    } else{
+        Command::new("cargo")
             .args(["run","--","update","-t",alias,"-p",new_price,"--test_flag"])
             .output()
-            .expect("failed to execute process");
+            .expect("failed to execute process")
+    };
     thresholds = load_thresholds();
     assert_eq!(1, thresholds.len(), "There should only be 1 threshold");
     assert_eq!(alias, thresholds[0].alias, "The game alias should be {alias} not {}", thresholds[0].alias);
@@ -227,19 +255,33 @@ fn remove_cmd() {
     add_fake_threshold(alias, title, price);
 
     // Remove threshold by title
-    let _ = Command::new("cargo")
+    let _ = if cfg!(target_os = "windows") {
+        Command::new("cmd")
+            .args(["/C","cargo","run","--","remove","-t", title,"--test_flag"])
+            .output()
+            .expect("failed to execute process")
+    } else{
+        Command::new("cargo")
             .args(["run","--","remove","-t", title,"--test_flag"])
             .output()
-            .expect("failed to execute process");
+            .expect("failed to execute process")
+    };
     let mut thresholds = load_thresholds();
     assert_eq!(0, thresholds.len(), "There should not be any thresholds present");
 
     // Remove threshold by alias
     add_fake_threshold(alias, title, price);
-    let _ = Command::new("cargo")
+    let _ = if cfg!(target_os = "windows") {
+        Command::new("cmd")
+            .args(["/C","cargo","run","--","remove","-t", alias,"--test_flag"])
+            .output()
+            .expect("failed to execute process")
+    } else{
+        Command::new("cargo")
             .args(["run","--","remove","-t", alias,"--test_flag"])
             .output()
-            .expect("failed to execute process");
+            .expect("failed to execute process")
+    };
     thresholds = load_thresholds();
     assert_eq!(0, thresholds.len(), "There should not be any thresholds present");
 }
@@ -247,16 +289,30 @@ fn remove_cmd() {
 #[test]
 fn list_selected_stores_cmd() {
     clear_settings();
-    let _ = Command::new("cargo")
+    let _ = if cfg!(target_os = "windows") {
+        Command::new("cmd")
+            .args(["/C","cargo","run","--","config","-m","--test_flag"])
+            .output()
+            .expect("failed to execute process")
+    } else{
+        Command::new("cargo")
             .args(["run","--","config","-m","--test_flag"])
             .output()
-            .expect("failed to execute process");
+            .expect("failed to execute process")
+    };
 
-    let ss_out = Command::new("cargo")
+    let ss_out = if cfg!(target_os = "windows") {
+        Command::new("cmd")
+            .args(["/C","cargo","run","--","--list-selected-stores", "--test_flag"])
+            .output()
+            .expect("failed to execute process")
+    } else{
+        Command::new("cargo")
             .args(["run","--","--list-selected-stores", "--test_flag"])
             .output()
-            .expect("failed to execute process");
-    //println!("{:?}", selected_out);
+            .expect("failed to execute process")
+    };
+    println!("{:?}", ss_out);
     let output = str::from_utf8(&ss_out.stdout).unwrap_or_default();
     let re = Regex::new(SELECT_STORES_PRTN).unwrap();
     let mut results = vec![];
@@ -287,11 +343,18 @@ fn list_thresholds_cmd() {
     let price = 69.99;
     add_fake_threshold(alias, title, price);
 
-    let lt_out = Command::new("cargo")
+    let lt_out = if cfg!(target_os = "windows") {
+        Command::new("cmd")
+            .args(["/C","cargo","run","--","--list-thresholds","--test_flag"])
+            .output()
+            .expect("failed to execute process")
+    } else{
+        Command::new("cargo")
             .args(["run","--","--list-thresholds","--test_flag"])
             .output()
-            .expect("failed to execute process");
-    //println!("{:?}", lt_out);
+            .expect("failed to execute process")
+    };
+    println!("{:?}", lt_out);
     let output = str::from_utf8(&lt_out.stdout).unwrap_or_default();
     let re = Regex::new(GAME_THRESH_PTRN).unwrap();
     let mut results = vec![];
@@ -308,11 +371,19 @@ fn list_thresholds_cmd() {
 #[tokio::test]
 async fn check_prices() {
     clear_thresholds();
-    add_threshold("", E33_GAME_TITLE, E33_STEAM_ID, E33_GOG_ID, E33_MS_ID, 9999.99);
-    let cp_out = Command::new("cargo")
+    add_threshold("E33", E33_GAME_TITLE, E33_STEAM_ID, E33_GOG_ID, E33_MS_ID, 9999.99);
+    let cp_out = if cfg!(target_os = "windows") {
+        Command::new("cmd")
+            .args(["/C","cargo","run","--","--check-prices","--test_flag"])
+            .output()
+            .expect("failed to execute process")
+    } else{
+        Command::new("cargo")
             .args(["run","--","--check-prices","--test_flag"])
             .output()
-            .expect("failed to execute process");
+            .expect("failed to execute process")
+    };
+    println!("{:?}", cp_out);
     let output = str::from_utf8(&cp_out.stdout).unwrap_or_default();
     let lines = output.split("\n").collect::<Vec<&str>>();
     let mut curr_store = "";

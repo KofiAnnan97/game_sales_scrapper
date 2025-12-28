@@ -3,10 +3,8 @@ import sys
 def add_double_slash_to_path(dir_path: str) -> str:
     new_dir_path = ""
     for i in range(len(dir_path)):
-        if dir_path[i] == '\\' and (dir_path[i+1] != '\\' and dir_path[i-1] != '\\'):
-            new_dir_path += r"\\"
-        else:
-            new_dir_path += dir_path[i]
+        segment = r"\\" if dir_path[i] == '\\' and (dir_path[i+1] != '\\' and dir_path[i-1] != '\\') else dir_path[i]
+        new_dir_path += segment
     return new_dir_path
 
 def main():
