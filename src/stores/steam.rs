@@ -149,7 +149,7 @@ pub async fn get_price(app_id : usize, client: &reqwest::Client) -> Result<Price
             let body : Value = serde_json::from_str(&success).expect("Could convert to game data json");
             let data = body[app_id.to_string()]["success"].clone();
             match data{
-                serde_json::Value::Bool(true) => {
+                Value::Bool(true) => {
                     let price_overview : &Value = &body[app_id.to_string()]["data"]["price_overview"];
                     if *price_overview != Value::Null {
                         overview.final_price = price_overview["final"].as_f64().unwrap()/100.0;
@@ -161,7 +161,7 @@ pub async fn get_price(app_id : usize, client: &reqwest::Client) -> Result<Price
                         eprintln!("Could not find pricing data for {:?}", &body[app_id.to_string()]["data"]["name"]);
                     }
                 },
-                serde_json::Value::Bool(false) => {
+                Value::Bool(false) => {
                     eprintln!("Error: No data available for game.");
                     std::process::exit(exitcode::DATAERR);
                 },
@@ -189,7 +189,7 @@ pub async fn get_price_details(app_id : usize, client: &reqwest::Client) -> Resu
             let body : Value = serde_json::from_str(&success).expect("Could convert to game data json");
             let data = body[app_id.to_string()]["success"].clone();
             match data{
-                serde_json::Value::Bool(true) => {
+                Value::Bool(true) => {
                     let data : &Value = &body[app_id.to_string()]["data"];
                     if *data != Value::Null {
                         sale_info.icon_link = data["header_image"].as_str().unwrap().to_string();
@@ -203,7 +203,7 @@ pub async fn get_price_details(app_id : usize, client: &reqwest::Client) -> Resu
                         eprintln!("Could not find pricing data for {:?}", &body[app_id.to_string()]["data"]["name"]);
                     }
                 },
-                serde_json::Value::Bool(false) => {
+                Value::Bool(false) => {
                     eprintln!("Error: No data available for game.");
                     std::process::exit(exitcode::DATAERR);
                 },
@@ -292,7 +292,7 @@ pub async fn search_game(keyphrase: &str) -> Option<String>{
                         Ok(idx) => {
                             if idx < search_list.len(){
                                 let title = search_list[idx].clone();
-                                return Ok::<std::string::String, Error>(title).ok();
+                                return Ok::<String, Error>(title).ok();
                             }
                             else if idx >= search_list.len(){
                                 eprintln!("Integer \"{}\" is invalid. Request terminated.", idx);

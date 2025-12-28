@@ -9,7 +9,7 @@ static GAME_ID: &str = "9n5nfrqv2hqq";
 async fn search_game() {
     let client = reqwest::Client::new();
     let search_list =  microsoft_store::search_game_by_title(GAME_TITLE, &client)
-        .await.unwrap_or_else(|e| Vec::new());
+        .await.unwrap_or_else(|_| Vec::new());
     let mut is_game_present = false;
     for product in search_list {
         if product.title == GAME_TITLE {

@@ -55,7 +55,7 @@ fn get_selected_stores() {
     let stores = vec![String::from(STEAM_STORE_ID),
                                   String::from(GOG_STORE_ID)];
     settings::update_selected_stores(stores);
-    let mut selected_stores = settings::get_selected_stores();
+    let selected_stores = settings::get_selected_stores();
     let mut is_steam_selected = false;
     let mut is_gog_selected = false;
     let mut is_ms_store_selected = false;

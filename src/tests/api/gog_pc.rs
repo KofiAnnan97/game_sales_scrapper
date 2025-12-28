@@ -9,7 +9,7 @@ static GAME_ID: usize = 1901861030;
 async fn search_game() {
     let client = reqwest::Client::new();
     let search_list = gog::search_game_by_title_v2(GAME_TITLE, &client)
-        .await.unwrap_or_else(|e| Vec::new());
+        .await.unwrap_or_else(|_| Vec::new());
     let mut is_game_present = false;
     for game in search_list {
         if game.title == GAME_TITLE {

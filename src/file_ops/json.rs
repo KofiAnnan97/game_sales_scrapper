@@ -7,8 +7,8 @@ use lazy_static::lazy_static;
 use std::fs::{self, File, write};
 use std::path::{Path, PathBuf};
 
-static TEST_VAR_NAME : &str = "TEST_PATH";
 static PROJECT_VAR_NAME : &str = "PROJECT_PATH";
+static TEST_VAR_NAME : &str = "TEST_PATH";
 
 lazy_static! {
     static ref PATH_ENV_VAR : Mutex<String> = {
@@ -53,12 +53,12 @@ pub fn get_data_path() -> String {
     if cfg!(target_os = "windows") { dotenv_windows().ok(); }
     else if cfg!(target_os = "linux") { dotenv_linux().ok(); }
     let path_env = PATH_ENV_VAR.lock().unwrap().clone();
-    //println!("Env var: {:?}", path_env);
+    println!("Env var: {:?}", &path_env);
     let mut data_path = env::var(path_env).unwrap_or_else(|_| String::from("."));
     let path: PathBuf = [&data_path, "data"].iter().collect();
     data_path = path.display().to_string();
-    //println!("Path: {}", data_path);
-    if Path::new(&data_path).is_dir() != true {
+    println!("Path: {}", data_path);
+    if !Path::new(&data_path).is_dir() {
         let _ = fs::create_dir(&data_path);
     }
     data_path

@@ -1,7 +1,7 @@
 # Read environment variables
 $STEAM_API_KEY = $Env:STEAM_API_KEY
-$PROJECT_PATH = $Env:PROJECT_PATH
-$TEST_PATH = "$Env:PROJECT_PATH\src\tests"
+Set-Variable -Name "PROJECT_PATH" -Value $(python3 .\setup\actions\double_slash.py "$Env:PROJECT_PATH")
+Set-Variable -Name "TEST_PATH" -Value $(python3 .\setup\actions\double_slash.py "$Env:PROJECT_PATH\\src\\tests")
 
 # Create file contents
 $envContent = @"

@@ -16,8 +16,9 @@
     - [X] API calls (search for game and check game price is all supported storefronts)
     - [X] Unit testing for thresholds and settings operations
     - [X] Functional testing for user commands
+    - [X] Show status of build and tests done for Windows and Ubuntu on Readme
 - Incomplete 
-  - [ ] Fix Windows tests for github actions
+  - [ ] Fix Windows tests for GitHub actions
 
 ### Backlog
 - Features
@@ -27,6 +28,6 @@
 - Bugs/Fixes
   - Fix alias not apply to multiple threshold entries (same product different name/edition)
   - Fix Steam game cache to check and update when any app info changes
+  - Fix GOG discount percentage (manually calculate)
 - Testing
-  - Show status of build and tests done for Windows and Ubuntu on Readme
   - Add the `add` and `bulk-insert` cmds for functional testing

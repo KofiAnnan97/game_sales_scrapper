@@ -10,7 +10,6 @@ use crate::microsoft_store_response::{ProductInfoBuilder as MSGameBuilder, Produ
 
 // Constants
 static THRESHOLD_FILENAME: &str = "thresholds.json";
-static DEFAULT_ALIAS: &str = "default";
 
 fn delete_thresholds() {
     let mut config_path = json_data::get_data_path();

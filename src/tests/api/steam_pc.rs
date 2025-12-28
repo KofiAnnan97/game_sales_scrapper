@@ -8,7 +8,7 @@ static GAME_ID: usize = 220;
 #[tokio::test]
 async fn search_game() {
     let search_list = steam::search_by_keyphrase(GAME_TITLE)
-        .await.unwrap_or_else(|e| Vec::new());
+        .await.unwrap_or_else(|_| Vec::new());
     let mut is_game_present = false;
     for title in search_list {
         if title == GAME_TITLE {

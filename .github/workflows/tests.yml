@@ -35,6 +35,9 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
       - name: Create env file
         run: .\setup\actions\create_env_file.ps1
       - name: Check env file [DELETE LATER]
