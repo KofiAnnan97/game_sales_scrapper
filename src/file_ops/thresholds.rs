@@ -1,10 +1,11 @@
 use std::io::{self, Write};
+use std::path::PathBuf;
 use serde_json::Result;
 use std::fs::read_to_string;
 
 use crate::file_ops::{json, settings};
-use crate::stores::{steam, gog, microsoft_store};
-use crate::structs::steam_response::Game;
+use crate::stores::{steam}; //, gog, microsoft_store};
+use crate::structs::steam_response::App;
 use crate::structs::gog_response::GameInfo as GOGGameInfo;
 use crate::structs::microsoft_store_response::ProductInfo;
 use crate::structs::data::GameThreshold;
@@ -12,24 +13,23 @@ use crate::structs::data::GameThreshold;
 static THRESHOLD_FILENAME : &str = "thresholds.json";
 
 pub fn get_path() -> String {
-    let mut thresh_path = json::get_data_path();
-    thresh_path.push_str("/");
-    thresh_path.push_str(THRESHOLD_FILENAME);
-    return json::get_path(&thresh_path);
+    let path_buf: PathBuf = [json::get_data_path(), THRESHOLD_FILENAME.to_string()].iter().collect();
+    let thresh_path = path_buf.display().to_string();
+    json::get_path(&thresh_path) //Creates file if it does not exist already
 }
 
 pub fn load_data() -> Result<Vec<GameThreshold>> {
     let filepath = get_path();
     let data = read_to_string(filepath).unwrap();
-    let temp = serde_json::from_str::<Vec<GameThreshold>>(&data);
-    return temp;
+    let path_str = serde_json::from_str::<Vec<GameThreshold>>(&data);
+    path_str
 }
 
 fn is_threshold(title: &str, game_thresh: &GameThreshold) -> bool {
     title == game_thresh.title || title == game_thresh.alias
 }
 
-pub async fn add_steam_game(new_alias: String, app: Game, price: f64, client: &reqwest::Client){
+pub async fn add_steam_game(new_alias: String, app: App, price: f64, client: &reqwest::Client){
     let mut thresholds = load_data().unwrap_or_else(|_e|Vec::new());
     match steam::get_price(app.app_id, &client).await {
         Ok(po) => {
@@ -53,7 +53,7 @@ pub async fn add_steam_game(new_alias: String, app: Game, price: f64, client: &r
                     currency: po.currency[1..po.currency.len()-1].to_string(),
                     desired_price: price
                 });
-                let data_str = serde_json::to_string(&thresholds).unwrap();
+                let data_str = serde_json::to_string_pretty(&thresholds).unwrap();
                 json::write_to_file(get_path(), data_str);
                 println!("Successfully added Steam game: \"{}\".", app.name);
             }
@@ -91,7 +91,7 @@ pub fn add_gog_game(new_alias: String, game: &GOGGameInfo, price: f64){
             currency: currency_code,
             desired_price: price
         });
-        let data_str = serde_json::to_string(&thresholds).unwrap();
+        let data_str = serde_json::to_string_pretty(&thresholds).unwrap();
         json::write_to_file(get_path(), data_str);
         println!("Successfully added GOG game \"{}\".", game.title);
     }
@@ -121,7 +121,7 @@ pub fn add_microsoft_store_game(new_alias: String, game: &ProductInfo, price: f6
             currency: String::new(),
             desired_price: price
         });
-        let data_str = serde_json::to_string(&thresholds).unwrap();
+        let data_str = serde_json::to_string_pretty(&thresholds).unwrap();
         json::write_to_file(get_path(), data_str);
         println!("Successfully added Microsoft Store game \"{}\".", game.title);
     }
@@ -155,7 +155,7 @@ pub fn update_alias(title: &str, new_alias: &str){
     if !idx.is_none() {
         let i = idx.unwrap();
         thresholds[i].alias = new_alias.to_string();
-        let data_str = serde_json::to_string(&thresholds).expect("Could not convert GOG id update to string.");
+        let data_str = serde_json::to_string_pretty(&thresholds).expect("Could not convert GOG id update to string.");
         json::write_to_file(get_path(), data_str);
     }
     else {
@@ -171,7 +171,7 @@ pub fn update_price(title: &str, price: f64) {
         if price != thresholds[i].desired_price{
             let old_threshold = thresholds[i].desired_price.clone();
             thresholds[i].desired_price = price;
-            let data_str = serde_json::to_string(&thresholds).expect("Could not price update to string.");
+            let data_str = serde_json::to_string_pretty(&thresholds).expect("Could not price update to string.");
             json::write_to_file(get_path(), data_str);
             println!("\"{}\": updated price threshold from {} to {}", thresholds[i].title,
                                                        old_threshold,
@@ -209,7 +209,7 @@ pub fn update_id(title: &str, store_type: &str, id: usize){
         }
         if updated_id {
             let update_err = format!("Could not convert the {} id update to a string object.", store_type);
-            let data_str = serde_json::to_string(&thresholds).expect(&update_err);
+            let data_str = serde_json::to_string_pretty(&thresholds).expect(&update_err);
             json::write_to_file(get_path(), data_str);
             println!("Updated {} ID for \"{}\"", store_name, title);
         }
@@ -233,7 +233,7 @@ pub fn update_id_str(title: &str, store_type: &str, id: &str){
         }
         if updated_id {
             let update_err = format!("Could not convert the {} id update to a string object.", store_type);
-            let data_str = serde_json::to_string(&thresholds).expect(&update_err);
+            let data_str = serde_json::to_string_pretty(&thresholds).expect(&update_err);
             json::write_to_file(get_path(), data_str);
             println!("Updated {} ID for \"{}\"", store_name, title);
         }  
@@ -245,7 +245,7 @@ pub fn remove(title: &str){
     let idx = thresholds.iter().position(|threshold| is_threshold(title, threshold));
     if !idx.is_none(){
         thresholds.remove(idx.unwrap());
-        let data_str = serde_json::to_string(&thresholds).unwrap();
+        let data_str = serde_json::to_string_pretty(&thresholds).unwrap();
         json::write_to_file(get_path(), data_str);
         println!("Successfully removed \"{}\".", title);
     }

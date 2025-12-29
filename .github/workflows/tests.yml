@@ -1,0 +1,55 @@
+name: Tests
+on:
+  schedule:
+    - cron: "0 0 1 */4 *"
+  push:
+    branches: 
+      - "master"
+      - "release/**"
+  pull_request:
+    branches: 
+      - "master"
+      - "dev"
+env:
+  CARGO_TERM_COLOR: always
+  STEAM_API_KEY: ${{ secrets.STEAM_API_KEY }}
+  PROJECT_PATH: ${{ github.workspace }}
+  RUST_BACKTRACE: 1
+jobs:
+  linux:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Create env file
+      run: bash ./setup/actions/create_env_file.sh
+    - name: Set up config for storefronts
+      run: cargo run --release -- config -a --test_flag
+    - name: Cache Steam games
+      run: cargo run --release -- --update-cache --test_flag
+    - name: Run tests
+      run: cargo test --release -- --test-threads=1
+#  windows:
+#    needs: linux
+#    runs-on: windows-latest
+#    steps:
+#      - uses: actions/checkout@v4
+#      - uses: actions/setup-python@v5
+#        with:
+#          python-version: "3.13"
+#      - name: Set up Rust toolchain
+#        uses: actions-rust-lang/setup-rust-toolchain@v1
+#        with:
+#          toolchain: stable
+#          target: x86_64-pc-windows-gnu
+#          rustflags: "-A warnings"
+#      - name: Create env file
+#        run: .\setup\actions\create_env_file.ps1
+#      - name: Set up config for storefronts
+#        run: cargo run --release --target=x86_64-pc-windows-gnu -- config -a --test_flag
+#      - name: Cache Steam games
+#        run: cargo run --release --target=x86_64-pc-windows-gnu -- --update-cache --test_flag
+#      - name: Run tests
+#        run: cargo test --release --target=x86_64-pc-windows-gnu -- --test-threads=1
+#      - name: Check if data exists in test folder [DELETE LATER]
+#        if: always()
+#        run: tree .\src\tests /f

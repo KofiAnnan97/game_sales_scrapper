@@ -1,4 +1,4 @@
-use std::fs::{File};
+use std::fs::{self, File, write};
 use std::{error::Error};
 
 use crate::structs::data::SimpleGameThreshold;
@@ -10,12 +10,11 @@ pub fn parse_game_prices(file_path: &str) -> Result<Vec<SimpleGameThreshold>, Bo
     for result in reader.records(){
         let record = result?;
         if record.len() == 2 {
-            let mut threshold_price : f64 = -1.0;
             match record.get(1) {
                 Some(val) => {
                     match val.trim().parse::<f64>() {
                         Ok(f_val) => {
-                            threshold_price = f_val;
+                            let threshold_price = f_val;
                             game_list.push(SimpleGameThreshold {
                                name: record.get(0).unwrap().to_string(),
                                price: threshold_price,
@@ -29,4 +28,27 @@ pub fn parse_game_prices(file_path: &str) -> Result<Vec<SimpleGameThreshold>, Bo
         }
     }
     Ok(game_list)
+}
+
+fn write_to_file(path: String, data: String){
+    match write(&path, data) {
+        Ok(_) => (),
+        Err(e) => eprintln!("An error occurred while writing to \'{}\'\n{}", &path, e)
+    }
+}
+
+pub fn generate_csv(file_path: &str, thresholds: Vec<SimpleGameThreshold>) {
+    let mut data = String::from("game, price");
+    for sgt in thresholds {
+        let row = format!("\n{}, {}", sgt.name, sgt.price); 
+        data.push_str(row.as_str());
+    }
+    write_to_file(file_path.to_owned(), data);
+}
+
+pub fn delete_file(file_path: String){
+    match fs::remove_file(&file_path){
+        Ok(_) => println!("Successfully deleted {}", file_path),
+        Err(e) => {eprintln!("{}",e)}
+    }
 }

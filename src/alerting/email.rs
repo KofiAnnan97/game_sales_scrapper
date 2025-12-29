@@ -1,12 +1,14 @@
 use lettre::{Message, SmtpTransport, Transport};
 use lettre::message::{MultiPart, SinglePart};
 use lettre::transport::smtp::authentication::{Credentials, Mechanism};
-use dotenv::dotenv;
+use dotenv::dotenv as dotenv_linux;
+use dotenvy::dotenv as dotenv_windows;
 
 use crate::structs::data::SaleInfo;
 
 pub fn send_plain_text_msg(recipient: &str, subject: &str, body: &str) {
-    dotenv().ok();
+    if cfg!(target_os = "windows") { dotenv_windows().ok(); }
+    else if cfg!(target_os = "linux") { dotenv_linux().ok(); }
     let smtp_host = std::env::var("SMTP_HOST").expect("SMTP_HOST must be set");
     let smtp_port : u16 = std::env::var("SMTP_PORT").expect("SMTP_PORT must be set")
                                                     .parse().expect("Not a valid u16");
@@ -122,7 +124,8 @@ pub fn create_html_body(sales_info_html: &str) -> String{
 }
 
 pub fn send_html_msg(recipient: &str, subject: &str, body: &str) {
-    dotenv().ok();
+    if cfg!(target_os = "windows") { dotenv_windows().ok(); }
+    else if cfg!(target_os = "linux") { dotenv_linux().ok(); }
     let smtp_host = std::env::var("SMTP_HOST").expect("SMTP_HOST must be set");
     let smtp_port : u16 = std::env::var("SMTP_PORT").expect("SMTP_PORT must be set")
                                                     .parse().expect("Not a valid u16");

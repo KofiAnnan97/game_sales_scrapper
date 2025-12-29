@@ -1,4 +1,5 @@
-use dotenv::dotenv;
+use dotenv::dotenv as dotenv_linux;
+use dotenvy::dotenv as dotenv_windows;
 use std::io::Write;
 use std::io;
 use clap::{arg, command, Arg, ArgAction, Command, ArgMatches};
@@ -7,13 +8,16 @@ use clap::parser::ValueSource;
 // Internal libraries
 use game_sales_scrapper::stores::{steam, gog, microsoft_store};
 use game_sales_scrapper::alerting::email;
-use game_sales_scrapper::file_ops::{csv, settings, thresholds};
+use game_sales_scrapper::file_ops::{csv, thresholds,
+                                    settings::{self, STEAM_STORE_ID, GOG_STORE_ID, MICROSOFT_STORE_ID}};
+use game_sales_scrapper::json;
 use game_sales_scrapper::structs::data::{SaleInfo, SimpleGameThreshold};
 use game_sales_scrapper::structs::gog_response::GameInfo as GOGGameInfo;
 use game_sales_scrapper::structs::microsoft_store_response::ProductInfo;
 
 fn get_recipient() -> String {
-    dotenv().ok();
+    if cfg!(target_os = "windows") { dotenv_windows().ok(); }
+    else if cfg!(target_os = "linux") { dotenv_linux().ok(); }
     let recipient = std::env::var("RECIPIENT_EMAIL").expect("RECIPIENT_EMAIL must be set");
     recipient
 }
@@ -99,17 +103,17 @@ async fn check_prices(use_html: bool) -> String {
         }
     }
     if !steam_sales.is_empty(){
-        let store_name = settings::get_proper_store_name(settings::STEAM_STORE_ID).unwrap();
+        let store_name = settings::get_proper_store_name(STEAM_STORE_ID).unwrap();
         if use_html { output.push_str(&email::create_storefront_table_html(&store_name, steam_sales)); }
         else { output.push_str(&get_simple_prices_str(&store_name, steam_sales)); }
     }
     if !gog_sales.is_empty(){
-        let store_name = settings::get_proper_store_name(settings::GOG_STORE_ID).unwrap();
+        let store_name = settings::get_proper_store_name(GOG_STORE_ID).unwrap();
         if use_html { output.push_str(&email::create_storefront_table_html(&store_name, gog_sales)); }
         else { output.push_str(&get_simple_prices_str(&store_name, gog_sales)); }
     }
     if !microsoft_store_sales.is_empty(){
-        let store_name = settings::get_proper_store_name(settings::MICROSOFT_STORE_ID).unwrap();
+        let store_name = settings::get_proper_store_name(MICROSOFT_STORE_ID).unwrap();
         if use_html { output.push_str(&email::create_storefront_table_html(&store_name, microsoft_store_sales)); }
         else{ output.push_str(&get_simple_prices_str(&store_name, microsoft_store_sales)); }
     }
@@ -248,11 +252,15 @@ async fn main(){
         .required(false);
     let all_stores_arg = arg!(-a --all_stores "Search all game stores")
         .action(ArgAction::SetTrue)
-        .exclusive(true)
+        .conflicts_with_all(["steam", "gog", "microsoft_store"])
         .required(false);
     let alias_state_arg = arg!(-i --alias_state "Enable aliases for game titles (Possible options: [0,1])")
         .action(ArgAction::Set)
         .value_parser(clap::value_parser!(i32))
+        .required(false);
+    let test_flag_arg = arg!(-z --test_flag "Flag for saving data using the TEST_PATH env variable")
+        .action(ArgAction::SetTrue)
+        .hide(true)
         .required(false);
 
     let cmd : ArgMatches = command!()
@@ -265,34 +273,34 @@ async fn main(){
                     &gog_store_arg,
                     &microsoft_store_arg,
                     &all_stores_arg,
-                    &alias_state_arg
+                    &alias_state_arg,
+                    &test_flag_arg
                 ])
         )
         .subcommand(
             Command::new("add")
                 .about("Add a game to price thresholds")
-                .args([&title_arg, &price_arg, &alias_arg])
+                .args([&title_arg, &price_arg, &alias_arg, &test_flag_arg])
         )
         .subcommand(
             Command::new("bulk-insert")
                 .about("Add multiple games via CSV file")
-                .args([&file_arg])
+                .args([&file_arg, &test_flag_arg])
         )
         .subcommand(
             Command::new("update")
                 .about("Update price threshold for game")
-                .args([&title_arg, &price_arg])
+                .args([&title_arg, &price_arg, &test_flag_arg])
         )
         .subcommand(
             Command::new("remove")
                 .about("Remove game from price thresholds")
-                .arg(&title_arg)
+                .args([&title_arg, &test_flag_arg])
         )
         .arg(
             Arg::new("selected-stores")
                 .short('l')
                 .long("list-selected-stores")
-                .exclusive(true)
                 .action(ArgAction::SetTrue)
                 .conflicts_with_all([ "thresholds", "cache", "email", "check-prices"])
                 .required(false)
@@ -302,7 +310,6 @@ async fn main(){
             Arg::new("thresholds")
                 .short('t')
                 .long("list-thresholds")
-                .exclusive(true)
                 .action(ArgAction::SetTrue)
                 .conflicts_with_all(["cache", "email", "selected-stores", "check-prices"])
                 .required(false)
@@ -312,7 +319,6 @@ async fn main(){
             Arg::new("cache")
                 .short('c')
                 .long("update-cache")
-                .exclusive(true)
                 .action(ArgAction::SetTrue)
                 .conflicts_with_all(["thresholds", "email", "selected-stores", "check-prices"])
                 .required(false)
@@ -322,7 +328,6 @@ async fn main(){
             Arg::new("check-prices")
                 .short('p')
                 .long("check-prices")
-                .exclusive(true)
                 .action(ArgAction::SetTrue)
                 .conflicts_with_all(["thresholds", "cache", "selected-stores", "email"])
                 .required(false)
@@ -338,16 +343,20 @@ async fn main(){
                 .required(false)
                 .help("Send email if game(s) are below price threshold")
         )
+        .arg(test_flag_arg)
     .get_matches();
 
     match cmd.subcommand() {
         Some(("config", config_args)) => {
+            let test_flag = config_args.value_source("test_flag").unwrap();
+            if test_flag == ValueSource::CommandLine { json::enable_test_flag(); }
+
             let search_steam = config_args.value_source("steam").unwrap();
             let search_gog = config_args.value_source("gog").unwrap();
             //let search_humble_bundle = config_args.value_source("humble_bundle").unwrap();
             let search_microsoft_store = config_args.value_source("microsoft_store").unwrap();
             let search_all = config_args.value_source("all_stores").unwrap();
-            
+
             let mut selected : Vec<String> = Vec::new();
             if search_steam == ValueSource::CommandLine { selected.push(settings::STEAM_STORE_ID.to_string()); }
             if search_gog == ValueSource::CommandLine { selected.push(settings::GOG_STORE_ID.to_string()); }
@@ -362,12 +371,15 @@ async fn main(){
             }
         },
         Some(("add", add_args)) => {
+            let test_flag = add_args.value_source("test_flag").unwrap();
+            if test_flag == ValueSource::CommandLine { json::enable_test_flag(); }
+
             let selected_stores = storefront_check();
-            let mut alias = String::new();
-            if add_args.contains_id("alias") && settings::get_alias_state() {
-                alias = add_args.get_one::<String>("alias").unwrap().clone();
-            }
-            else { alias = thresholds::set_game_alias(); }
+            let alias = if add_args.contains_id("alias") && settings::get_alias_state() {
+                add_args.get_one::<String>("alias").unwrap().clone()
+            } else { 
+                thresholds::set_game_alias() 
+            };
             let title = add_args.get_one::<String>("title").unwrap().clone();
             let price = add_args.get_one::<f64>("price").unwrap().clone();
             let http_client = reqwest::Client::new();
@@ -384,6 +396,9 @@ async fn main(){
             }
         },
         Some(("bulk-insert", bulk_args)) => {
+            let test_flag = bulk_args.value_source("test_flag").unwrap();
+            if test_flag == ValueSource::CommandLine { json::enable_test_flag(); }
+
             let selected_stores = storefront_check();
             let mut game_list: Vec<SimpleGameThreshold> = Vec::new();
             let file_path = bulk_args.get_one::<String>("file").unwrap().clone();
@@ -411,15 +426,23 @@ async fn main(){
             }
         },
         Some(("update", update_args)) => {
+            let test_flag = update_args.value_source("test_flag").unwrap();
+            if test_flag == ValueSource::CommandLine { json::enable_test_flag(); }
+
             let title = update_args.get_one::<String>("title").unwrap().clone();
             let price = update_args.get_one::<f64>("price").unwrap().clone();
             thresholds::update_price(&title, price);
         },
         Some(("remove", remove_args)) => {
+            let test_flag = remove_args.value_source("test_flag").unwrap();
+            if test_flag == ValueSource::CommandLine { json::enable_test_flag(); }
+
+            if remove_args.contains_id("test_flag") { json::enable_test_flag(); }
             let title = remove_args.get_one::<String>("title").unwrap().clone();
             thresholds::remove(&title);
         },
         _ => {
+            if cmd.get_flag("test_flag") { json::enable_test_flag(); }
             if cmd.get_flag("thresholds") { thresholds::list_games(); }
             else if cmd.get_flag("selected-stores") { settings::list_selected(); }
             else if cmd.get_flag("cache"){
@@ -429,7 +452,9 @@ async fn main(){
             else if cmd.get_flag("check-prices") {
                 let use_html = false;
                 let prices_str = check_prices(use_html).await;
-                println!("------------\nCHECK PRICES\n------------\n{}", prices_str);
+                if !prices_str.is_empty() {
+                    println!("------------\nCHECK PRICES\n------------\n{}", prices_str);
+                }
             }
             else if cmd.get_flag("email"){
                 let use_html = true;

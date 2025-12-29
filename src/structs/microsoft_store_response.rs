@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use clap::builder::Str;
 use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize, Serialize, Debug)]
@@ -90,6 +89,66 @@ pub struct ProductInfo {
     card_actions: Vec<String>,
     #[serde(rename = "productRatings")]
     product_ratings: Vec<ProductRating>,
+}
+
+pub struct ProductInfoBuilder {
+    pub data: ProductInfo,
+}
+
+impl ProductInfoBuilder {
+    pub fn new(id_str: String, game_title: String,
+               price: PriceInfo, icon_link: String,
+               store_page_link: String) -> ProductInfo {
+        ProductInfo {
+            product_id: id_str,
+            title: game_title,
+            description: "".to_string(),
+            categories: vec![],
+            publisher_name: None,
+            images: vec![],
+            average_rating: 0.0,
+            price: 0.0,
+            display_price: "".to_string(),
+            product_family_name: "".to_string(),
+            package_family_names: vec![],
+            is_gaming_app_only: false,
+            installer: Default::default(),
+            skus_summary: vec![],
+            release_date_utc: None,
+            previews: vec![],
+            price_info: price,
+            type_tag: "".to_string(),
+            rating_count_formatted: None,
+            icon_url: "".to_string(),
+            poster_art_url: "".to_string(),
+            box_icon_url: icon_link,
+            icon_url_background: "".to_string(),
+            screenshots: vec![],
+            encoded_title: "".to_string(),
+            is_application: false,
+            is_game: false,
+            is_tv_series: false,
+            is_movie: false,
+            is_movies_or_tvs: false,
+            is_pwa: false,
+            is_core_game: false,
+            is_allowed: false,
+            is_browsable: false,
+            is_purchase_enabled: false,
+            is_ad: false,
+            is_spark_product: false,
+            is_android: false,
+            redirect_url: Option::from(store_page_link),
+            is_hardware: false,
+            is_subscription: false,
+            is_tencent: false,
+            is_tencent_mini: false,
+            page_title_localization: "".to_string(),
+            disable_download: false,
+            card_actions: vec![],
+            product_ratings: vec![],
+        }
+    }
 }
 
 #[derive(Deserialize, Serialize, Debug)]
@@ -212,7 +271,7 @@ pub struct GameInfo{
     #[serde(rename = "boxArtUrl")]
     pub box_icon_url: String,
     #[serde(rename = "heroImageUrl")]
-    hero_image_url: String,
+    hero_image_url: Option<String>,
     #[serde(rename = "iconUrlBackground")]
     icon_url_background: String,
     trailers: Vec<Trailers>,
@@ -347,10 +406,10 @@ pub struct PriceInfo {
     #[serde(rename = "badgeText")]
     pub badge_text: Option<String>,
     #[serde(rename = "forceToDisplayPrice")]
-    force_to_display_price: bool,
+    pub force_to_display_price: bool,
     #[serde(rename = "narratorText")]
-    narrator_text: String,
-    ownership: i64,
+    pub narrator_text: String,
+    pub ownership: i64,
 }
 
 #[derive(Deserialize, Serialize, Debug)]
