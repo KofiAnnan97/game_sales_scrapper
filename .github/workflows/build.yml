@@ -1,4 +1,6 @@
 name: Build
+permissions:
+  contents: read
 on:
   schedule:
     - cron: "0 0 1 */4 *"
