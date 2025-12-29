@@ -1,41 +1,67 @@
-use std::vec;
-use std::env;
+//use std::vec;
 use serde_json::Result;
 use serde_json::{Value, json};
 use std::fs::{read_to_string, metadata};
+use std::collections::HashMap;
+use std::path::PathBuf;
 
 use crate::file_ops::json;
 
 static CONFIG_FILENAME : &str = "config.json";
+static ALIAS_ENABLED : i32 = 1;
+static ALIAS_DISABLED : i32 = 0;
 
+// Store IDs
 pub const STEAM_STORE_ID : &str = "steam";
 pub const GOG_STORE_ID : &str = "gog";
-//pub const HUMBLE_BUNDLE_STORE_ID : &str = "humble_bundle";
+pub const MICROSOFT_STORE_ID : &str = "microsoft_store";
+
+// Store Names (Plain text)
+pub const STEAM_STORE_NAME : &str = "Steam";
+pub const GOG_STORE_NAME : &str = "Good Old Games (GOG)";
+pub const MICROSOFT_STORE_NAME : &str = "Microsoft Store (PC)";
+
+fn get_store_map() -> HashMap<String, String> {
+    let store_map = HashMap::from([
+        (STEAM_STORE_ID.to_string(), STEAM_STORE_NAME.to_string()),
+        (GOG_STORE_ID.to_string(), GOG_STORE_NAME.to_string()),
+        (MICROSOFT_STORE_ID.to_string(), MICROSOFT_STORE_NAME.to_string()),
+    ]);
+    store_map
+}
 
 pub fn get_available_stores() -> Vec<String> {
-    return vec![
-        String::from(STEAM_STORE_ID),
-        String::from(GOG_STORE_ID),
-        //String::from(HUMBLE_BUNDLE_STORE_ID),
-    ];
+    let stores_map = get_store_map();
+    let mut available_stores: Vec<String> = Vec::new();
+    for key in stores_map.keys(){
+        available_stores.push(key.to_string());
+    }
+    available_stores
+}
+
+pub fn get_proper_store_name(id: &str) -> Option<String> {
+    let stores_map = get_store_map();
+    if stores_map.contains_key(id){
+        return Some(stores_map[id].clone());
+    }
+    None
 }
 
 fn get_path() -> String{
-    let mut config_path = json::get_data_path();
-    config_path.push_str("/");
-    config_path.push_str(CONFIG_FILENAME);
-    let path_str = json::get_path(&config_path);
+    let path_buf: PathBuf = [json::get_data_path(), CONFIG_FILENAME.to_string()].iter().collect();
+    let config_path = path_buf.display().to_string();
+    let path_str = json::get_path(&config_path);  //Creates file if it does not exist already
     match metadata(&path_str){
         Ok(md) => {
             if md.len() == 0 {
                 let settings = json!({"selected_stores": [], "alias_enabled": 1});
-                let settings_str = serde_json::to_string(&settings);
+                let settings_str = serde_json::to_string_pretty(&settings);
                 json::write_to_file(config_path.to_string(), settings_str.expect("Initial settings could not be created."));
             }
         },
         Err(e) => eprintln!("Error: {}", e)
     }
-    return path_str;
+    path_str
 }
 
 pub fn load_data() -> Result<Value> {
@@ -55,7 +81,7 @@ pub fn get_selected_stores() -> Vec<String> {
         Ok(data) => stores = data,
         Err(e) => eprintln!("Error: {}", e)
     };
-    return stores;
+    stores
 }
 
 pub fn get_alias_state() -> bool {
@@ -71,15 +97,20 @@ pub fn get_alias_state() -> bool {
         },
         Err(e) => eprintln!("Error: {}", e)
     }
-    return state;
+    state
 }
 
 pub fn update_selected_stores(selected: Vec<String>) {
     match load_data(){
         Ok(data) => {
             let mut settings = data;
-            *settings.get_mut("selected_stores").unwrap() = json!(selected);
-            let settings_str = serde_json::to_string(&settings);
+            let selected_stores = settings.get_mut("selected_stores").unwrap();
+            let mut unique_stores : Vec<String> = Vec::new();
+            for store in selected {
+                if !unique_stores.contains(&store) { unique_stores.push(store); }
+            }
+            *selected_stores = json!(unique_stores);
+            let settings_str = serde_json::to_string_pretty(&settings);
             json::write_to_file(get_path(), settings_str.expect("Cannot update store search settings"));
         },
         Err(e) => eprintln!("Error: {}", e)
@@ -90,8 +121,9 @@ pub fn update_alias_state(is_enabled: i32){
     match load_data(){
         Ok(data) => {
             let mut settings = data;
-            *settings.get_mut("alias_enabled").unwrap() = json!(is_enabled);
-            let settings_str = serde_json::to_string(&settings);
+            let enabled_status = if is_enabled == ALIAS_ENABLED || is_enabled == ALIAS_DISABLED { is_enabled } else { ALIAS_DISABLED };
+            *settings.get_mut("alias_enabled").unwrap() = json!(enabled_status);
+            let settings_str = serde_json::to_string_pretty(&settings);
             json::write_to_file(get_path(), settings_str.expect("Cannot set state of aliases"));
         },
         Err(e) => eprintln!("Error: {}", e)
@@ -104,13 +136,14 @@ pub fn list_selected(){
     println!("Selected Stores");
     for a_store in available_stores.iter(){
         let mut is_selected = false;
+        let proper_name = get_proper_store_name(a_store).unwrap();
         for s_store in selected.iter() {
             if a_store == s_store {
                 is_selected = true;
                 break;
             }
         }
-        if is_selected { println!("  [X] {}", a_store); }
-        else { println!("  [ ] {}", a_store); }
+        if is_selected { println!("  [X] {}", proper_name); }
+        else { println!("  [ ] {}", proper_name); }
     }
 }

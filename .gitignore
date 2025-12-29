@@ -9,7 +9,8 @@
 Cargo.lock
 target/
 
-# Data
+# Ignore generated data and logs
+data/
+log/
 *.json
 *.csv
-log/

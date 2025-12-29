@@ -1,18 +1,25 @@
-use dotenv::dotenv;
+use dotenv::dotenv as dotenv_linux;
+use dotenvy::dotenv as dotenv_windows;
 use std::io::Write;
 use std::io;
 use clap::{arg, command, Arg, ArgAction, Command, ArgMatches};
 use clap::parser::ValueSource;
 
 // Internal libraries
-use game_sales_scrapper::stores::{steam, gog}; //, humble_bundle};
+use game_sales_scrapper::stores::{steam, gog, microsoft_store};
 use game_sales_scrapper::alerting::email;
-use game_sales_scrapper::file_ops::{csv, settings, thresholds};
+use game_sales_scrapper::file_ops::{csv, thresholds,
+                                    settings::{self, STEAM_STORE_ID, GOG_STORE_ID, MICROSOFT_STORE_ID}};
+use game_sales_scrapper::json;
+use game_sales_scrapper::structs::data::{SaleInfo, SimpleGameThreshold};
+use game_sales_scrapper::structs::gog_response::GameInfo as GOGGameInfo;
+use game_sales_scrapper::structs::microsoft_store_response::ProductInfo;
 
 fn get_recipient() -> String {
-    dotenv().ok();
+    if cfg!(target_os = "windows") { dotenv_windows().ok(); }
+    else if cfg!(target_os = "linux") { dotenv_linux().ok(); }
     let recipient = std::env::var("RECIPIENT_EMAIL").expect("RECIPIENT_EMAIL must be set");
-    return recipient;
+    recipient
 }
 
 fn storefront_check() -> Vec<String> {
@@ -23,47 +30,34 @@ fn storefront_check() -> Vec<String> {
     selected_stores
 }
 
-fn set_game_alias() -> String {
-    let mut alias = "".to_string();
-    if settings::get_alias_state() {
-        let mut input = String::new();
-        print!("Do you want to assign an alias [Y\\N]? ");
-        let _ = io::stdout().flush();
-        io::stdin()
-            .read_line(&mut input)
-            .expect("Failed to permission to assign alias.");
-        if input.trim() == "Yes" || input.trim() == "Y" || input.trim() == "YES"{
-            print!("Alias name: ");
-            let _ = io::stdout().flush();
-            let mut alias_name = String::new();
-            io::stdin()
-                .read_line(&mut alias_name)
-                .expect("Failed to read alias.");
-            alias = alias_name.trim().to_string();
-        }
+fn get_simple_prices_str(store_name: &str, sales: Vec<SaleInfo>) -> String{
+    let mut prices_str = String::new();
+    for game in sales.iter(){
+        prices_str.push_str(&format!("\n\t- {} : {} -> {} ({}% off)",
+                                   game.title, game.original_price, game.current_price,
+                                   game.discount_percentage));
     }
-    alias
+    if !prices_str.is_empty() {
+        let header_str = format!("\n{} game(s) that met your desired price:", store_name);
+        prices_str = header_str + &prices_str;
+    }
+    prices_str
 }
 
-async fn check_prices() -> String {
-    let mut thresholds : Vec<thresholds::GameThreshold> = Vec::new();
-    match thresholds::load_data(){
-        Ok(data) => thresholds = data,
-        Err(e) => println!("Error: {}", e)
-    }
-    let mut steam_output = String::from("");
-    let mut gog_output = String::from("");
-    //let mut humble_bundle_output = String::from("");
+async fn check_prices(use_html: bool) -> String {
+    let thresholds = thresholds::load_data().unwrap_or_else(|_e|Vec::new());
+    let mut steam_sales: Vec<SaleInfo> = Vec::new();
+    let mut gog_sales: Vec<SaleInfo> = Vec::new();
+    let mut microsoft_store_sales: Vec<SaleInfo> = Vec::new();
     let http_client = reqwest::Client::new();
+    let mut output = String::new();
     for elem in thresholds.iter(){
         if elem.steam_id != 0 {
-            match steam::get_price(elem.steam_id, &http_client).await {
-                Ok(po) => {
-                    if elem.desired_price >= po.final_price {
-                        let price_str = format!("\n\t- {} : {} -> {} {} ({}% off)", 
-                                            elem.title, po.initial, po.final_price, 
-                                            po.currency, po.discount_percent);
-                        steam_output.push_str(&price_str);
+            match steam::get_price_details(elem.steam_id, &http_client).await {
+                Ok(info) => {
+                    let current_price = info.current_price.parse::<f64>().unwrap();
+                    if elem.desired_price >= current_price {
+                        steam_sales.push(info);
                     }
                 },
                 Err(e) => println!("{}", e)
@@ -71,64 +65,59 @@ async fn check_prices() -> String {
         }
         if elem.gog_id != 0 {
             if gog::VERSION == 1{
-                match gog::get_price(&elem.title).await {
+                match gog::get_price_details(&elem.title).await {
                     Some(po) => {
                         let current_price = po.final_amount.parse::<f64>().unwrap();
                         if elem.desired_price >= current_price {
-                            let price_str = format!("\n\t- {} : {} -> {} {} ({}% off)", 
-                                                elem.title, po.base_amount, po.final_amount, 
-                                               po.currency, po.discount_percentage);
-                            gog_output.push_str(&price_str);
+                            let price_str = format!("\n\t- {} : {} -> {} {} ({}% off)",
+                                                    elem.title, po.base_amount, po.final_amount,
+                                                    po.currency, po.discount_percentage);
+                            output.push_str(&price_str);
                         }
                     },
                     None => ()
                 }
             }
-            if gog::VERSION == 2{
-                match gog::get_price_v2(&elem.title, &http_client).await {
-                    Some(po) => {
-                        let current_price = po.final_money.amount.parse::<f64>().unwrap();
+            else if gog::VERSION == 2{
+                match gog::get_price_details_v2(&elem.title, &http_client).await {
+                    Some(info) => {
+                        let current_price = info.current_price.parse::<f64>().unwrap();
                         if elem.desired_price >= current_price {
-                            let mut discount = String::new();
-                            match po.discount {
-                                Some(d) => discount = d,
-                                None => (),
-                            }
-                            let price_str = format!("\n\t- {} : {} -> {} {} ({} off)",
-                                                elem.title, po.base_money.amount, po.final_money.amount, 
-                                                po.base_money.currency, discount[1..].to_string());
-                            gog_output.push_str(&price_str);
+                            gog_sales.push(info);
                         }
                     },
                     None => ()
                 }
             }
         }
-        /*if !elem.humble_bundle_id.is_empty() {
-            match humble_bundle::get_price(&elem.humble_bundle_id, &http_client).await {
-                Some(po) => {
-                    let current_price = po.amount;
+        if !elem.microsoft_store_id.is_empty() {
+            match microsoft_store::get_price_details(&elem.microsoft_store_id, &http_client).await {
+                Some(info) => {
+                    let current_price = info.current_price.parse::<f64>().unwrap();
                     if elem.desired_price >= current_price {
-                        let price_str = format!("\n\t- {} : {} {}", 
-                                                elem.title, current_price, po.currency);
-                        humble_bundle_output.push_str(&price_str);
+                        microsoft_store_sales.push(info);
                     }
                 },
                 None => ()
             }
-        }*/
+        }
     }
-    if !steam_output.is_empty(){
-        steam_output = "Steam price thresholds that have been met:".to_owned() + &steam_output;
+    if !steam_sales.is_empty(){
+        let store_name = settings::get_proper_store_name(STEAM_STORE_ID).unwrap();
+        if use_html { output.push_str(&email::create_storefront_table_html(&store_name, steam_sales)); }
+        else { output.push_str(&get_simple_prices_str(&store_name, steam_sales)); }
     }
-    if !gog_output.is_empty(){
-        gog_output = "\n\nGOG price thresholds that have been met:".to_owned() + &gog_output;
+    if !gog_sales.is_empty(){
+        let store_name = settings::get_proper_store_name(GOG_STORE_ID).unwrap();
+        if use_html { output.push_str(&email::create_storefront_table_html(&store_name, gog_sales)); }
+        else { output.push_str(&get_simple_prices_str(&store_name, gog_sales)); }
     }
-    /*if !humble_bundle_output.is_empty(){
-        humble_bundle_output = "\n\nHumble Bundle price thresholds that have been met:".to_owned() + &humble_bundle_output;
-    }*/
-    let output = steam_output + &gog_output; // + &humble_bundle_output;
-    return output;
+    if !microsoft_store_sales.is_empty(){
+        let store_name = settings::get_proper_store_name(MICROSOFT_STORE_ID).unwrap();
+        if use_html { output.push_str(&email::create_storefront_table_html(&store_name, microsoft_store_sales)); }
+        else{ output.push_str(&get_simple_prices_str(&store_name, microsoft_store_sales)); }
+    }
+    output
 }
 
 async fn steam_insert_sequence(alias: &str, title: &str, price: f64, client: &reqwest::Client) {
@@ -149,17 +138,21 @@ async fn steam_insert_sequence(alias: &str, title: &str, price: f64, client: &re
 }
 
 async fn gog_insert_sequence(alias: &str, title: &str, price: f64, client: &reqwest::Client){
-    let mut search_list : Vec<gog::GameInfo> = Vec::new();
+    let mut search_list : Vec<GOGGameInfo> = Vec::new();
     match gog::search_game_by_title_v2(title, &client).await {
         Ok(data) => search_list = data,
         Err(e) => println!("Search GOG Game Error: {}", e)
     }
-    if search_list.len() > 0 {
+    if !search_list.is_empty() {
         println!("GOG search results:");
         for (i, game) in search_list.iter().enumerate(){
-            println!("  [{}] {}", i, game.title);
+            let price = match &game.price{
+                Some(po) => po.base_money.amount.clone(),
+                None => String::from("0"),
+            };
+            println!("  [{}] {} - ${}", i, game.title, price);
         }
-        println!("  [q] Quit");
+        println!("  [q] SKIP");
         let mut input = String::new();
         print!("Type integer corresponding to game title or type \"q\" to quit: ");
         let _ = io::stdout().flush();
@@ -190,38 +183,31 @@ async fn gog_insert_sequence(alias: &str, title: &str, price: f64, client: &reqw
     }
 }
 
-/*async fn humble_bundle_insert_sequence(alias: &str, title: &str, price: f64, client: &reqwest::Client){
-    let mut search_list: Vec<humble_bundle::GameInfo> = Vec::new();
-    humble_bundle::search_game_v2(&title).await //{
-        //Ok(data) => search_list = data,
-        //Err(e) => println!("Search GOG Game Error: {}", e)
-    //}
-    /*match humble_bundle::search_game(&title, &http_client).await {
+async fn microsoft_store_insert_sequence(alias: &str, title: &str, price: f64, client: &reqwest::Client){
+    let mut search_list : Vec<ProductInfo> = Vec::new();
+    match microsoft_store::search_game_by_title(title, &client).await {
         Ok(data) => search_list = data,
-        Err(e) => println!("Search GOG Game Error: {}", e)
+        Err(e) => println!("Search Microsoft Store Error: {}", e)
     }
-    if search_list.len() > 0 {
-        print!("Humble Bundle search results: ");
-        for (i, game) in search_list.iter().enumerate(){
-            println!("  [{}] {}", i, game.human_name);
+    if !search_list.is_empty() {
+        println!("Microsoft Store search results:");
+        for(i, game) in search_list.iter().enumerate(){
+            println!("  [{}] {} - ${}", i, game.title, game.price_info.msrp.unwrap_or_default());
         }
-        println!("  [q] Quit");
+        println!("  [q] SKIP");
         let mut input = String::new();
         print!("Type integer corresponding to game title or type \"q\" to quit: ");
         let _ = io::stdout().flush();
         io::stdin()
             .read_line(&mut input)
             .expect("Failed to read user input");
-        if input.trim() == "q" {
-            eprintln!("Request terminated.");
-        }
+        if input.trim() == "q" { eprintln!("Request terminated."); }
         else {
             match input.trim().parse::<usize>() {
                 Ok(idx) => {
                     if idx < search_list.len(){
-                        title = search_list[idx].human_name.clone();
                         let game = &search_list[idx];
-                        thresholds::add_humble_bundle_game(alias.clone(), game, price);
+                        thresholds::add_microsoft_store_game(alias.to_string(), game, price);
                     }
                     else if idx >= search_list.len(){
                         eprintln!("Integer \"{}\" is invalid. Request terminated.", idx);
@@ -231,10 +217,10 @@ async fn gog_insert_sequence(alias: &str, title: &str, price: f64, client: &reqw
             }
         }
     }
-    else{
-        println!("Could not find a game title matching \"{}\" on Humble Bundle.", title);
-    }*/
-}*/
+    else {
+        println!("Could not find a game title matching \"{}\" on the Microsoft Store.", title);
+    }
+}
 
 // Main function
 #[tokio::main]
@@ -261,16 +247,20 @@ async fn main(){
     let gog_store_arg = arg!(-g --gog "Search Good Old Games (GOG) Store")
         .action(ArgAction::SetTrue)
         .required(false);
-    /*let humble_bundle_store_arg =  arg!(-b --humble_bundle "Search Humble Bundle Store")
+    let microsoft_store_arg =  arg!(-m --microsoft_store "Search Microsoft Store")
         .action(ArgAction::SetTrue)
-        .required(false);*/
+        .required(false);
     let all_stores_arg = arg!(-a --all_stores "Search all game stores")
         .action(ArgAction::SetTrue)
-        .exclusive(true)
+        .conflicts_with_all(["steam", "gog", "microsoft_store"])
         .required(false);
     let alias_state_arg = arg!(-i --alias_state "Enable aliases for game titles (Possible options: [0,1])")
         .action(ArgAction::Set)
         .value_parser(clap::value_parser!(i32))
+        .required(false);
+    let test_flag_arg = arg!(-z --test_flag "Flag for saving data using the TEST_PATH env variable")
+        .action(ArgAction::SetTrue)
+        .hide(true)
         .required(false);
 
     let cmd : ArgMatches = command!()
@@ -281,38 +271,38 @@ async fn main(){
                 .args([
                     &steam_store_arg,
                     &gog_store_arg,
-                    //&humble_bundle_store_arg,
+                    &microsoft_store_arg,
                     &all_stores_arg,
-                    &alias_state_arg
+                    &alias_state_arg,
+                    &test_flag_arg
                 ])
         )
         .subcommand(
             Command::new("add")
                 .about("Add a game to price thresholds")
-                .args([&title_arg, &price_arg, &alias_arg])
+                .args([&title_arg, &price_arg, &alias_arg, &test_flag_arg])
         )
         .subcommand(
-            Command::new("bulk_insert")
+            Command::new("bulk-insert")
                 .about("Add multiple games via CSV file")
-                .args([&file_arg])
+                .args([&file_arg, &test_flag_arg])
         )
         .subcommand(
             Command::new("update")
                 .about("Update price threshold for game")
-                .args([&title_arg, &price_arg])
+                .args([&title_arg, &price_arg, &test_flag_arg])
         )
         .subcommand(
             Command::new("remove")
                 .about("Remove game from price thresholds")
-                .arg(&title_arg)
+                .args([&title_arg, &test_flag_arg])
         )
         .arg(
             Arg::new("selected-stores")
                 .short('l')
                 .long("list-selected-stores")
-                .exclusive(true)
                 .action(ArgAction::SetTrue)
-                .conflicts_with_all([ "thresholds", "cache", "email"])
+                .conflicts_with_all([ "thresholds", "cache", "email", "check-prices"])
                 .required(false)
                 .help("Display the selected storefronts")
         )
@@ -320,9 +310,8 @@ async fn main(){
             Arg::new("thresholds")
                 .short('t')
                 .long("list-thresholds")
-                .exclusive(true)
                 .action(ArgAction::SetTrue)
-                .conflicts_with_all(["cache", "email", "selected-stores"])
+                .conflicts_with_all(["cache", "email", "selected-stores", "check-prices"])
                 .required(false)
                 .help("List all game price thresholds")
         )
@@ -330,11 +319,19 @@ async fn main(){
             Arg::new("cache")
                 .short('c')
                 .long("update-cache")
-                .exclusive(true)
                 .action(ArgAction::SetTrue)
-                .conflicts_with_all(["thresholds", "email", "selected-stores"])
+                .conflicts_with_all(["thresholds", "email", "selected-stores", "check-prices"])
                 .required(false)
                 .help("Updated cached list of games")
+        )
+        .arg(
+            Arg::new("check-prices")
+                .short('p')
+                .long("check-prices")
+                .action(ArgAction::SetTrue)
+                .conflicts_with_all(["thresholds", "cache", "selected-stores", "email"])
+                .required(false)
+                .help("Print out which games are on sale")
         )
         .arg(
             Arg::new("email")
@@ -342,23 +339,29 @@ async fn main(){
                 .long("send-email")
                 .exclusive(true)
                 .action(ArgAction::SetTrue)
-                .conflicts_with_all(["thresholds", "cache", "selected-stores"])
+                .conflicts_with_all(["thresholds", "cache", "selected-stores", "check-prices"])
                 .required(false)
                 .help("Send email if game(s) are below price threshold")
         )
+        .arg(test_flag_arg)
     .get_matches();
 
     match cmd.subcommand() {
         Some(("config", config_args)) => {
+            let test_flag = config_args.value_source("test_flag").unwrap();
+            if test_flag == ValueSource::CommandLine { json::enable_test_flag(); }
+
             let search_steam = config_args.value_source("steam").unwrap();
             let search_gog = config_args.value_source("gog").unwrap();
             //let search_humble_bundle = config_args.value_source("humble_bundle").unwrap();
+            let search_microsoft_store = config_args.value_source("microsoft_store").unwrap();
             let search_all = config_args.value_source("all_stores").unwrap();
-            
+
             let mut selected : Vec<String> = Vec::new();
             if search_steam == ValueSource::CommandLine { selected.push(settings::STEAM_STORE_ID.to_string()); }
             if search_gog == ValueSource::CommandLine { selected.push(settings::GOG_STORE_ID.to_string()); }
             //if search_humble_bundle == ValueSource::CommandLine { selected.push(settings::HUMBLE_BUNDLE_STORE_ID.to_string()); }
+            if search_microsoft_store == ValueSource::CommandLine { selected.push(settings::MICROSOFT_STORE_ID.to_string()); }
             if search_all == ValueSource::CommandLine { selected = settings::get_available_stores(); } 
             if selected.len() > 0 { settings::update_selected_stores(selected); }
             if config_args.contains_id("alias_state"){
@@ -368,12 +371,15 @@ async fn main(){
             }
         },
         Some(("add", add_args)) => {
+            let test_flag = add_args.value_source("test_flag").unwrap();
+            if test_flag == ValueSource::CommandLine { json::enable_test_flag(); }
+
             let selected_stores = storefront_check();
-            let mut alias = String::new();
-            if add_args.contains_id("alias") && settings::get_alias_state() {
-                alias = add_args.get_one::<String>("alias").unwrap().clone();
-            }
-            else { alias = set_game_alias(); }
+            let alias = if add_args.contains_id("alias") && settings::get_alias_state() {
+                add_args.get_one::<String>("alias").unwrap().clone()
+            } else { 
+                thresholds::set_game_alias() 
+            };
             let title = add_args.get_one::<String>("title").unwrap().clone();
             let price = add_args.get_one::<f64>("price").unwrap().clone();
             let http_client = reqwest::Client::new();
@@ -384,14 +390,17 @@ async fn main(){
                 if store == settings::GOG_STORE_ID {
                     gog_insert_sequence(&alias, &title, price, &http_client).await;
                 }
-                /*if store == settings::HUMBLE_BUNDLE_STORE_ID {
-                    humble_bundle_insert_sequence(&alias, &title, price, &http_client).await;
-                }*/
+                if store == settings::MICROSOFT_STORE_ID {
+                    microsoft_store_insert_sequence(&alias, &title, price, &http_client).await;
+                }
             }
         },
-        Some(("bulk_insert", bulk_args)) => {
+        Some(("bulk-insert", bulk_args)) => {
+            let test_flag = bulk_args.value_source("test_flag").unwrap();
+            if test_flag == ValueSource::CommandLine { json::enable_test_flag(); }
+
             let selected_stores = storefront_check();
-            let mut game_list: Vec<csv::DesiredGamePrice> = Vec::new();
+            let mut game_list: Vec<SimpleGameThreshold> = Vec::new();
             let file_path = bulk_args.get_one::<String>("file").unwrap().clone();
             match csv::parse_game_prices(&file_path){
                 Ok(gl) => game_list = gl,
@@ -401,7 +410,7 @@ async fn main(){
             for game in game_list.iter(){
                 println!("INSERT GAME -> \"{}\"", game.name);
                 let title = &game.name;
-                let alias = set_game_alias();
+                let alias = thresholds::set_game_alias();
                 let price: f64 = game.price;
                 for store in selected_stores.iter(){
                     if store == settings::STEAM_STORE_ID {
@@ -410,33 +419,52 @@ async fn main(){
                     if store == settings::GOG_STORE_ID {
                         gog_insert_sequence(&alias, &title, price, &http_client).await;
                     }
+                    if store == settings::MICROSOFT_STORE_ID {
+                        microsoft_store_insert_sequence(&alias, &title, price, &http_client).await;
+                    }
                 }
             }
         },
         Some(("update", update_args)) => {
+            let test_flag = update_args.value_source("test_flag").unwrap();
+            if test_flag == ValueSource::CommandLine { json::enable_test_flag(); }
+
             let title = update_args.get_one::<String>("title").unwrap().clone();
             let price = update_args.get_one::<f64>("price").unwrap().clone();
             thresholds::update_price(&title, price);
         },
         Some(("remove", remove_args)) => {
+            let test_flag = remove_args.value_source("test_flag").unwrap();
+            if test_flag == ValueSource::CommandLine { json::enable_test_flag(); }
+
+            if remove_args.contains_id("test_flag") { json::enable_test_flag(); }
             let title = remove_args.get_one::<String>("title").unwrap().clone();
             thresholds::remove(&title);
         },
         _ => {
+            if cmd.get_flag("test_flag") { json::enable_test_flag(); }
             if cmd.get_flag("thresholds") { thresholds::list_games(); }
             else if cmd.get_flag("selected-stores") { settings::list_selected(); }
             else if cmd.get_flag("cache"){
                 println!("Caching started");
                 steam::update_cached_games().await;
             }
+            else if cmd.get_flag("check-prices") {
+                let use_html = false;
+                let prices_str = check_prices(use_html).await;
+                if !prices_str.is_empty() {
+                    println!("------------\nCHECK PRICES\n------------\n{}", prices_str);
+                }
+            }
             else if cmd.get_flag("email"){
-                let email_str = check_prices().await;
+                let use_html = true;
+                let email_str = check_prices(use_html).await;
                 println!("Email Contents:\n{}\n", email_str);
                 if email_str.is_empty(){ println!("No game(s) on sale at price thresholds"); }
                 else {
                     println!("Sending email...");
                     let to_address = &get_recipient();
-                    email::send(to_address, "Steam Games At Desired Prices",&email_str);
+                    email::send_html_msg(to_address, "Check Out Which Games Are On Sale", &email_str);
                 }
             }
             else { println!("No/incorrect command given. Use \'--help\' for assistance."); }
