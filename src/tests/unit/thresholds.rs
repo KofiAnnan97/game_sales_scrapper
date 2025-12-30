@@ -1,12 +1,12 @@
 #[cfg(test)]
 use serde_json::json;
-use crate::thresholds;
-use crate::json as json_data;
-use crate::settings::{GOG_STORE_ID, MICROSOFT_STORE_ID, STEAM_STORE_ID};
-use crate::data::GameThreshold;
-use crate::steam_response::App;
-use crate::gog_response::{GameInfoBuilder as GOGGameBuilder, GameInfo as GOGGame, Price, FinalMoney, BaseMoney};
-use crate::microsoft_store_response::{ProductInfoBuilder as MSGameBuilder, ProductInfo as MSGame, PriceInfo};
+use file_ops::thresholds;
+use file_types::json as json_data;
+use file_ops::settings::{GOG_STORE_ID, MICROSOFT_STORE_ID, STEAM_STORE_ID};
+use structs::data::GameThreshold;
+use structs::steam_response::App;
+use structs::gog_response::{GameInfoBuilder as GOGGameBuilder, GameInfo as GOGGame, Price, FinalMoney, BaseMoney};
+use structs::microsoft_store_response::{ProductInfoBuilder as MSGameBuilder, ProductInfo as MSGame, PriceInfo};
 
 // Constants
 static THRESHOLD_FILENAME: &str = "thresholds.json";

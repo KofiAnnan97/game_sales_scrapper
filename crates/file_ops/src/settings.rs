@@ -5,7 +5,7 @@ use std::fs::{read_to_string, metadata};
 use std::collections::HashMap;
 use std::path::PathBuf;
 
-use crate::file_ops::json;
+use file_types::json;
 
 static CONFIG_FILENAME : &str = "config.json";
 static ALIAS_ENABLED : i32 = 1;

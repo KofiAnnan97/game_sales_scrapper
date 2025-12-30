@@ -1,5 +1,5 @@
 #[cfg(test)]
-use crate::gog;
+use stores::gog;
 
 // Constants
 static GAME_TITLE: &str = "SILENT HILL f";

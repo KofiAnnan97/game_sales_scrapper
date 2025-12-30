@@ -6,9 +6,10 @@ use regex::Regex;
 use std::io::{self, Write};
 use std::env;
 use std::path::PathBuf;
-use crate::file_ops::{json};
-use crate::structs::data::{SaleInfo};
-use crate::structs::steam_response::{App, PriceOverview};
+
+use file_types::json;
+use structs::data::{SaleInfo};
+use structs::steam_response::{App, PriceOverview};
 
 static CACHE_FILENAME : &str = "steam_game_titles_cache.json";
 

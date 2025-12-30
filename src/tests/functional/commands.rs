@@ -1,15 +1,19 @@
 #[cfg(test)]
 use std::collections::HashMap;
+use std::{env, fs};
+use std::fs::read_to_string;
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use regex::Regex;
 use dotenv::dotenv as dotenv_linux;
 use dotenvy::dotenv as dotenv_windows;
-
-use crate::data::{GameThreshold, SimpleGameThreshold};
-use crate::{json, csv, thresholds};
-use crate::settings::{self, GOG_STORE_ID, MICROSOFT_STORE_ID, STEAM_STORE_ID};
+use serde_json::{json, Value};
+use structs::data::{GameThreshold, SimpleGameThreshold};
+use file_types::{json, csv};
+use file_ops::thresholds;
+use file_ops::settings::{self, GOG_STORE_ID, MICROSOFT_STORE_ID, STEAM_STORE_ID};
+use file_ops::thresholds::get_path;
 
 // Sample Game Data IDs
 static E33_GAME_TITLE: &str = "Clair Obscur: Expedition 33";
@@ -22,30 +26,75 @@ static SELECT_STORES_PRTN: &str = r"\[(X|\s)\]\s+(.*)";
 static GAME_THRESH_PTRN: &str = r"-\s+(.*)\s+=>\s+(\d+.\d+|\d+)";
 static PRICE_CHECK_PTRN: &str = r"-\s(?<title>.*)\s:\s\d+.\d+\s->\s\d+.\d+\s\(";
 
-// CHANGE THIS FN TO NOT RELY ON INTERNAL CODE
+static THRESHOLD_FILENAME: &str = "thresholds.json";
+static SETTINGS_FILENAME: &str = "config.json";
+
+fn get_data_path() -> String {
+    if cfg!(target_os = "windows") { dotenv_windows().ok(); }
+    else if cfg!(target_os = "linux") { dotenv_linux().ok(); }
+    let mut data_path = env::var("TEST_PATH").unwrap_or_else(|_| String::from("."));
+    let path: PathBuf = [&data_path, "data"].iter().collect();
+    data_path = path.display().to_string();
+    if !Path::new(&data_path).is_dir() {
+        let _ = fs::create_dir(&data_path);
+    }
+    data_path
+}
+
+fn get_threshold_path() -> String {
+    let mut threshold_path = get_data_path();
+    let path: PathBuf = [&threshold_path, THRESHOLD_FILENAME].iter().collect();
+    threshold_path = path.display().to_string();
+    if !Path::new(&threshold_path).is_dir() {
+        let _ = fs::create_dir(&threshold_path);
+    }
+    threshold_path
+}
+
+fn get_settings_path() -> String {
+    let mut settings_path = get_data_path();
+    let path: PathBuf = [&settings_path, SETTINGS_FILENAME].iter().collect();
+    settings_path = path.display().to_string();
+    if !Path::new(&settings_path).is_dir() {
+        let _ = fs::create_dir(&settings_path);
+    }
+    settings_path
+}
+
 fn load_thresholds() -> Vec<GameThreshold> {
-    thresholds::load_data().unwrap_or_default()
+    let filepath = get_threshold_path();
+    let data = read_to_string(filepath).unwrap();
+    serde_json::from_str::<Vec<GameThreshold>>(&data).unwrap_or_default()
 }
 
-// CHANGE THIS FN TO NOT RELY ON INTERNAL CODE
 fn load_stores() -> Vec<String> {
-    settings::get_selected_stores()
+    let filepath = get_settings_path();
+    let mut stores : Vec<String> = Vec::new();
+    let data = read_to_string(filepath).unwrap();
+    let body : Value = serde_json::from_str(&data).expect("Get selected stores - could not convert to JSON");
+    let selected = serde_json::to_string(&body["selected_stores"]).unwrap();
+    serde_json::from_str::<Vec<String>>(&selected).unwrap_or_default()
 }
 
-// CHANGE THIS FN TO NOT RELY ON INTERNAL CODE
 fn load_alias_state() -> bool{
-    settings::get_alias_state()
+    let filepath = get_settings_path();
+    let mut state : bool = true;
+    let data = read_to_string(filepath).unwrap();
+    let body : Value = serde_json::from_str(&data).expect("Get alias state - could not convert to JSON");
+    let alias_enabled =serde_json::to_string(&body["alias_enabled"]).unwrap();
+    serde_json::from_str::<bool>(&data).unwrap_or_else(|_|false)
 }
 
-// CHANGE THIS FN TO NOT RELY ON INTERNAL CODE
 fn clear_settings() {
-    settings::update_selected_stores(Vec::new());
-    settings::update_alias_state(1);
+    let settings = json!({"selected_stores": [], "alias_enabled": 1});
+    let settings_str = serde_json::to_string_pretty(&settings);
+    json::write_to_file(get_settings_path(), settings_str.expect("Clear settings."));
 }
 
-// CHANGE THIS FN TO NOT RELY ON INTERNAL CODE
 fn clear_thresholds(){
-    json::delete_file(thresholds::get_path());
+    let thresholds = json!([]);
+    let thresholds_str = serde_json::to_string_pretty(&thresholds);
+    json::write_to_file(get_threshold_path(), thresholds_str.expect("Clear thresholds."));
 }
 
 fn add_fake_threshold(alias: &str, title: &str, price: f64) {
@@ -72,7 +121,7 @@ fn add_threshold(alias: &str, title: &str, steam_id: usize, gog_id: usize, ms_id
     }
     if unique { thresholds.push(game_thresh); }
     let data_str = serde_json::to_string_pretty(&thresholds).unwrap();
-    json::write_to_file(thresholds::get_path(), data_str);
+    json::write_to_file(get_threshold_path(), data_str);
 }
 
 fn get_sample_csv(filename: &str) -> String {
@@ -118,6 +167,7 @@ fn config_cmd() {
     let mut steam_present = false;
     let mut gog_present = false;
     let mut ms_present = false;
+    println!("{:?}", stores);
     for store_name in stores {
         if store_name == STEAM_STORE_ID { steam_present = true; }
         else if store_name == GOG_STORE_ID { gog_present = true; }

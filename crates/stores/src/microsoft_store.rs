@@ -1,7 +1,7 @@
 use serde_json::{Result, Value, Error};
 
-use crate::structs::data::SaleInfo;
-use crate::structs::microsoft_store_response::{ProductInfo, GameInfo};
+use structs::data::SaleInfo;
+use structs::microsoft_store_response::{ProductInfo, GameInfo};
 
 static BASE_URL : &str = "https://apps.microsoft.com";
 static SEARCH_ENDPOINT : &str = "/api/products/search";

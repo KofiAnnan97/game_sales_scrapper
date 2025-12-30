@@ -1,0 +1,15 @@
+[package]
+name = "file_ops"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+
+[dependencies]
+# Internal crates
+stores = { path = "../stores" }
+structs = { path = "../structs" }
+file_types = { path = "../file_types" }
+
+# External crates
+reqwest = { workspace = true, features = ["json", "blocking"] }
+serde_json.workspace = true

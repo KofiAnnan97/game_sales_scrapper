@@ -1,0 +1,16 @@
+[package]
+name = "file_types"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+
+[dependencies]
+# Internal crates
+structs = { path = "../structs" }
+
+# External crates
+dotenv.workspace = true
+dotenvy.workspace = true
+csv.workspace = true
+lazy_static.workspace = true
+cfg-if.workspace = true
