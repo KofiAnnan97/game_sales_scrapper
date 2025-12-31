@@ -1,8 +1,8 @@
 use serde_json::{Result, Value, Error};
 use std::f64;
 
-use crate::structs::data::{SaleInfo};
-use crate::structs::gog_response::{Game, PriceOverview, GameInfo};
+use structs::data::{SaleInfo};
+use structs::gog::{Game, PriceOverview, GameInfo};
 
 pub static VERSION: u32 = 2;
 

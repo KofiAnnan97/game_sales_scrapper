@@ -6,14 +6,13 @@ use clap::{arg, command, Arg, ArgAction, Command, ArgMatches};
 use clap::parser::ValueSource;
 
 // Internal libraries
-use game_sales_scrapper::stores::{steam, gog, microsoft_store};
-use game_sales_scrapper::alerting::email;
-use game_sales_scrapper::file_ops::{csv, thresholds,
-                                    settings::{self, STEAM_STORE_ID, GOG_STORE_ID, MICROSOFT_STORE_ID}};
-use game_sales_scrapper::json;
-use game_sales_scrapper::structs::data::{SaleInfo, SimpleGameThreshold};
-use game_sales_scrapper::structs::gog_response::GameInfo as GOGGameInfo;
-use game_sales_scrapper::structs::microsoft_store_response::ProductInfo;
+use stores::{steam, gog, microsoft_store};
+use alerting::email;
+use file_types::{csv, json};
+use file_ops::{thresholds, settings::{self, STEAM_STORE_ID, GOG_STORE_ID, MICROSOFT_STORE_ID}};
+use structs::data::{SaleInfo, SimpleGameThreshold};
+use structs::gog::GameInfo as GOGGameInfo;
+use structs::microsoft_store::ProductInfo;
 
 fn get_recipient() -> String {
     if cfg!(target_os = "windows") { dotenv_windows().ok(); }
@@ -34,8 +33,8 @@ fn get_simple_prices_str(store_name: &str, sales: Vec<SaleInfo>) -> String{
     let mut prices_str = String::new();
     for game in sales.iter(){
         prices_str.push_str(&format!("\n\t- {} : {} -> {} ({}% off)",
-                                   game.title, game.original_price, game.current_price,
-                                   game.discount_percentage));
+                                     game.title, game.original_price, game.current_price,
+                                     game.discount_percentage));
     }
     if !prices_str.is_empty() {
         let header_str = format!("\n{} game(s) that met your desired price:", store_name);
@@ -127,8 +126,8 @@ async fn steam_insert_sequence(alias: &str, title: &str, price: f64, client: &re
             match steam::search_game(title).await {
                 Some(t) => {
                     match steam::check_game(&t).await {
-                            Some(data) => thresholds::add_steam_game(alias.to_string(), data, price, &client).await,
-                            None => eprintln!("Something went wrong")
+                        Some(data) => thresholds::add_steam_game(alias.to_string(), data, price, &client).await,
+                        None => eprintln!("Something went wrong")
                     }
                 }
                 None => ()
@@ -344,7 +343,7 @@ async fn main(){
                 .help("Send email if game(s) are below price threshold")
         )
         .arg(test_flag_arg)
-    .get_matches();
+        .get_matches();
 
     match cmd.subcommand() {
         Some(("config", config_args)) => {
@@ -362,7 +361,7 @@ async fn main(){
             if search_gog == ValueSource::CommandLine { selected.push(settings::GOG_STORE_ID.to_string()); }
             //if search_humble_bundle == ValueSource::CommandLine { selected.push(settings::HUMBLE_BUNDLE_STORE_ID.to_string()); }
             if search_microsoft_store == ValueSource::CommandLine { selected.push(settings::MICROSOFT_STORE_ID.to_string()); }
-            if search_all == ValueSource::CommandLine { selected = settings::get_available_stores(); } 
+            if search_all == ValueSource::CommandLine { selected = settings::get_available_stores(); }
             if selected.len() > 0 { settings::update_selected_stores(selected); }
             if config_args.contains_id("alias_state"){
                 let alias_state : i32 = config_args.get_one::<i32>("alias_state").unwrap().clone();
@@ -377,8 +376,8 @@ async fn main(){
             let selected_stores = storefront_check();
             let alias = if add_args.contains_id("alias") && settings::get_alias_state() {
                 add_args.get_one::<String>("alias").unwrap().clone()
-            } else { 
-                thresholds::set_game_alias() 
+            } else {
+                thresholds::set_game_alias()
             };
             let title = add_args.get_one::<String>("title").unwrap().clone();
             let price = add_args.get_one::<f64>("price").unwrap().clone();
@@ -386,7 +385,7 @@ async fn main(){
             for store in selected_stores.iter(){
                 if store == settings::STEAM_STORE_ID {
                     steam_insert_sequence(&alias, &title, price, &http_client).await;
-                } 
+                }
                 if store == settings::GOG_STORE_ID {
                     gog_insert_sequence(&alias, &title, price, &http_client).await;
                 }
@@ -468,6 +467,6 @@ async fn main(){
                 }
             }
             else { println!("No/incorrect command given. Use \'--help\' for assistance."); }
-        }      
+        }
     };
 }

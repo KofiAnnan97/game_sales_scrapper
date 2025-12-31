@@ -1,7 +1,7 @@
 use std::fs::{self, File, write};
 use std::{error::Error};
 
-use crate::structs::data::SimpleGameThreshold;
+use structs::data::SimpleGameThreshold;
 
 pub fn parse_game_prices(file_path: &str) -> Result<Vec<SimpleGameThreshold>, Box<dyn Error>>{
     let mut game_list: Vec<SimpleGameThreshold> = Vec::new();

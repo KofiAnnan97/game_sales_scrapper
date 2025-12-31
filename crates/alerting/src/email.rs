@@ -4,7 +4,7 @@ use lettre::transport::smtp::authentication::{Credentials, Mechanism};
 use dotenv::dotenv as dotenv_linux;
 use dotenvy::dotenv as dotenv_windows;
 
-use crate::structs::data::SaleInfo;
+use structs::data::SaleInfo;
 
 pub fn send_plain_text_msg(recipient: &str, subject: &str, body: &str) {
     if cfg!(target_os = "windows") { dotenv_windows().ok(); }

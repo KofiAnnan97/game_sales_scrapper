@@ -1,5 +1,5 @@
 #[cfg(test)]
-use crate::steam;
+use stores::steam;
 
 // Constants
 static GAME_TITLE: &str = "Half-Life 2";

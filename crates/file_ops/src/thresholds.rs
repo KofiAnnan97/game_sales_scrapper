@@ -3,12 +3,13 @@ use std::path::PathBuf;
 use serde_json::Result;
 use std::fs::read_to_string;
 
-use crate::file_ops::{json, settings};
-use crate::stores::{steam}; //, gog, microsoft_store};
-use crate::structs::steam_response::App;
-use crate::structs::gog_response::GameInfo as GOGGameInfo;
-use crate::structs::microsoft_store_response::ProductInfo;
-use crate::structs::data::GameThreshold;
+use file_types::json;
+use crate::settings;
+use stores::steam; //, gog, microsoft_store};
+use structs::steam::App;
+use structs::gog::GameInfo as GOGGameInfo;
+use structs::microsoft_store::ProductInfo;
+use structs::data::GameThreshold;
 
 static THRESHOLD_FILENAME : &str = "thresholds.json";
 

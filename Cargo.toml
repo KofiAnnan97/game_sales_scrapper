@@ -1,13 +1,22 @@
-[package]
-name = "game_sales_scrapper"
+[workspace]
+resolver = "3"
+members = [
+    "crates/alerting",
+    "crates/file_types",
+    "crates/file_ops",
+    "crates/stores",
+    "crates/structs",
+]
+
+[workspace.package]
 version = "0.1.0"
 authors = ["Elinam Gbordzoe <elinamgbordzoe@gmail.com>"]
 edition = "2024"
 
-[dependencies]
+[workspace.dependencies]
 reqwest = { version = "0.12.15", features = ["json", "blocking"] }
 tokio = { version = "1", features = ["full"] }
-clap = { version = "4.0", features = ["derive", "cargo"] } 
+clap = { version = "4.0", features = ["derive", "cargo"] }
 dotenv = "0.15.0"
 dotenvy = "0.15.7"
 serde = { version = "1.0.104", features = ["derive"] }
@@ -18,3 +27,26 @@ lettre = "0.11.15"
 csv = "1.3.1"
 lazy_static = "1.5.0"
 cfg-if = "1.0.0"
+
+[package]
+name = "game_sales_scrapper"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+
+[dependencies]
+# Internal crates
+alerting = { path = "crates/alerting" }
+file_ops = { path = "crates/file_ops" }
+file_types = { path = "crates/file_types" }
+stores = { path = "crates/stores" }
+structs = { path = "crates/structs" }
+
+# External crates
+reqwest = { workspace = true, features = ["json", "blocking"] }
+tokio = { workspace = true, features = ["full"] }
+clap = { workspace = true, features = ["derive", "cargo"] }
+dotenv.workspace = true
+dotenvy.workspace = true
+serde_json.workspace = true
+regex.workspace = true
