@@ -1,7 +1,7 @@
 #[cfg(test)]
 pub mod tests {
     pub mod helper;
-    
+
     // Unit Testing
     pub mod unit{
         pub mod settings;

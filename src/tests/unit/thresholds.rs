@@ -1,24 +1,24 @@
-#[cfg(test)]
-use serde_json::json;
-use file_ops::thresholds;
-use file_types::json as json_data;
+use file_ops::{settings, thresholds};
+use file_types::{json as json_data, properties};
 use file_ops::settings::{GOG_STORE_ID, MICROSOFT_STORE_ID, STEAM_STORE_ID};
+use file_ops::thresholds::update_thresholds;
 use structs::data::GameThreshold;
 use structs::steam::App;
-use structs::gog::{GameInfoBuilder as GOGGameBuilder, GameInfo as GOGGame, Price, FinalMoney, BaseMoney};
-use structs::microsoft_store::{ProductInfoBuilder as MSGameBuilder, ProductInfo as MSGame, PriceInfo};
+use structs::gog::{BaseMoney, FinalMoney, GameInfo as GOGGame, GameInfoBuilder as GOGGameBuilder, Price};
+use structs::microsoft_store::{PriceInfo, ProductInfo as MSGame, ProductInfoBuilder as MSGameBuilder};
 use crate::tests::helper;
 
 fn delete_thresholds() {
-    if !json_data::get_test_mode() { json_data::set_test_mode(true); }
-    let mut config_path = json_data::get_data_path();
+    if !properties::get_test_mode() { properties::set_test_mode(true); }
+    settings::update_alias_reuse_state(1);
+    let mut config_path = properties::get_data_path();
     config_path.push_str("/");
     config_path.push_str(helper::THRESHOLD_FILENAME);
     json_data::delete_file(config_path);
 }
 
 fn add_simple_threshold(game_title: &str, game_alias: &str, price: f64) {
-    let mut thresholds = thresholds::load_data().unwrap_or_default();
+    let mut thresholds = thresholds::load_thresholds().unwrap_or_default();
     let mut unique_title = true;
     for threshold in &thresholds{
         if threshold.title == game_title {
@@ -37,12 +37,7 @@ fn add_simple_threshold(game_title: &str, game_alias: &str, price: f64) {
             desired_price: price
         });
     }
-    let data = json!(thresholds);
-    let filepath = thresholds::get_path();
-    match serde_json::to_string(&data){
-        Ok(data) => json_data::write_to_file(filepath, data),
-        Err(_) => ()
-    }
+    update_thresholds(thresholds);
 }
 
 fn test_steam_app() -> App{
@@ -101,7 +96,7 @@ async fn add_steam_game() {
     let game_id = app.app_id;
     thresholds::add_steam_game(game_title.clone(), app, 10.00, &client).await;
 
-    match thresholds::load_data() {
+    match thresholds::load_thresholds() {
         Ok(thresholds) => {
             assert_eq!(game_title.clone(), thresholds[0].title, "Expected {} not {}", game_title.clone(), thresholds[0].title);
             assert_eq!(game_id, thresholds[0].steam_id, "Expected {} not {}", game_id, thresholds[0].steam_id);
@@ -118,7 +113,7 @@ fn add_gog_game() {
     let game_id = game.id.parse::<usize>().unwrap();
     thresholds::add_gog_game(game_title.clone(), &game, 10.00);
 
-    match thresholds::load_data() {
+    match thresholds::load_thresholds() {
         Ok(thresholds) => {
             assert_eq!(game_title.clone(), thresholds[0].title, "Expected {} not {}", game_title.clone(), thresholds[0].title);
             assert_eq!(game_id, thresholds[0].gog_id, "Expected {} not {}", game_id, thresholds[0].gog_id);
@@ -135,7 +130,7 @@ fn add_microsoft_store_game() {
     let game_id = &game.product_id.clone();
     thresholds::add_microsoft_store_game(game_title.clone(), &game, 10.00);
 
-    match thresholds::load_data() {
+    match thresholds::load_thresholds() {
         Ok(thresholds) => {
             assert_eq!(game_title.clone(), thresholds[0].title, "Expected {} not {}", game_title.clone(), thresholds[0].title);
             assert_eq!(*game_id, thresholds[0].microsoft_store_id, "Expected {} not {}", game_id, thresholds[0].microsoft_store_id);
@@ -156,7 +151,7 @@ fn update_alias() {
     add_simple_threshold(&game_title, &game_alias, price);
 
     // Check that alias is empty
-    match thresholds::load_data(){
+    match thresholds::load_thresholds(){
         Ok(thresholds) =>
             assert_eq!(game_alias, thresholds[0].alias, "Alias should be \'{}\' not \'{}\'.", "", thresholds[0].alias),
         Err(_) => assert!(false, "Could not load the thresholds when alias is expected to be empty.")
@@ -165,7 +160,7 @@ fn update_alias() {
     // Check that new alias is present in threshold
     let new_alias = String::from("new_rg");
     thresholds::update_alias(&game_title, &new_alias);
-    match thresholds::load_data(){
+    match thresholds::load_thresholds(){
         Ok(thresholds) =>
             assert_eq!(new_alias, thresholds[0].alias, "Alias should be \'{}\' not \'{}\'.", new_alias, thresholds[0].alias),
         Err(_) => assert!(false, "Could not load the thresholds when alias is expected to be {}.", new_alias)
@@ -183,7 +178,7 @@ fn update_price() {
     // Check that new price is present in threshold
     let new_price = 20.00;
     thresholds::update_price(&first_game, new_price);
-    match thresholds::load_data(){
+    match thresholds::load_thresholds(){
         Ok(thresholds) =>
             assert_eq!(new_price, thresholds[0].desired_price, "Price should be \'{}\' not \'{}\'.", new_price, thresholds[0].desired_price),
         Err(_) => assert!(false, "Could not load thresholds when desired price was updated..")
@@ -194,7 +189,7 @@ fn update_price() {
     add_simple_threshold(&second_game, &game_alias, new_price);
     let last_price = 40.00;
     thresholds::update_price(&game_alias, last_price);
-    match thresholds::load_data(){
+    match thresholds::load_thresholds(){
         Ok(thresholds) =>{
             assert_eq!(2, thresholds.len(), "The number of thresholds should be 2 not {}", thresholds.len());
             assert_eq!(last_price, thresholds[0].desired_price, "Price should be \'{}\' not \'{}\' for {}.", last_price, thresholds[0].desired_price, thresholds[0].title);
@@ -217,7 +212,7 @@ fn update_id(){
     let new_gog_id = 456;
     thresholds::update_id(&game_title, STEAM_STORE_ID, new_steam_id);
     thresholds::update_id(&game_title, GOG_STORE_ID, new_gog_id);
-    match thresholds::load_data(){
+    match thresholds::load_thresholds(){
         Ok(thresholds) => {
             assert_eq!(new_steam_id, thresholds[0].steam_id, "Steam ID should be \'{}\' not \'{}\'.", new_steam_id, thresholds[0].steam_id);
             assert_eq!(new_gog_id, thresholds[0].gog_id, "GOG ID should be \'{}\' not \'{}\'.", new_gog_id, thresholds[0].gog_id);
@@ -237,7 +232,7 @@ fn update_id_str(){
     // Check that new store ids are successfully updated
     let new_ms_id = "cba";
     thresholds::update_id_str(&game_title, MICROSOFT_STORE_ID, new_ms_id);
-    match thresholds::load_data(){
+    match thresholds::load_thresholds(){
         Ok(thresholds) => {
             assert_eq!(new_ms_id, thresholds[0].microsoft_store_id, "Microsoft Store ID should be \'{}\' not \'{}\'.", new_ms_id, thresholds[0].microsoft_store_id);
         },
@@ -257,7 +252,7 @@ fn remove_game(){
     add_simple_threshold(&first_game, &game_alias, price);
 
     // Check that threshold is properly added
-    match thresholds::load_data(){
+    match thresholds::load_thresholds(){
         Ok(thresholds) => {
             assert_eq!(1, thresholds.len(), "Thresholds length before deletion should be 1");
             assert_eq!(first_game, thresholds[0].title, "Game title should {} not {}", first_game, thresholds[0].title);
@@ -267,7 +262,7 @@ fn remove_game(){
 
     // Delete test threshold
     thresholds::remove(&first_game);
-    match thresholds::load_data(){
+    match thresholds::load_thresholds(){
         Ok(thresholds) => assert_eq!(0, thresholds.len(), "Thresholds length after deletion should be 0"),
         Err(_) => assert!(false, "Could not load thresholds after deletion.")
     }
@@ -275,7 +270,7 @@ fn remove_game(){
     //Delete multiple thresholds via alias
     add_simple_threshold(&second_game, &game_alias_2, price);
     add_simple_threshold(&third_game, &game_alias_2, price);
-    match thresholds::load_data(){
+    match thresholds::load_thresholds(){
         Ok(thresholds) => {
             assert_eq!(2, thresholds.len(), "Thresholds length before deletion should be 1");
             assert_eq!(second_game, thresholds[0].title, "Game title should {} not {}", second_game, thresholds[0].title);
@@ -284,7 +279,7 @@ fn remove_game(){
         Err(e) => assert!(false, "Could not load thresholds before deletion.\n{}",e)
     }
     thresholds::remove(&game_alias_2);
-    match thresholds::load_data(){
+    match thresholds::load_thresholds(){
         Ok(thresholds) => assert_eq!(0, thresholds.len(), "Thresholds length after deletion should be 0"),
         Err(_) => assert!(false, "Could not load thresholds after deletion.")
     }

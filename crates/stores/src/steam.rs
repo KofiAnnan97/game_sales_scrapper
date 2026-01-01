@@ -6,9 +6,8 @@ use regex::Regex;
 use std::io::{self, Write};
 use std::env;
 use std::path::PathBuf;
-
-use file_types::json;
-use structs::data::{SaleInfo};
+use file_types::{json, properties};
+use structs::data::SaleInfo;
 use structs::steam::{App, PriceOverview};
 
 static CACHE_FILENAME : &str = "steam_game_titles_cache.json";
@@ -32,7 +31,7 @@ fn get_api_key() -> String {
 
 // Caching Functions
 fn get_cache_path() -> String{
-    let path_buf: PathBuf = [json::get_data_path(), CACHE_FILENAME.to_string()].iter().collect();
+    let path_buf: PathBuf = [properties::get_data_path(), CACHE_FILENAME.to_string()].iter().collect();
     let cache_file_path = path_buf.display().to_string();
     json::get_path(&cache_file_path)
 }

@@ -8,8 +8,8 @@ use clap::parser::ValueSource;
 // Internal libraries
 use stores::{steam, gog, microsoft_store};
 use alerting::email;
-use file_types::{csv, json};
-use file_ops::{thresholds, settings::{self, STEAM_STORE_ID, GOG_STORE_ID, MICROSOFT_STORE_ID}};
+use file_types::{csv, properties};
+use file_ops::{settings::{self, GOG_STORE_ID, MICROSOFT_STORE_ID, STEAM_STORE_ID}, thresholds};
 use structs::data::{SaleInfo, SimpleGameThreshold};
 use structs::gog::GameInfo as GOGGameInfo;
 use structs::microsoft_store::ProductInfo;
@@ -30,8 +30,8 @@ fn storefront_check() -> Vec<String> {
 }
 
 fn test_mode_check(val_src: ValueSource){
-    if val_src == ValueSource::CommandLine && !json::get_test_mode() { json::set_test_mode(true); }
-    else if val_src != ValueSource::CommandLine && json::get_test_mode() { json::set_test_mode(false); }
+    if val_src == ValueSource::CommandLine && !properties::get_test_mode() { properties::set_test_mode(true); }
+    else if val_src != ValueSource::CommandLine && properties::get_test_mode() { properties::set_test_mode(false); }
 }
 
 fn get_simple_prices_str(store_name: &str, sales: Vec<SaleInfo>) -> String{
@@ -49,7 +49,7 @@ fn get_simple_prices_str(store_name: &str, sales: Vec<SaleInfo>) -> String{
 }
 
 async fn check_prices(use_html: bool) -> String {
-    let thresholds = thresholds::load_data().unwrap_or_else(|_e|Vec::new());
+    let thresholds = thresholds::load_thresholds().unwrap_or_else(|_e|Vec::new());
     let mut steam_sales: Vec<SaleInfo> = Vec::new();
     let mut gog_sales: Vec<SaleInfo> = Vec::new();
     let mut microsoft_store_sales: Vec<SaleInfo> = Vec::new();
@@ -262,6 +262,10 @@ async fn main(){
         .action(ArgAction::Set)
         .value_parser(clap::value_parser!(i32))
         .required(false);
+    let allow_alias_reuse_arg = arg!(-r --allow_alias_reuse "Enable alias reuse after initial creation")
+        .action(ArgAction::Set)
+        .value_parser(clap::value_parser!(i32))
+        .required(false);
     let test_flag_arg = arg!(-z --test_flag "Flag for saving data using the TEST_PATH env variable")
         .action(ArgAction::SetTrue)
         .hide(true)
@@ -278,6 +282,7 @@ async fn main(){
                     &microsoft_store_arg,
                     &all_stores_arg,
                     &alias_state_arg,
+                    &allow_alias_reuse_arg,
                     &test_flag_arg
                 ])
         )
@@ -362,16 +367,20 @@ async fn main(){
             let search_all = config_args.value_source("all_stores").unwrap();
 
             let mut selected : Vec<String> = Vec::new();
-            if search_steam == ValueSource::CommandLine { selected.push(settings::STEAM_STORE_ID.to_string()); }
-            if search_gog == ValueSource::CommandLine { selected.push(settings::GOG_STORE_ID.to_string()); }
-            //if search_humble_bundle == ValueSource::CommandLine { selected.push(settings::HUMBLE_BUNDLE_STORE_ID.to_string()); }
-            if search_microsoft_store == ValueSource::CommandLine { selected.push(settings::MICROSOFT_STORE_ID.to_string()); }
+            if search_steam == ValueSource::CommandLine { selected.push(STEAM_STORE_ID.to_string()); }
+            if search_gog == ValueSource::CommandLine { selected.push(GOG_STORE_ID.to_string()); }
+            if search_microsoft_store == ValueSource::CommandLine { selected.push(MICROSOFT_STORE_ID.to_string()); }
             if search_all == ValueSource::CommandLine { selected = settings::get_available_stores(); }
             if selected.len() > 0 { settings::update_selected_stores(selected); }
             if config_args.contains_id("alias_state"){
                 let alias_state : i32 = config_args.get_one::<i32>("alias_state").unwrap().clone();
                 if alias_state == 0 || alias_state == 1{ settings::update_alias_state(alias_state); }
-                else { panic!("The alias state must be set to 0 or 1 not \'{}\'", alias_state); }
+                else { panic!("alias_state must be set to 0 or 1 not \'{}\'", alias_state); }
+            }
+            if config_args.contains_id("allow_alias_reuse"){
+                let alias_state : i32 = config_args.get_one::<i32>("allow_alias_reuse").unwrap().clone();
+                if alias_state == 0 || alias_state == 1{ settings::update_alias_reuse_state(alias_state); }
+                else { panic!("allow_alias_reuse must be set to 0 or 1 not \'{}\'", alias_state); }
             }
         },
         Some(("add", add_args)) => {
