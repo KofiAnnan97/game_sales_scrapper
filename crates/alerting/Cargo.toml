@@ -7,7 +7,6 @@ edition.workspace = true
 [dependencies]
 # Internal crates
 structs = { path = "../structs" }
-file_types = { path = "../file_types" }
 
 # External crates
 dotenv.workspace = true

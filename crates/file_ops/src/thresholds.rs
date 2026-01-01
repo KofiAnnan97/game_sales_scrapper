@@ -166,21 +166,25 @@ pub fn update_alias(title: &str, new_alias: &str){
 
 pub fn update_price(title: &str, price: f64) {
     let mut thresholds = load_data().unwrap_or_else(|_e|Vec::new());
-    let idx = thresholds.iter().position(|threshold| is_threshold(title, threshold));
-    if !idx.is_none() {
-        let i = idx.unwrap();
-        if price != thresholds[i].desired_price{
-            let old_threshold = thresholds[i].desired_price.clone();
-            thresholds[i].desired_price = price;
-            let data_str = serde_json::to_string_pretty(&thresholds).expect("Could not price update to string.");
-            json::write_to_file(get_path(), data_str);
-            println!("\"{}\": updated price threshold from {} to {}", thresholds[i].title,
-                                                       old_threshold,
-                                                       thresholds[i].desired_price);
+    let mut price_updated = false;
+    for threshold in thresholds.iter_mut(){
+        if is_threshold(title, threshold){
+            if price != threshold.desired_price{
+                let old_threshold = threshold.desired_price.clone();
+                threshold.desired_price = price;
+                println!("\"{}\": updated price threshold from {} to {}", threshold.title,
+                         old_threshold,
+                         threshold.desired_price);
+                price_updated = true;
+            }
+            else{
+                println!("Price was not updated because it is already set to {}", price);
+            }
         }
-        else{
-            println!("Price was not updated because it is already set to {}", price);
-        }
+    }
+    if price_updated{
+        let data_str = serde_json::to_string_pretty(&thresholds).expect("Could not price update to string.");
+        json::write_to_file(get_path(), data_str);
     }
     else{
         println!("\"{}\" does not have a configured threshold.", title);
@@ -243,14 +247,19 @@ pub fn update_id_str(title: &str, store_type: &str, id: &str){
 
 pub fn remove(title: &str){
     let mut thresholds = load_data().unwrap_or_else(|_e|Vec::new());
-    let idx = thresholds.iter().position(|threshold| is_threshold(title, threshold));
-    if !idx.is_none(){
-        thresholds.remove(idx.unwrap());
+    let mut threshold_removed = false;
+    for i in (0..thresholds.len()).rev(){
+        if is_threshold(title, &thresholds[i]){
+            println!("Removing \"{}\".", thresholds[i].title);
+            thresholds.remove(i);
+            threshold_removed = true;
+        }
+    }
+    if threshold_removed{
         let data_str = serde_json::to_string_pretty(&thresholds).unwrap();
         json::write_to_file(get_path(), data_str);
-        println!("Successfully removed \"{}\".", title);
     }
-    else { println!("Failed to remove: \"{}\".", title); }
+    else { println!("Failed to remove game using title/alias: \"{}\".", title); }
 }
 
 pub fn list_games() {

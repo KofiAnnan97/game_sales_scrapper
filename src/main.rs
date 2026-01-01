@@ -29,6 +29,11 @@ fn storefront_check() -> Vec<String> {
     selected_stores
 }
 
+fn test_mode_check(val_src: ValueSource){
+    if val_src == ValueSource::CommandLine && !json::get_test_mode() { json::set_test_mode(true); }
+    else if val_src != ValueSource::CommandLine && json::get_test_mode() { json::set_test_mode(false); }
+}
+
 fn get_simple_prices_str(store_name: &str, sales: Vec<SaleInfo>) -> String{
     let mut prices_str = String::new();
     for game in sales.iter(){
@@ -348,7 +353,7 @@ async fn main(){
     match cmd.subcommand() {
         Some(("config", config_args)) => {
             let test_flag = config_args.value_source("test_flag").unwrap();
-            if test_flag == ValueSource::CommandLine { json::enable_test_flag(); }
+            test_mode_check(test_flag);
 
             let search_steam = config_args.value_source("steam").unwrap();
             let search_gog = config_args.value_source("gog").unwrap();
@@ -371,7 +376,7 @@ async fn main(){
         },
         Some(("add", add_args)) => {
             let test_flag = add_args.value_source("test_flag").unwrap();
-            if test_flag == ValueSource::CommandLine { json::enable_test_flag(); }
+            test_mode_check(test_flag);
 
             let selected_stores = storefront_check();
             let alias = if add_args.contains_id("alias") && settings::get_alias_state() {
@@ -396,7 +401,7 @@ async fn main(){
         },
         Some(("bulk-insert", bulk_args)) => {
             let test_flag = bulk_args.value_source("test_flag").unwrap();
-            if test_flag == ValueSource::CommandLine { json::enable_test_flag(); }
+            test_mode_check(test_flag);
 
             let selected_stores = storefront_check();
             let mut game_list: Vec<SimpleGameThreshold> = Vec::new();
@@ -412,13 +417,13 @@ async fn main(){
                 let alias = thresholds::set_game_alias();
                 let price: f64 = game.price;
                 for store in selected_stores.iter(){
-                    if store == settings::STEAM_STORE_ID {
+                    if store == STEAM_STORE_ID {
                         steam_insert_sequence(&alias, &title, price, &http_client).await;
                     }
-                    if store == settings::GOG_STORE_ID {
+                    if store == GOG_STORE_ID {
                         gog_insert_sequence(&alias, &title, price, &http_client).await;
                     }
-                    if store == settings::MICROSOFT_STORE_ID {
+                    if store == MICROSOFT_STORE_ID {
                         microsoft_store_insert_sequence(&alias, &title, price, &http_client).await;
                     }
                 }
@@ -426,7 +431,7 @@ async fn main(){
         },
         Some(("update", update_args)) => {
             let test_flag = update_args.value_source("test_flag").unwrap();
-            if test_flag == ValueSource::CommandLine { json::enable_test_flag(); }
+            test_mode_check(test_flag);
 
             let title = update_args.get_one::<String>("title").unwrap().clone();
             let price = update_args.get_one::<f64>("price").unwrap().clone();
@@ -434,14 +439,15 @@ async fn main(){
         },
         Some(("remove", remove_args)) => {
             let test_flag = remove_args.value_source("test_flag").unwrap();
-            if test_flag == ValueSource::CommandLine { json::enable_test_flag(); }
+            test_mode_check(test_flag);
 
-            if remove_args.contains_id("test_flag") { json::enable_test_flag(); }
             let title = remove_args.get_one::<String>("title").unwrap().clone();
             thresholds::remove(&title);
         },
         _ => {
-            if cmd.get_flag("test_flag") { json::enable_test_flag(); }
+            let test_flag = cmd.value_source("test_flag").unwrap();
+            test_mode_check(test_flag);
+
             if cmd.get_flag("thresholds") { thresholds::list_games(); }
             else if cmd.get_flag("selected-stores") { settings::list_selected(); }
             else if cmd.get_flag("cache"){
