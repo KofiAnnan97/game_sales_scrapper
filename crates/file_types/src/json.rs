@@ -5,7 +5,7 @@ pub fn get_path(path_str: &str) -> String{
     let path = Path::new(path_str);
     let mut is_new = false;
     if !path.is_file(){
-        File::create_new(path_str).expect("Failed to create load file");
+        File::create_new(path_str).expect("Failed to create/load file");
         is_new = true;
     }
     let load_fp =  path.display().to_string();
