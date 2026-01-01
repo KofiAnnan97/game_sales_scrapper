@@ -8,8 +8,8 @@ use clap::parser::ValueSource;
 // Internal libraries
 use stores::{steam, gog, microsoft_store};
 use alerting::email;
-use file_types::{csv, json};
-use file_ops::{thresholds, settings::{self, STEAM_STORE_ID, GOG_STORE_ID, MICROSOFT_STORE_ID}};
+use file_types::{csv, properties};
+use file_ops::{settings::{self, GOG_STORE_ID, MICROSOFT_STORE_ID, STEAM_STORE_ID}, thresholds};
 use structs::data::{SaleInfo, SimpleGameThreshold};
 use structs::gog::GameInfo as GOGGameInfo;
 use structs::microsoft_store::ProductInfo;
@@ -29,6 +29,11 @@ fn storefront_check() -> Vec<String> {
     selected_stores
 }
 
+fn test_mode_check(val_src: ValueSource){
+    if val_src == ValueSource::CommandLine && !properties::get_test_mode() { properties::set_test_mode(true); }
+    else if val_src != ValueSource::CommandLine && properties::get_test_mode() { properties::set_test_mode(false); }
+}
+
 fn get_simple_prices_str(store_name: &str, sales: Vec<SaleInfo>) -> String{
     let mut prices_str = String::new();
     for game in sales.iter(){
@@ -44,7 +49,7 @@ fn get_simple_prices_str(store_name: &str, sales: Vec<SaleInfo>) -> String{
 }
 
 async fn check_prices(use_html: bool) -> String {
-    let thresholds = thresholds::load_data().unwrap_or_else(|_e|Vec::new());
+    let thresholds = thresholds::load_thresholds().unwrap_or_else(|_e|Vec::new());
     let mut steam_sales: Vec<SaleInfo> = Vec::new();
     let mut gog_sales: Vec<SaleInfo> = Vec::new();
     let mut microsoft_store_sales: Vec<SaleInfo> = Vec::new();
@@ -257,6 +262,10 @@ async fn main(){
         .action(ArgAction::Set)
         .value_parser(clap::value_parser!(i32))
         .required(false);
+    let allow_alias_reuse_arg = arg!(-r --allow_alias_reuse "Enable alias reuse after initial creation")
+        .action(ArgAction::Set)
+        .value_parser(clap::value_parser!(i32))
+        .required(false);
     let test_flag_arg = arg!(-z --test_flag "Flag for saving data using the TEST_PATH env variable")
         .action(ArgAction::SetTrue)
         .hide(true)
@@ -273,6 +282,7 @@ async fn main(){
                     &microsoft_store_arg,
                     &all_stores_arg,
                     &alias_state_arg,
+                    &allow_alias_reuse_arg,
                     &test_flag_arg
                 ])
         )
@@ -348,7 +358,7 @@ async fn main(){
     match cmd.subcommand() {
         Some(("config", config_args)) => {
             let test_flag = config_args.value_source("test_flag").unwrap();
-            if test_flag == ValueSource::CommandLine { json::enable_test_flag(); }
+            test_mode_check(test_flag);
 
             let search_steam = config_args.value_source("steam").unwrap();
             let search_gog = config_args.value_source("gog").unwrap();
@@ -357,21 +367,25 @@ async fn main(){
             let search_all = config_args.value_source("all_stores").unwrap();
 
             let mut selected : Vec<String> = Vec::new();
-            if search_steam == ValueSource::CommandLine { selected.push(settings::STEAM_STORE_ID.to_string()); }
-            if search_gog == ValueSource::CommandLine { selected.push(settings::GOG_STORE_ID.to_string()); }
-            //if search_humble_bundle == ValueSource::CommandLine { selected.push(settings::HUMBLE_BUNDLE_STORE_ID.to_string()); }
-            if search_microsoft_store == ValueSource::CommandLine { selected.push(settings::MICROSOFT_STORE_ID.to_string()); }
+            if search_steam == ValueSource::CommandLine { selected.push(STEAM_STORE_ID.to_string()); }
+            if search_gog == ValueSource::CommandLine { selected.push(GOG_STORE_ID.to_string()); }
+            if search_microsoft_store == ValueSource::CommandLine { selected.push(MICROSOFT_STORE_ID.to_string()); }
             if search_all == ValueSource::CommandLine { selected = settings::get_available_stores(); }
             if selected.len() > 0 { settings::update_selected_stores(selected); }
             if config_args.contains_id("alias_state"){
                 let alias_state : i32 = config_args.get_one::<i32>("alias_state").unwrap().clone();
                 if alias_state == 0 || alias_state == 1{ settings::update_alias_state(alias_state); }
-                else { panic!("The alias state must be set to 0 or 1 not \'{}\'", alias_state); }
+                else { panic!("alias_state must be set to 0 or 1 not \'{}\'", alias_state); }
+            }
+            if config_args.contains_id("allow_alias_reuse"){
+                let alias_state : i32 = config_args.get_one::<i32>("allow_alias_reuse").unwrap().clone();
+                if alias_state == 0 || alias_state == 1{ settings::update_alias_reuse_state(alias_state); }
+                else { panic!("allow_alias_reuse must be set to 0 or 1 not \'{}\'", alias_state); }
             }
         },
         Some(("add", add_args)) => {
             let test_flag = add_args.value_source("test_flag").unwrap();
-            if test_flag == ValueSource::CommandLine { json::enable_test_flag(); }
+            test_mode_check(test_flag);
 
             let selected_stores = storefront_check();
             let alias = if add_args.contains_id("alias") && settings::get_alias_state() {
@@ -396,7 +410,7 @@ async fn main(){
         },
         Some(("bulk-insert", bulk_args)) => {
             let test_flag = bulk_args.value_source("test_flag").unwrap();
-            if test_flag == ValueSource::CommandLine { json::enable_test_flag(); }
+            test_mode_check(test_flag);
 
             let selected_stores = storefront_check();
             let mut game_list: Vec<SimpleGameThreshold> = Vec::new();
@@ -412,13 +426,13 @@ async fn main(){
                 let alias = thresholds::set_game_alias();
                 let price: f64 = game.price;
                 for store in selected_stores.iter(){
-                    if store == settings::STEAM_STORE_ID {
+                    if store == STEAM_STORE_ID {
                         steam_insert_sequence(&alias, &title, price, &http_client).await;
                     }
-                    if store == settings::GOG_STORE_ID {
+                    if store == GOG_STORE_ID {
                         gog_insert_sequence(&alias, &title, price, &http_client).await;
                     }
-                    if store == settings::MICROSOFT_STORE_ID {
+                    if store == MICROSOFT_STORE_ID {
                         microsoft_store_insert_sequence(&alias, &title, price, &http_client).await;
                     }
                 }
@@ -426,7 +440,7 @@ async fn main(){
         },
         Some(("update", update_args)) => {
             let test_flag = update_args.value_source("test_flag").unwrap();
-            if test_flag == ValueSource::CommandLine { json::enable_test_flag(); }
+            test_mode_check(test_flag);
 
             let title = update_args.get_one::<String>("title").unwrap().clone();
             let price = update_args.get_one::<f64>("price").unwrap().clone();
@@ -434,14 +448,15 @@ async fn main(){
         },
         Some(("remove", remove_args)) => {
             let test_flag = remove_args.value_source("test_flag").unwrap();
-            if test_flag == ValueSource::CommandLine { json::enable_test_flag(); }
+            test_mode_check(test_flag);
 
-            if remove_args.contains_id("test_flag") { json::enable_test_flag(); }
             let title = remove_args.get_one::<String>("title").unwrap().clone();
             thresholds::remove(&title);
         },
         _ => {
-            if cmd.get_flag("test_flag") { json::enable_test_flag(); }
+            let test_flag = cmd.value_source("test_flag").unwrap();
+            test_mode_check(test_flag);
+
             if cmd.get_flag("thresholds") { thresholds::list_games(); }
             else if cmd.get_flag("selected-stores") { settings::list_selected(); }
             else if cmd.get_flag("cache"){

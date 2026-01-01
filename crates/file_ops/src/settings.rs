@@ -1,15 +1,14 @@
-//use std::vec;
-use serde_json::Result;
-use serde_json::{Value, json};
+use serde_json::{Result, Value, json};
 use std::fs::{read_to_string, metadata};
 use std::collections::HashMap;
 use std::path::PathBuf;
 
 use file_types::json;
+use file_types::properties;
 
 static CONFIG_FILENAME : &str = "config.json";
-static ALIAS_ENABLED : i32 = 1;
-static ALIAS_DISABLED : i32 = 0;
+static ENABLED_STATE : i32 = 1;
+static DISABLED_STATE : i32 = 0;
 
 // Store IDs
 pub const STEAM_STORE_ID : &str = "steam";
@@ -20,6 +19,11 @@ pub const MICROSOFT_STORE_ID : &str = "microsoft_store";
 pub const STEAM_STORE_NAME : &str = "Steam";
 pub const GOG_STORE_NAME : &str = "Good Old Games (GOG)";
 pub const MICROSOFT_STORE_NAME : &str = "Microsoft Store (PC)";
+
+// Configuration Variables
+pub const SELECTED_STORES : &str = "selected_stores";
+pub const ALIASES_ENABLED : &str = "alias_enabled";
+pub const ALLOW_ALIAS_REUSE_AFTER_CREATION : &str = "allow_alias_reuse_after_creation";
 
 fn get_store_map() -> HashMap<String, String> {
     let store_map = HashMap::from([
@@ -48,13 +52,17 @@ pub fn get_proper_store_name(id: &str) -> Option<String> {
 }
 
 fn get_path() -> String{
-    let path_buf: PathBuf = [json::get_data_path(), CONFIG_FILENAME.to_string()].iter().collect();
+    let path_buf: PathBuf = [properties::get_data_path(), CONFIG_FILENAME.to_string()].iter().collect();
     let config_path = path_buf.display().to_string();
     let path_str = json::get_path(&config_path);  //Creates file if it does not exist already
     match metadata(&path_str){
         Ok(md) => {
             if md.len() == 0 {
-                let settings = json!({"selected_stores": [], "alias_enabled": 1});
+                let settings = json!({
+                    SELECTED_STORES.to_string(): [],
+                    ALIASES_ENABLED.to_string(): 1,
+                    ALLOW_ALIAS_REUSE_AFTER_CREATION.to_string(): 0
+                });
                 let settings_str = serde_json::to_string_pretty(&settings);
                 json::write_to_file(config_path.to_string(), settings_str.expect("Initial settings could not be created."));
             }
@@ -76,7 +84,7 @@ pub fn get_selected_stores() -> Vec<String> {
     let mut stores : Vec<String> = Vec::new();
     let data = read_to_string(filepath).unwrap();
     let body : Value = serde_json::from_str(&data).expect("Get selected stores - could not convert to JSON");
-    let selected = serde_json::to_string(&body["selected_stores"]).unwrap();
+    let selected = serde_json::to_string(&body[SELECTED_STORES.to_string()]).unwrap();
     match serde_json::from_str::<Vec<String>>(&selected){
         Ok(data) => stores = data,
         Err(e) => eprintln!("Error: {}", e)
@@ -89,8 +97,24 @@ pub fn get_alias_state() -> bool {
     let mut state : bool = true;
     let data = read_to_string(filepath).unwrap();
     let body : Value = serde_json::from_str(&data).expect("Get alias state - could not convert to JSON");
-    let alias_enabled =serde_json::to_string(&body["alias_enabled"]).unwrap();
+    let alias_enabled =serde_json::to_string(&body[ALIASES_ENABLED.to_string()]).unwrap();
     match serde_json::from_str::<i32>(&alias_enabled){
+        Ok(state_val) => {
+            if state_val == 1 { state = true; }
+            else { state = false; }
+        },
+        Err(e) => eprintln!("Error: {}", e)
+    }
+    state
+}
+
+pub fn get_alias_reuse_state() -> bool {
+    let filepath = get_path();
+    let mut state : bool = true;
+    let data = read_to_string(filepath).unwrap();
+    let body : Value = serde_json::from_str(&data).expect("Get alias dup state - could not convert to JSON");
+    let allow_dups =serde_json::to_string(&body[ALLOW_ALIAS_REUSE_AFTER_CREATION.to_string()]).unwrap();
+    match serde_json::from_str::<i32>(&allow_dups){
         Ok(state_val) => {
             if state_val == 1 { state = true; }
             else { state = false; }
@@ -104,7 +128,7 @@ pub fn update_selected_stores(selected: Vec<String>) {
     match load_data(){
         Ok(data) => {
             let mut settings = data;
-            let selected_stores = settings.get_mut("selected_stores").unwrap();
+            let selected_stores = settings.get_mut(SELECTED_STORES.to_string()).unwrap();
             let mut unique_stores : Vec<String> = Vec::new();
             for store in selected {
                 if !unique_stores.contains(&store) { unique_stores.push(store); }
@@ -121,10 +145,23 @@ pub fn update_alias_state(is_enabled: i32){
     match load_data(){
         Ok(data) => {
             let mut settings = data;
-            let enabled_status = if is_enabled == ALIAS_ENABLED || is_enabled == ALIAS_DISABLED { is_enabled } else { ALIAS_DISABLED };
-            *settings.get_mut("alias_enabled").unwrap() = json!(enabled_status);
+            let enabled_status = if is_enabled == ENABLED_STATE || is_enabled == DISABLED_STATE { is_enabled } else { DISABLED_STATE };
+            *settings.get_mut(ALIASES_ENABLED.to_string()).unwrap() = json!(enabled_status);
             let settings_str = serde_json::to_string_pretty(&settings);
             json::write_to_file(get_path(), settings_str.expect("Cannot set state of aliases"));
+        },
+        Err(e) => eprintln!("Error: {}", e)
+    }
+}
+
+pub fn update_alias_reuse_state(is_enabled: i32){
+    match load_data(){
+        Ok(data) => {
+            let mut settings = data;
+            let enabled_status = if is_enabled == ENABLED_STATE || is_enabled == DISABLED_STATE { is_enabled } else { DISABLED_STATE };
+            *settings.get_mut(ALLOW_ALIAS_REUSE_AFTER_CREATION.to_string()).unwrap() = json!(enabled_status);
+            let settings_str = serde_json::to_string_pretty(&settings);
+            json::write_to_file(get_path(), settings_str.expect("Cannot set state of alias duplicates"));
         },
         Err(e) => eprintln!("Error: {}", e)
     }

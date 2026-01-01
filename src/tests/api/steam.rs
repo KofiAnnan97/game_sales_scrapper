@@ -1,5 +1,6 @@
 #[cfg(test)]
 use stores::steam;
+use file_types::properties;
 
 // Constants
 static GAME_TITLE: &str = "Half-Life 2";
@@ -7,6 +8,7 @@ static GAME_ID: usize = 220;
 
 #[tokio::test]
 async fn search_game() {
+    if !properties::get_test_mode() { properties::set_test_mode(true); }
     let search_list = steam::search_by_keyphrase(GAME_TITLE)
         .await.unwrap_or_else(|_| Vec::new());
     let mut is_game_present = false;
@@ -21,6 +23,7 @@ async fn search_game() {
 
 #[tokio::test]
 async fn get_price_info() {
+    if !properties::get_test_mode() { properties::set_test_mode(true); }
     let client = reqwest::Client::new();
     match steam::get_price_details(GAME_ID, &client).await {
         Ok(info) => {

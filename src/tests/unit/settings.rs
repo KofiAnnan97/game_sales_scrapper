@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use file_ops::settings::{self, STEAM_STORE_ID, STEAM_STORE_NAME,
                           GOG_STORE_ID, GOG_STORE_NAME,
                           MICROSOFT_STORE_ID, MICROSOFT_STORE_NAME};
+use file_types::properties;
 
 // Constants
 static DEFAULT_ALIAS_STATE : bool = true;
@@ -10,12 +11,14 @@ static ALIAS_DISABLED : i32 = 0;
 static ALIAS_ENABLED : i32 = 1;
 
 fn default_settings() {
+    if !properties::get_test_mode() { properties::set_test_mode(true); }
     settings::update_selected_stores(Vec::new());
     settings::update_alias_state(ALIAS_ENABLED);
 }
 
 #[test]
 fn get_available_stores() {
+    if !properties::get_test_mode() { properties::set_test_mode(true); }
     let available_stores = settings::get_available_stores();
     let mut all_stores_valid = true;
     let mut invalid_store = "";
@@ -37,6 +40,7 @@ fn get_available_stores() {
 
 #[test]
 fn get_proper_store_name() {
+    if !properties::get_test_mode() { properties::set_test_mode(true); }
     // Test valid store ids
     let mut store_name = settings::get_proper_store_name(STEAM_STORE_ID).unwrap();
     assert_eq!(STEAM_STORE_NAME, store_name, "{} != {}", store_name, STEAM_STORE_NAME);

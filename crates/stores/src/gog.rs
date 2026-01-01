@@ -126,11 +126,19 @@ pub async fn get_price_details_v2(title: &str, http_client: &reqwest::Client) ->
         let data = serde_json::from_str::<GameInfo>(&first_product).unwrap();
         match data.price {
             Some(po) => {
+                let discount_str = match po.discount{
+                  Some(discount) => discount[1..discount.len()-1].to_string(),
+                  None => {
+                      let base_amount = po.base_money.amount.parse::<f64>().unwrap();
+                      let final_amount = po.final_money.amount.parse::<f64>().unwrap();
+                      format!("{}", (100.0*(1.0-final_amount/base_amount)).round() as i64)
+                  }
+                };
                 return Ok::<SaleInfo, Error>(SaleInfo{
                     title: data.title,
                     original_price: po.base_money.amount,
                     current_price: po.final_money.amount, 
-                    discount_percentage: po.final_money.discount[0..po.final_money.discount.len()-3].to_string(),
+                    discount_percentage: discount_str,
                     icon_link: data.c_horizontal,
                     store_page_link: data.store_link,
                 }).ok();
