@@ -2,6 +2,7 @@ use std::fs::{self, File, write};
 use std::{error::Error};
 
 use structs::data::SimpleGameThreshold;
+use crate::common;
 
 pub fn parse_game_prices(file_path: &str) -> Result<Vec<SimpleGameThreshold>, Box<dyn Error>>{
     let mut game_list: Vec<SimpleGameThreshold> = Vec::new();
@@ -30,25 +31,15 @@ pub fn parse_game_prices(file_path: &str) -> Result<Vec<SimpleGameThreshold>, Bo
     Ok(game_list)
 }
 
-fn write_to_file(path: String, data: String){
-    match write(&path, data) {
-        Ok(_) => (),
-        Err(e) => eprintln!("An error occurred while writing to \'{}\'\n{}", &path, e)
-    }
-}
-
 pub fn generate_csv(file_path: &str, thresholds: Vec<SimpleGameThreshold>) {
     let mut data = String::from("game, price");
     for sgt in thresholds {
         let row = format!("\n{}, {}", sgt.name, sgt.price); 
         data.push_str(row.as_str());
     }
-    write_to_file(file_path.to_owned(), data);
+    common::write_to_file(file_path.to_owned(), data);
 }
 
 pub fn delete_file(file_path: String){
-    match fs::remove_file(&file_path){
-        Ok(_) => println!("Successfully deleted {}", file_path),
-        Err(e) => {eprintln!("{}",e)}
-    }
+    common::delete_file(file_path);
 }

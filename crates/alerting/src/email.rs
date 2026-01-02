@@ -5,15 +5,15 @@ use dotenv::dotenv as dotenv_linux;
 use dotenvy::dotenv as dotenv_windows;
 
 use structs::data::SaleInfo;
+use properties;
 
 pub fn send_plain_text_msg(recipient: &str, subject: &str, body: &str) {
     if cfg!(target_os = "windows") { dotenv_windows().ok(); }
     else if cfg!(target_os = "linux") { dotenv_linux().ok(); }
-    let smtp_host = std::env::var("SMTP_HOST").expect("SMTP_HOST must be set");
-    let smtp_port : u16 = std::env::var("SMTP_PORT").expect("SMTP_PORT must be set")
-                                                    .parse().expect("Not a valid u16");
-    let smtp_email = &std::env::var("SMTP_EMAIL").expect("SMTP_EMAIL must be set");
-    let smtp_user = std::env::var("SMTP_USERNAME").expect("SMTP_USERNAME must be set");
+    let smtp_host = properties::get_smtp_host();
+    let smtp_port : u16 = properties::get_smtp_port(); 
+    let smtp_email = properties::get_smtp_email();
+    let smtp_user = properties::get_smtp_user();
     let smtp_pwd = std::env::var("SMTP_PWD").expect("SMTP_PWD must be set");
 
     let email = Message::builder()
@@ -126,11 +126,10 @@ pub fn create_html_body(sales_info_html: &str) -> String{
 pub fn send_html_msg(recipient: &str, subject: &str, body: &str) {
     if cfg!(target_os = "windows") { dotenv_windows().ok(); }
     else if cfg!(target_os = "linux") { dotenv_linux().ok(); }
-    let smtp_host = std::env::var("SMTP_HOST").expect("SMTP_HOST must be set");
-    let smtp_port : u16 = std::env::var("SMTP_PORT").expect("SMTP_PORT must be set")
-                                                    .parse().expect("Not a valid u16");
-    let smtp_email = &std::env::var("SMTP_EMAIL").expect("SMTP_EMAIL must be set");
-    let smtp_user = std::env::var("SMTP_USERNAME").expect("SMTP_USERNAME must be set");
+    let smtp_host = properties::get_smtp_host();
+    let smtp_port : u16 = properties::get_smtp_port();
+    let smtp_email = properties::get_smtp_email();
+    let smtp_user = properties::get_smtp_user();
     let smtp_pwd = std::env::var("SMTP_PWD").expect("SMTP_PWD must be set");
 
     let html_content = format!(r#"{}"#, create_html_body(body));

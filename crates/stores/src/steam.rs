@@ -6,7 +6,7 @@ use regex::Regex;
 use std::io::{self, Write};
 use std::env;
 use std::path::PathBuf;
-use file_types::json;
+use file_types::common;
 use properties;
 use structs::data::SaleInfo;
 use structs::steam::{App, PriceOverview};
@@ -34,7 +34,7 @@ fn get_api_key() -> String {
 fn get_cache_path() -> String{
     let path_buf: PathBuf = [properties::get_data_path(), CACHE_FILENAME.to_string()].iter().collect();
     let cache_file_path = path_buf.display().to_string();
-    json::get_path(&cache_file_path)
+    common::get_path(&cache_file_path)
 }
 
 pub async fn load_cached_games() -> Result<Vec<App>> {
@@ -93,7 +93,7 @@ pub async fn update_cached_games(){
         }
     }
     let data_str = serde_json::to_string_pretty(&games_list).unwrap();
-    json::write_to_file(get_cache_path(), data_str);
+    common::write_to_file(get_cache_path(), data_str);
     println!("Cache update complete")
 }
 

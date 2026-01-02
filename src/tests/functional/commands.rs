@@ -11,7 +11,7 @@ use dotenvy::dotenv as dotenv_windows;
 use serde_json::{json, Value};
 
 use structs::data::{GameThreshold, SimpleGameThreshold};
-use file_types::{json, csv};
+use file_types::{common, csv};
 use file_ops::settings::{self, GOG_STORE_ID, MICROSOFT_STORE_ID, STEAM_STORE_ID};
 use file_ops::thresholds::{get_path, load_data, THRESHOLDS};
 use crate::tests::helper::{self, get_threshold_path};
@@ -55,7 +55,7 @@ fn add_threshold(alias: &str, title: &str, steam_id: usize, gog_id: usize, ms_id
             let mut thresholds_data = data;
             *thresholds_data.get_mut(THRESHOLDS.to_string()).unwrap() = json!(thresholds);
             let thresholds_str = serde_json::to_string_pretty(&thresholds_data);
-            json::write_to_file(get_threshold_path(), thresholds_str.expect("Cannot update thresholds for testing"));
+            common::write_to_file(get_threshold_path(), thresholds_str.expect("Cannot update thresholds for testing"));
         },
         Err(e) => eprintln!("Error: {}", e)
     }
@@ -80,12 +80,12 @@ fn config_cmd() {
     helper::clear_settings();
     let _ = if cfg!(target_os = "windows") {
         Command::new("cmd")
-            .args(["/C","cargo","run","--","config","-s","-g","-i","0","--test_flag"])
+            .args(["/C","cargo","run","--","config","-s","-g","-e","0","--test_flag"])
             .output()
             .expect("failed to execute process")
     } else {
         Command::new("cargo")
-            .args(["run","--","config","-s","-g","-i","0","--test_flag"])
+            .args(["run","--","config","-s","-g","-e","0","--test_flag"])
             .output()
             .expect("failed to execute process")
     };
@@ -125,7 +125,7 @@ async fn add_cmd() {
 
     // Update settings
     let _ = Command::new("cargo")
-        .args(["run","--","config","-a","-i","1","--test_flag"])
+        .args(["run","--","config","-a","-e","1","--test_flag"])
         .output()
         .expect("failed to execute proces");
 
@@ -158,7 +158,7 @@ async fn bulk_insert_cmd() {
 
     // Update settings
     let _ = Command::new("cargo")
-        .args(["run","--","config","-a","-i","0","--test_flag"])
+        .args(["run","--","config","-a","-e","0","--test_flag"])
         .output()
         .expect("failed to execute proces");
 

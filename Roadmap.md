@@ -4,6 +4,8 @@
 - Features/Updates
   - [X] Refactor project to use cargo workspace
   - [X] Turn properties file into a crate
+    - [X] Add env vars to properties.json (excluding secrets/passwords) 
+    - [ ] Write encrypt and decrypt function for secrets/passwords
   - [ ] Update dependencies and resolve any potential issues
   - [ ] Set up Humble Bundle Storefront
 - Bugs/Fixes

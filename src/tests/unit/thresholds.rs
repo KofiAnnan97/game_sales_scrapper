@@ -1,5 +1,5 @@
 use file_ops::{settings, thresholds};
-use file_types::json as json_data;
+use file_types::common;
 use properties;
 use file_ops::settings::{GOG_STORE_ID, MICROSOFT_STORE_ID, STEAM_STORE_ID};
 use file_ops::thresholds::update_thresholds;
@@ -10,12 +10,12 @@ use structs::microsoft_store::{PriceInfo, ProductInfo as MSGame, ProductInfoBuil
 use crate::tests::helper;
 
 fn delete_thresholds() {
-    if !properties::get_test_mode() { properties::set_test_mode(true); }
+    if !properties::is_testing_enabled() { properties::set_test_mode(true); }
     settings::update_alias_reuse_state(1);
     let mut config_path = properties::get_data_path();
     config_path.push_str("/");
     config_path.push_str(helper::THRESHOLD_FILENAME);
-    json_data::delete_file(config_path);
+    common::delete_file(config_path);
 }
 
 fn add_simple_threshold(game_title: &str, game_alias: &str, price: f64) {

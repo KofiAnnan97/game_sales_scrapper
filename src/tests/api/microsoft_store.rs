@@ -8,7 +8,7 @@ static GAME_ID: &str = "9n5nfrqv2hqq";
 
 #[tokio::test]
 async fn search_game() {
-    if !properties::get_test_mode() { properties::set_test_mode(true); }
+    if !properties::is_testing_enabled() { properties::set_test_mode(true); }
     let client = reqwest::Client::new();
     let search_list =  microsoft_store::search_game_by_title(GAME_TITLE, &client)
         .await.unwrap_or_else(|_| Vec::new());
@@ -24,7 +24,7 @@ async fn search_game() {
 
 #[tokio::test]
 async fn get_price_info() {
-    if !properties::get_test_mode() { properties::set_test_mode(true); }
+    if !properties::is_testing_enabled() { properties::set_test_mode(true); }
     let client = reqwest::Client::new();
     match microsoft_store::get_price_details(GAME_ID, &client).await {
         Some(info) => {
