@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 use dotenv::dotenv as dotenv_linux;
 use dotenvy::dotenv as dotenv_windows;
 use serde_json::{json, Result, Value};
-use file_types::properties;
+use properties;
 use file_types::json;
 use structs::data::GameThreshold;
 use file_ops::thresholds::{ALIAS_MAP, THRESHOLDS};

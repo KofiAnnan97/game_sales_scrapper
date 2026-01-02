@@ -5,7 +5,7 @@ use std::fs::{metadata, read_to_string};
 use std::path::{Path, PathBuf};
 use serde_json::{json, Value, Result};
 
-use crate::json as json_data;
+use file_types::json as json_data;
 
 // Environment variable names
 pub static PROJECT_VAR_NAME : &str = "PROJECT_PATH";
@@ -14,7 +14,7 @@ pub static TEST_VAR_NAME : &str = "TEST_PATH";
 // Filenames
 static PROPERTIES_FILENAME : &str = "properties.json";
 
-// Folders
+// Directories
 static DATA_DIR : &str = "data";
 
 // Properties variables

@@ -1,5 +1,6 @@
 use file_ops::{settings, thresholds};
-use file_types::{json as json_data, properties};
+use file_types::json as json_data;
+use properties;
 use file_ops::settings::{GOG_STORE_ID, MICROSOFT_STORE_ID, STEAM_STORE_ID};
 use file_ops::thresholds::update_thresholds;
 use structs::data::GameThreshold;
@@ -138,9 +139,6 @@ fn add_microsoft_store_game() {
         Err(_) => assert!(false, "Could not find game: {} ({})", game_title.clone(), game_id),
     }
 }
-
-/*#[test]
-fn set_game_alias_sequence() {}*/
 
 #[test]
 fn update_alias() {

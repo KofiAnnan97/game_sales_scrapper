@@ -6,6 +6,7 @@ members = [
     "crates/file_ops",
     "crates/stores",
     "crates/structs",
+    "crates/properties"
 ]
 
 [workspace.package]
@@ -41,6 +42,7 @@ file_ops = { path = "crates/file_ops" }
 file_types = { path = "crates/file_types" }
 stores = { path = "crates/stores" }
 structs = { path = "crates/structs" }
+properties = { path = "crates/properties" }
 
 # External crates
 reqwest = { workspace = true, features = ["json", "blocking"] }

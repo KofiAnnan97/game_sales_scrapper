@@ -8,7 +8,8 @@ use clap::parser::ValueSource;
 // Internal libraries
 use stores::{steam, gog, microsoft_store};
 use alerting::email;
-use file_types::{csv, properties};
+use file_types::csv;
+use properties;
 use file_ops::{settings::{self, GOG_STORE_ID, MICROSOFT_STORE_ID, STEAM_STORE_ID}, thresholds};
 use structs::data::{SaleInfo, SimpleGameThreshold};
 use structs::gog::GameInfo as GOGGameInfo;

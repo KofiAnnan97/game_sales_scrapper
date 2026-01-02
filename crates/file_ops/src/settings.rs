@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 
 use file_types::json;
-use file_types::properties;
+use properties;
 
 static CONFIG_FILENAME : &str = "config.json";
 static ENABLED_STATE : i32 = 1;

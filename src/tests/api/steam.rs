@@ -1,6 +1,6 @@
 #[cfg(test)]
 use stores::steam;
-use file_types::properties;
+use properties;
 
 // Constants
 static GAME_TITLE: &str = "Half-Life 2";

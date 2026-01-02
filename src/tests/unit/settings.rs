@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use file_ops::settings::{self, STEAM_STORE_ID, STEAM_STORE_NAME,
                           GOG_STORE_ID, GOG_STORE_NAME,
                           MICROSOFT_STORE_ID, MICROSOFT_STORE_NAME};
-use file_types::properties;
+use properties;
 
 // Constants
 static DEFAULT_ALIAS_STATE : bool = true;

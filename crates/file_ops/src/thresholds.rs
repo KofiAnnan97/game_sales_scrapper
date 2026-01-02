@@ -11,7 +11,7 @@ use structs::steam::App;
 use structs::gog::GameInfo as GOGGameInfo;
 use structs::microsoft_store::ProductInfo;
 use structs::data::GameThreshold;
-use file_types::properties;
+use properties;
 
 static THRESHOLD_FILENAME : &str = "thresholds.json";
 

@@ -1,6 +1,6 @@
 #[cfg(test)]
 use stores::microsoft_store;
-use file_types::properties;
+use properties;
 
 // Constants
 static GAME_TITLE: &str = "SILENT HILL f";

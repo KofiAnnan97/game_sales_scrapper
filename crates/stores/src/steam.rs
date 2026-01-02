@@ -6,11 +6,12 @@ use regex::Regex;
 use std::io::{self, Write};
 use std::env;
 use std::path::PathBuf;
-use file_types::{json, properties};
+use file_types::json;
+use properties;
 use structs::data::SaleInfo;
 use structs::steam::{App, PriceOverview};
 
-static CACHE_FILENAME : &str = "steam_game_titles_cache.json";
+static CACHE_FILENAME : &str = "cached_steam_games.json";
 
 static API_BASE_URL : &str = "https://api.steampowered.com";
 static STORE_BASE_URL : &str = "https://store.steampowered.com";
