@@ -13,7 +13,7 @@ use serde_json::{json, Value};
 use structs::data::{GameThreshold, SimpleGameThreshold};
 use file_types::{common, csv};
 use file_ops::settings::{self, GOG_STORE_ID, MICROSOFT_STORE_ID, STEAM_STORE_ID};
-use file_ops::thresholds::{get_path, load_data, THRESHOLDS};
+use file_ops::thresholds::THRESHOLDS;
 use crate::tests::helper::{self, get_threshold_path};
 
 // Sample Game Data IDs
@@ -80,12 +80,12 @@ fn config_cmd() {
     helper::clear_settings();
     let _ = if cfg!(target_os = "windows") {
         Command::new("cmd")
-            .args(["/C","cargo","run","--","config","-s","-g","-e","0","--test_flag"])
+            .args(["/C","cargo","run","--","config","-s","-g","-e","0"])
             .output()
             .expect("failed to execute process")
     } else {
         Command::new("cargo")
-            .args(["run","--","config","-s","-g","-e","0","--test_flag"])
+            .args(["run","--","config","-s","-g","-e","0"])
             .output()
             .expect("failed to execute process")
     };
@@ -104,10 +104,11 @@ fn config_cmd() {
     assert_ne!(true, ms_present, "MSC should not be a selected store");
     let are_aliases_enabled = helper::load_alias_state();
     assert_eq!(false, are_aliases_enabled, "Aliases should not be enabled in settings" );
+    helper::teardown();
 }
 
 #[tokio::test]
-#[ignore]
+#[ignore = "Not fully implemented"]
 async fn add_cmd() {
     helper::clear_settings();
     helper::clear_thresholds();
@@ -115,7 +116,7 @@ async fn add_cmd() {
     // Check that add fails without config setup
     let price_str = "19.99";
     // let add_wo_config = Command::new("cargo")
-    //     .args(["run","--","add","-t",E33_GAME_TITLE,"-p",price_str,"-a","0","--test_flag"])
+    //     .args(["run","--","add","-t",E33_GAME_TITLE,"-p",price_str,"-a","0"])
     //     .output()
     //     .expect("failed to execute proces");
     //
@@ -125,13 +126,13 @@ async fn add_cmd() {
 
     // Update settings
     let _ = Command::new("cargo")
-        .args(["run","--","config","-a","-e","1","--test_flag"])
+        .args(["run","--","config","-a","-e","1"])
         .output()
         .expect("failed to execute proces");
 
     // Add value
     // let mut add_process = Command::new("cargo")
-    //     .args(["run","--","add","-t",E33_GAME_TITLE,"-p",price_str,"--test_flag"])
+    //     .args(["run","--","add","-t",E33_GAME_TITLE,"-p",price_str])
     //     .stdin(Stdio::piped())
     //     .stdout(Stdio::piped())
     //     .spawn()
@@ -149,7 +150,7 @@ async fn add_cmd() {
 }
 
 #[tokio::test]
-#[ignore]
+#[ignore = "Not fully implemented"]
 async fn bulk_insert_cmd() {
     helper::clear_settings();
     helper::clear_thresholds();
@@ -158,20 +159,20 @@ async fn bulk_insert_cmd() {
 
     // Update settings
     let _ = Command::new("cargo")
-        .args(["run","--","config","-a","-e","0","--test_flag"])
+        .args(["run","--","config","-a","-e","0"])
         .output()
         .expect("failed to execute proces");
 
     // let bi_process = if cfg!(target_os = "windows") {
     //     Command::new("cmd")
-    //         .args(["/C","cargo","run","--","bulk-insert","-f",&csv_path,"--test_flag"])
+    //         .args(["/C","cargo","run","--","bulk-insert","-f",&csv_path])
     //         .stdin(Stdio::piped())
     //         .stdout(Stdio::piped())
     //         .spawn()
     //         .expect("failed to execute process")
     // } else {
     //     Command::new("cargo")
-    //         .args(["run","--","bulk-insert","-f",&csv_path,"--test_flag"])
+    //         .args(["run","--","bulk-insert","-f",&csv_path])
     //         .stdin(Stdio::piped())
     //         .stdout(Stdio::piped())
     //         .spawn()
@@ -193,12 +194,12 @@ fn update_price_cmd() {
     let mut new_price = "19.99";
     let _ = if cfg!(target_os = "windows") {
         Command::new("cmd")
-            .args(["/C","cargo","run","--","update","-t",title,"-p",new_price,"--test_flag"])
+            .args(["/C","cargo","run","--","update","-t",title,"-p",new_price])
             .output()
             .expect("failed to execute process")
     } else{
         Command::new("cargo")
-            .args(["run","--","update","-t",title,"-p",new_price,"--test_flag"])
+            .args(["run","--","update","-t",title,"-p",new_price])
             .output()
             .expect("failed to execute process")
     };
@@ -211,12 +212,12 @@ fn update_price_cmd() {
     new_price = "34.99";
     let _ = if cfg!(target_os = "windows") {
         Command::new("cmd")
-            .args(["/C","cargo","run","--","update","-t",alias,"-p",new_price,"--test_flag"])
+            .args(["/C","cargo","run","--","update","-t",alias,"-p",new_price])
             .output()
             .expect("failed to execute process")
     } else{
         Command::new("cargo")
-            .args(["run","--","update","-t",alias,"-p",new_price,"--test_flag"])
+            .args(["run","--","update","-t",alias,"-p",new_price])
             .output()
             .expect("failed to execute process")
     };
@@ -224,6 +225,7 @@ fn update_price_cmd() {
     assert_eq!(1, thresholds.len(), "There should only be 1 threshold");
     assert_eq!(alias, thresholds[0].alias, "The game alias should be {alias} not {}", thresholds[0].alias);
     assert_eq!(new_price.parse::<f64>().unwrap(), thresholds[0].desired_price, "The desired price should be {} not {}", new_price, thresholds[0].desired_price);
+    helper::teardown();
 }
 
 #[test]
@@ -239,12 +241,12 @@ fn remove_cmd() {
     // Remove threshold by title
     let _ = if cfg!(target_os = "windows") {
         Command::new("cmd")
-            .args(["/C","cargo","run","--","remove","-t", title,"--test_flag"])
+            .args(["/C","cargo","run","--","remove","-t", title])
             .output()
             .expect("failed to execute process")
     } else{
         Command::new("cargo")
-            .args(["run","--","remove","-t", title,"--test_flag"])
+            .args(["run","--","remove","-t", title])
             .output()
             .expect("failed to execute process")
     };
@@ -255,30 +257,32 @@ fn remove_cmd() {
     add_fake_threshold(alias, title, price);
     let _ = if cfg!(target_os = "windows") {
         Command::new("cmd")
-            .args(["/C","cargo","run","--","remove","-t", alias,"--test_flag"])
+            .args(["/C","cargo","run","--","remove","-t", alias])
             .output()
             .expect("failed to execute process")
     } else{
         Command::new("cargo")
-            .args(["run","--","remove","-t", alias,"--test_flag"])
+            .args(["run","--","remove","-t", alias])
             .output()
             .expect("failed to execute process")
     };
     thresholds = helper::load_thresholds();
     assert_eq!(0, thresholds.len(), "There should not be any thresholds present");
+    helper::teardown();
 }
 
 #[test]
 fn list_selected_stores_cmd() {
     helper::clear_settings();
+
     let _ = if cfg!(target_os = "windows") {
         Command::new("cmd")
-            .args(["/C","cargo","run","--","config","-m","--test_flag"])
+            .args(["/C","cargo","run","--","config","-m"])
             .output()
             .expect("failed to execute process")
     } else{
         Command::new("cargo")
-            .args(["run","--","config","-m","--test_flag"])
+            .args(["run","--","config","-m"])
             .output()
             .expect("failed to execute process")
     };
@@ -315,6 +319,7 @@ fn list_selected_stores_cmd() {
             assert!(false, "Something when wrong with option -> [{}] {}", result.0, result.1);
         }
     }
+    helper::teardown();
 }
 
 #[test]
@@ -329,12 +334,12 @@ fn list_thresholds_cmd() {
 
     let lt_out = if cfg!(target_os = "windows") {
         Command::new("cmd")
-            .args(["/C","cargo","run","--","--list-thresholds","--test_flag"])
+            .args(["/C","cargo","run","--","--list-thresholds"])
             .output()
             .expect("failed to execute process")
     } else{
         Command::new("cargo")
-            .args(["run","--","--list-thresholds","--test_flag"])
+            .args(["run","--","--list-thresholds"])
             .output()
             .expect("failed to execute process")
     };
@@ -350,6 +355,7 @@ fn list_thresholds_cmd() {
     ];
     assert_eq!(expected[0].0, results[0].0, "The game title should be \'{}\' not \'{}\'", expected[0].0, results[0].0);
     assert_eq!(expected[0].1, results[0].1.parse::<f64>().unwrap(), "The game price should be \'{}\' not \'{}\'", expected[0].1, results[0].1);
+    helper::teardown();
 }
 
 #[tokio::test]
@@ -360,12 +366,12 @@ async fn check_prices() {
     add_threshold("E33", E33_GAME_TITLE, E33_STEAM_ID, E33_GOG_ID, E33_MS_ID, 9999.99);
     let cp_out = if cfg!(target_os = "windows") {
         Command::new("cmd")
-            .args(["/C","cargo","run","--","--check-prices","--test_flag"])
+            .args(["/C","cargo","run","--","--check-prices"])
             .output()
             .expect("failed to execute process")
     } else{
         Command::new("cargo")
-            .args(["run","--","--check-prices","--test_flag"])
+            .args(["run","--","--check-prices"])
             .output()
             .expect("failed to execute process")
     };
@@ -413,4 +419,5 @@ async fn check_prices() {
     expected_title = expected.get(ms_proper.as_str()).unwrap()[0];
     actual_title = games_by_store.get(ms_proper.as_str()).unwrap()[0];
     assert_eq!(expected_title, actual_title, "{} -> Game title should be {} not {}", ms_proper, expected_title, actual_title);
+    helper::teardown();
 }

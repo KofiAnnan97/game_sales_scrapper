@@ -1,6 +1,5 @@
 #[cfg(test)]
 use stores::gog;
-use properties;
 
 // Constants
 static GAME_TITLE: &str = "SILENT HILL f";
@@ -8,7 +7,6 @@ static GAME_ID: usize = 1901861030;
 
 #[tokio::test]
 async fn search_game() {
-    if !properties::is_testing_enabled() { properties::set_test_mode(true); }
     let client = reqwest::Client::new();
     let search_list = gog::search_game_by_title_v2(GAME_TITLE, &client)
         .await.unwrap_or_else(|_| Vec::new());
@@ -24,7 +22,6 @@ async fn search_game() {
 
 #[tokio::test]
 async fn get_price_info() {
-    if !properties::is_testing_enabled() { properties::set_test_mode(true); }
     let client = reqwest::Client::new();
     match gog::get_price_details_v2(GAME_TITLE, &client).await {
         Some(info) => {

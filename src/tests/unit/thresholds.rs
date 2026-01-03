@@ -104,6 +104,7 @@ async fn add_steam_game() {
         },
         Err(_) => assert!(false, "Could not find game: {} ({})", game_title.clone(), game_id),
     }
+    helper::teardown();
 }
 
 #[test]
@@ -121,6 +122,7 @@ fn add_gog_game() {
         },
         Err(_) => assert!(false, "Could not find game: {} ({})", game_title.clone(), game_id),
     }
+    helper::teardown();
 }
 
 #[test]
@@ -138,6 +140,7 @@ fn add_microsoft_store_game() {
         },
         Err(_) => assert!(false, "Could not find game: {} ({})", game_title.clone(), game_id),
     }
+    helper::teardown();
 }
 
 #[test]
@@ -163,6 +166,7 @@ fn update_alias() {
             assert_eq!(new_alias, thresholds[0].alias, "Alias should be \'{}\' not \'{}\'.", new_alias, thresholds[0].alias),
         Err(_) => assert!(false, "Could not load the thresholds when alias is expected to be {}.", new_alias)
     }
+    helper::teardown();
 }
 
 #[test]
@@ -195,6 +199,7 @@ fn update_price() {
         }
         Err(_) => assert!(false, "Could not load thresholds when desired price was updated..")
     }
+    helper::teardown();
 }
 
 #[test]
@@ -217,6 +222,7 @@ fn update_id(){
         },
         Err(_) => assert!(false, "Could not load thresholds when store IDs (integer) where updated.")
     }
+    helper::teardown();
 }
 
 #[test]
@@ -236,6 +242,7 @@ fn update_id_str(){
         },
         Err(_) => assert!(false, "Could not load thresholds when store IDs (string) where updated.")
     }
+    helper::teardown();
 }
 
 #[test]
@@ -281,4 +288,5 @@ fn remove_game(){
         Ok(thresholds) => assert_eq!(0, thresholds.len(), "Thresholds length after deletion should be 0"),
         Err(_) => assert!(false, "Could not load thresholds after deletion.")
     }
+    helper::teardown();
 }

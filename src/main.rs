@@ -21,11 +21,6 @@ fn storefront_check() -> Vec<String> {
     selected_stores
 }
 
-fn test_mode_check(val_src: ValueSource){
-    if val_src == ValueSource::CommandLine && !properties::is_testing_enabled() { properties::set_test_mode(true); }
-    else if val_src != ValueSource::CommandLine && properties::is_testing_enabled() { properties::set_test_mode(false); }
-}
-
 fn get_simple_prices_str(store_name: &str, sales: Vec<SaleInfo>) -> String{
     let mut prices_str = String::new();
     for game in sales.iter(){
@@ -260,10 +255,11 @@ async fn main(){
         .required(false);
     let update_properties_arg = arg!(-p --update_properties "Update properties using env file")
         .action(ArgAction::SetTrue)
-        .conflicts_with("test_flag")
+        .conflicts_with("test_mode")
         .required(false);
-    let test_flag_arg = arg!(-z --test_flag "Flag for saving data using the TEST_PATH env variable")
-        .action(ArgAction::SetTrue)
+    let test_mode_arg = arg!(-z --test_mode "Flag for saving data using the TEST_PATH env variable")
+        .action(ArgAction::Set)
+        .value_parser(clap::value_parser!(i32))
         .hide(true)
         .required(false);
 
@@ -280,28 +276,28 @@ async fn main(){
                     &enable_aliases_arg,
                     &allow_alias_reuse_arg,
                     &update_properties_arg,
-                    &test_flag_arg
+                    &test_mode_arg
                 ])
         )
         .subcommand(
             Command::new("add")
                 .about("Add a game to price thresholds")
-                .args([&title_arg, &price_arg, &alias_arg, &test_flag_arg])
+                .args([&title_arg, &price_arg, &alias_arg])
         )
         .subcommand(
             Command::new("bulk-insert")
                 .about("Add multiple games via CSV file")
-                .args([&file_arg, &test_flag_arg])
+                .args([&file_arg])
         )
         .subcommand(
             Command::new("update")
                 .about("Update price threshold for game")
-                .args([&title_arg, &price_arg, &test_flag_arg])
+                .args([&title_arg, &price_arg])
         )
         .subcommand(
             Command::new("remove")
                 .about("Remove game from price thresholds")
-                .args([&title_arg, &test_flag_arg])
+                .args([&title_arg])
         )
         .arg(
             Arg::new("selected-stores")
@@ -349,7 +345,6 @@ async fn main(){
                 .required(false)
                 .help("Send email if game(s) are below price threshold")
         )
-        .arg(test_flag_arg)
         .get_matches();
 
     match cmd.subcommand() {
@@ -357,12 +352,22 @@ async fn main(){
             // Parameters
             let enable_aliases = config_args.value_source("enable_aliases");
             let allow_alias_reuse = config_args.value_source("allow_alias_reuse");
-            let test_flag = config_args.value_source("test_flag").unwrap();
             let update_properties = config_args.value_source("update_properties").unwrap();
 
             // Update properties
             if update_properties == ValueSource::CommandLine { properties::update_properties(); }
-            else if update_properties == ValueSource::DefaultValue { test_mode_check(test_flag); }
+            else if update_properties == ValueSource::DefaultValue {
+                match config_args.value_source("test_mode") {
+                    Some(test_mode)  => {
+                        if test_mode == ValueSource::CommandLine {
+                            let test_state: i32 = config_args.get_one::<i32>("test_mode").unwrap().clone();
+                            if test_state == 1 { properties::set_test_mode(true); } else { properties::set_test_mode(false); }
+                            println!("Test mode set to {}", test_state);
+                        }
+                    },
+                    None => ()
+                }
+            }
 
             // Stores
             let search_steam = config_args.value_source("steam").unwrap();
@@ -401,9 +406,6 @@ async fn main(){
             }
         },
         Some(("add", add_args)) => {
-            let test_flag = add_args.value_source("test_flag").unwrap();
-            test_mode_check(test_flag);
-
             let selected_stores = storefront_check();
             let alias = if add_args.contains_id("alias") && settings::get_alias_state() {
                 add_args.get_one::<String>("alias").unwrap().clone()
@@ -426,9 +428,6 @@ async fn main(){
             }
         },
         Some(("bulk-insert", bulk_args)) => {
-            let test_flag = bulk_args.value_source("test_flag").unwrap();
-            test_mode_check(test_flag);
-
             let selected_stores = storefront_check();
             let mut game_list: Vec<SimpleGameThreshold> = Vec::new();
             let file_path = bulk_args.get_one::<String>("file").unwrap().clone();
@@ -456,24 +455,15 @@ async fn main(){
             }
         },
         Some(("update", update_args)) => {
-            let test_flag = update_args.value_source("test_flag").unwrap();
-            test_mode_check(test_flag);
-
             let title = update_args.get_one::<String>("title").unwrap().clone();
             let price = update_args.get_one::<f64>("price").unwrap().clone();
             thresholds::update_price(&title, price);
         },
         Some(("remove", remove_args)) => {
-            let test_flag = remove_args.value_source("test_flag").unwrap();
-            test_mode_check(test_flag);
-
             let title = remove_args.get_one::<String>("title").unwrap().clone();
             thresholds::remove(&title);
         },
         _ => {
-            let test_flag = cmd.value_source("test_flag").unwrap();
-            test_mode_check(test_flag);
-
             if cmd.get_flag("thresholds") { thresholds::list_games(); }
             else if cmd.get_flag("selected-stores") { settings::list_selected(); }
             else if cmd.get_flag("cache"){

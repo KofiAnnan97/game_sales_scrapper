@@ -53,6 +53,23 @@ pub fn get_settings_path() -> String {
     common::get_path(&settings_path)
 }
 
+pub fn clear_settings() {
+    if !properties::is_testing_enabled() { properties::set_test_mode(true); }
+    let settings = json!({SELECTED_STORES: [], ALIASES_ENABLED: 1, ALLOW_ALIAS_REUSE_AFTER_CREATION: 1});
+    let settings_str = serde_json::to_string_pretty(&settings);
+    common::write_to_file(get_settings_path(), settings_str.expect("Clear settings."));
+}
+
+pub fn clear_thresholds(){
+    if !properties::is_testing_enabled() { properties::set_test_mode(true); }
+    let thresholds = json!({
+        THRESHOLDS.to_string(): [],
+        ALIAS_MAP.to_string(): {}
+    });
+    let thresholds_str = serde_json::to_string_pretty(&thresholds);
+    common::write_to_file(get_threshold_path(), thresholds_str.expect("Clear thresholds."));
+}
+
 pub fn load_threshold_data() -> Result<Value> {
     let filepath = get_threshold_path();
     let data = read_to_string(filepath).unwrap();
@@ -83,17 +100,6 @@ pub fn load_alias_state() -> bool{
     serde_json::from_str::<bool>(&alias_enabled).unwrap_or_else(|_|false)
 }
 
-pub fn clear_settings() {
-    let settings = json!({SELECTED_STORES: [], ALIASES_ENABLED: 1, ALLOW_ALIAS_REUSE_AFTER_CREATION: 1});
-    let settings_str = serde_json::to_string_pretty(&settings);
-    common::write_to_file(get_settings_path(), settings_str.expect("Clear settings."));
-}
-
-pub fn clear_thresholds(){
-    let thresholds = json!({
-        THRESHOLDS.to_string(): [],
-        ALIAS_MAP.to_string(): {}
-    });
-    let thresholds_str = serde_json::to_string_pretty(&thresholds);
-    common::write_to_file(get_threshold_path(), thresholds_str.expect("Clear thresholds."));
+pub fn teardown(){
+    properties::set_test_mode(false);
 }
