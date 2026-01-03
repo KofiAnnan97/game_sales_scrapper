@@ -1,4 +1,4 @@
-use std::fs::{self, File, write};
+use std::fs::File;
 use std::{error::Error};
 
 use structs::data::SimpleGameThreshold;

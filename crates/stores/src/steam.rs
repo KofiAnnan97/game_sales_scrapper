@@ -1,10 +1,8 @@
-use dotenv::dotenv as dotenv_linux;
-use dotenvy::dotenv as dotenv_windows;
 use serde_json::{Result, Value, Error};
 use std::fs::read_to_string;
 use regex::Regex;
 use std::io::{self, Write};
-use std::env;
+
 use std::path::PathBuf;
 use file_types::common;
 use properties;
@@ -18,17 +16,6 @@ static STORE_BASE_URL : &str = "https://store.steampowered.com";
 
 static APP_LIST_ENDPOINT : &str = "/IStoreService/GetAppList/v1";
 static DETAILS_ENDPOINT : &str = "/api/appdetails";
-
-// Secrets
-fn get_api_key() -> String {
-    if cfg!(target_os = "windows") { dotenv_windows().ok(); }
-    else if cfg!(target_os = "linux") { dotenv_linux().ok(); }
-    let steam_api_token = match env::var("STEAM_API_KEY"){
-        Ok(token) => token,
-        Err(_) => panic!("STEAM_API_KEY environment variable not found"),
-    };
-    steam_api_token
-}
 
 // Caching Functions
 fn get_cache_path() -> String{
@@ -99,7 +86,7 @@ pub async fn update_cached_games(){
 
 // API Functions 
 async fn get_all_games(client: &reqwest::Client) -> Result<String> {
-    let steam_api_key = get_api_key();
+    let steam_api_key = properties::get_steam_api_key();
     let last_app_id = get_last_appid().await;
     //println!("Last appid: {}", last_app_id);
     let query_string = [

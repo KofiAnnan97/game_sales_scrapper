@@ -4,7 +4,9 @@ use serde_json::{json, Value, Result};
 
 use file_types::common;
 pub mod env_vars;
-use env_vars::{RECIPIENT_EMAIL_ENV, SMTP_HOST_ENV, SMTP_PORT_ENV, SMTP_EMAIL_ENV, SMTP_USERNAME_ENV};
+pub mod passwords;
+use env_vars::{ENV_FILENAME, STEAM_API_KEY_ENV, RECIPIENT_EMAIL_ENV, SMTP_HOST_ENV, SMTP_PORT_ENV,
+               SMTP_EMAIL_ENV, SMTP_USERNAME_ENV, SMTP_PASSWORD_ENV};
 
 // Environment variable names
 pub static PROJECT_PATH_ENV : &str = "PROJECT_PATH";
@@ -34,18 +36,22 @@ pub fn get_properties_path() -> String{
     if !Path::new(&data_path).is_dir() { let _ = fs::create_dir(&data_path); }
     path_buf = [data_path, PROPERTIES_FILENAME.to_string()].iter().collect();
     let properties_path = path_buf.display().to_string();
-    let path_str = common::get_path(&properties_path);  //Creates file if it does not exist already
+    let path_str = common::get_path(&properties_path);
     match metadata(&path_str){
         Ok(md) => {
             if md.len() == 0 {
                 let vars = env_vars::get_variables();
+                if vars.is_empty() { panic!("No environment variables found. Missing file: \"{}\".", ENV_FILENAME); }
+                let key_str = env_vars::get_decrypt_key();
                 let port: u16 = vars.get(SMTP_PORT_ENV).unwrap().parse().unwrap();
                 let properties = json!({
+                    PROP_STEAM_API_KEY : passwords::encrypt(key_str.as_str(), vars.get(STEAM_API_KEY_ENV).unwrap().to_string()),
                     PROP_RECIPIENT_EMAIL: vars.get(RECIPIENT_EMAIL_ENV).unwrap(),
                     PROP_SMTP_HOST: vars.get(SMTP_HOST_ENV).unwrap(),
                     PROP_SMTP_PORT: port,
                     PROP_SMTP_EMAIL: vars.get(SMTP_EMAIL_ENV).unwrap(),
                     PROP_SMTP_USERNAME: vars.get(SMTP_USERNAME_ENV).unwrap(),
+                    PROP_SMTP_PASSWORD: passwords::encrypt(key_str.as_str(), vars.get(SMTP_PASSWORD_ENV).unwrap().to_string()),
                     PROP_PROJECT_PATH: vars.get(PROJECT_PATH_ENV).unwrap(),
                     PROP_TEST_MODE: 0
                 });
@@ -59,41 +65,58 @@ pub fn get_properties_path() -> String{
 }
 
 pub fn update_properties() {
+    let prev_steam_key = get_steam_api_key();
     let prev_recipient = get_recipient();
     let prev_host = get_smtp_host();
     let prev_port = get_smtp_port();
     let prev_email = get_smtp_email();
     let prev_user = get_smtp_user();
+    let prev_pwd = get_smtp_pwd();
     let prev_project_path = get_project_path();
+    let key_str = env_vars::get_decrypt_key();
 
     let vars = env_vars::get_variables();
-    let curr_recipient = vars.get(RECIPIENT_EMAIL_ENV).unwrap().to_string();
-    let curr_host = vars.get(SMTP_HOST_ENV).unwrap().to_string();
-    let curr_port = vars.get(SMTP_PORT_ENV).unwrap().to_string().parse::<u16>().unwrap();
-    let curr_email = vars.get(SMTP_EMAIL_ENV).unwrap().to_string();
-    let curr_user = vars.get(SMTP_USERNAME_ENV).unwrap().to_string();
-    let curr_project_path = vars.get(PROJECT_PATH_ENV).unwrap().to_string();
+    if !vars.is_empty() {
+        let curr_steam_key = vars.get(STEAM_API_KEY_ENV).unwrap().to_string();
+        let curr_recipient = vars.get(RECIPIENT_EMAIL_ENV).unwrap().to_string();
+        let curr_host = vars.get(SMTP_HOST_ENV).unwrap().to_string();
+        let curr_port = vars.get(SMTP_PORT_ENV).unwrap().to_string().parse::<u16>().unwrap();
+        let curr_email = vars.get(SMTP_EMAIL_ENV).unwrap().to_string();
+        let curr_user = vars.get(SMTP_USERNAME_ENV).unwrap().to_string();
+        let curr_pwd = vars.get(SMTP_PASSWORD_ENV).unwrap().to_string();
+        let curr_project_path = vars.get(PROJECT_PATH_ENV).unwrap().to_string();
+        // println!("Steam API key: {} ", get_steam_api_key());
+        // println!("SMTP pwd: {} ", get_smtp_pwd());
+        // println!("Decode: {} -> {}", curr_steam_key, passwords::decrypt(curr_steam_key.clone()));
+        // println!("Decode: {} -> {}", curr_pwd, passwords::decrypt(curr_pwd.clone()));
 
-    let mut can_update = false;
-    if !curr_recipient.is_empty() && prev_recipient != curr_recipient { can_update = true; }
-    if !can_update && !curr_host.is_empty() && prev_host != curr_host { can_update = true; }
-    if !can_update && prev_port != curr_port { can_update = true; }
-    if !can_update && !curr_email.is_empty() && prev_email != curr_email { can_update = true; }
-    if !can_update && !curr_user.is_empty() && prev_user != curr_user { can_update = true; }
-    if !can_update && !curr_project_path.is_empty() && prev_project_path != curr_project_path { can_update = true; }
-    println!("Test mode: {}", get_test_mode());
-    if can_update {
-        let properties = json!({
-            PROP_RECIPIENT_EMAIL: curr_recipient,
-            PROP_SMTP_HOST: curr_host,
+        let mut can_update = false;
+        if !curr_steam_key.is_empty() && prev_steam_key != passwords::decrypt(key_str.as_str(), curr_steam_key.clone()) { can_update = true }
+        if !curr_recipient.is_empty() && prev_recipient != curr_recipient { can_update = true; }
+        if !can_update && !curr_host.is_empty() && prev_host != curr_host { can_update = true; }
+        if !can_update && prev_port != curr_port { can_update = true; }
+        if !can_update && !curr_email.is_empty() && prev_email != curr_email { can_update = true; }
+        if !can_update && !curr_user.is_empty() && prev_user != curr_user { can_update = true; }
+        if !can_update && !curr_pwd.is_empty() && prev_pwd != passwords::decrypt(key_str.as_str(), curr_pwd.clone()) { can_update = true; }
+        if !can_update && !curr_project_path.is_empty() && prev_project_path != curr_project_path { can_update = true; }
+        //println!("Test mode: {}", get_test_mode());
+        if can_update {
+            let properties = json!({
+            PROP_STEAM_API_KEY : if !curr_steam_key.is_empty() { curr_steam_key } else { passwords::encrypt(key_str.as_str(), prev_steam_key) },
+            PROP_RECIPIENT_EMAIL: if !curr_recipient.is_empty() { curr_recipient } else { prev_recipient },
+            PROP_SMTP_HOST: if !curr_host.is_empty() { curr_host } else { prev_host },
             PROP_SMTP_PORT: curr_port,
-            PROP_SMTP_EMAIL: curr_email,
-            PROP_SMTP_USERNAME: curr_user,
-            PROP_PROJECT_PATH: curr_project_path.to_string(),
+            PROP_SMTP_EMAIL: if !curr_email.is_empty() { curr_email } else { prev_email },
+            PROP_SMTP_USERNAME: if !curr_user.is_empty() { curr_user } else { prev_user },
+            PROP_SMTP_PASSWORD: if !curr_pwd.is_empty() { curr_pwd } else { passwords::encrypt(key_str.as_str(), prev_pwd) },
+            PROP_PROJECT_PATH: if !curr_project_path.is_empty() { curr_project_path } else { prev_project_path },
             PROP_TEST_MODE: get_test_mode(),
         });
-        let properties_str = serde_json::to_string_pretty(&properties);
-        common::write_to_file(get_properties_path(), properties_str.expect("Properties could not be updated."));
+            let properties_str = serde_json::to_string_pretty(&properties);
+            common::write_to_file(get_properties_path(), properties_str.expect("Properties could not be updated."));
+        }
+    } else {
+        eprintln!("Could not locate file: \"{}\".\nThis file must be present to update properties.", ENV_FILENAME);
     }
 }
 
@@ -106,24 +129,40 @@ pub fn load_properties() -> Result<Value> {
 fn get_string_var(var_name: &str) -> String {
     match load_properties() {
         Ok(properties) => {
-            let var = properties.get(var_name).unwrap();
-            var.as_str().unwrap().to_string()
+            let var = match properties.get(var_name) {
+                Some(result) => result.as_str().unwrap().to_string(),
+                None => {
+                    eprintln!("Warning: Property \"{}\" is empty/does not exist.", var_name);
+                    String::new()
+                }
+            };
+            var
         }
         Err(_) => panic!("Failed to load properties file.")
     }
 }
 
 fn get_integer_var(var_name: &str) -> i64 {
+    let default_int : i64 = 0;
     match load_properties() {
         Ok(properties) => {
-            let var = properties.get(var_name).unwrap();
-            match var.as_i64(){
-                Some(i) => i,
-                None => panic!("Failed to parse \"{}\". Please check that this is an integer.", var_name)
+            //let var = properties.get(var_name);
+            match properties.get(var_name){
+                Some(var) => var.as_i64().unwrap_or(default_int),
+                None => {
+                    eprintln!("Failed to parse \"{}\" (defaulting to {}). Please check that this is an integer.",
+                              var_name, default_int);
+                    default_int
+                }
             }
         }
         Err(_) => panic!("Failed to load properties file.")
     }
+}
+
+pub fn get_steam_api_key() -> String {
+    let key_str = env_vars::get_decrypt_key();
+    passwords::decrypt(key_str.as_str(), get_string_var(PROP_STEAM_API_KEY))
 }
 
 pub fn get_recipient() -> String {
@@ -144,6 +183,11 @@ pub fn get_smtp_port() -> u16 {
 
 pub fn get_smtp_user() -> String {
     get_string_var(PROP_SMTP_USERNAME)
+}
+
+pub fn get_smtp_pwd() -> String {
+    let key_str = env_vars::get_decrypt_key();
+    passwords::decrypt(key_str.as_str(), get_string_var(PROP_SMTP_PASSWORD))
 }
 
 pub fn get_project_path() -> String {

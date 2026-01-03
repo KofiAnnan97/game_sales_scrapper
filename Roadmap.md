@@ -4,8 +4,8 @@
 - Features/Updates
   - [X] Refactor project to use cargo workspace
   - [X] Turn properties file into a crate
-    - [X] Add env vars to properties.json (excluding secrets/passwords) 
-    - [ ] Write encrypt and decrypt function for secrets/passwords
+    - [X] Add env vars to properties.json
+    - [X] Write encrypt and decrypt function for secrets/passwords
   - [ ] Update dependencies and resolve any potential issues
   - [ ] Set up Humble Bundle Storefront
 - Bugs/Fixes
@@ -17,6 +17,8 @@
   - [ ] Fix Windows tests for GitHub actions
 - Testing:
   - [X] Add tests for multiple thresholds with the same alias
+  - [ ] Add tests for encrypting and decrypting secrets/passwords
+  - [ ] Add tests for retrieving environment variables
   - [ ] Add tests for Humble Bundle API calls
 
 ### Backlog
