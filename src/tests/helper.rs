@@ -4,8 +4,8 @@ use std::path::{Path, PathBuf};
 use dotenv::dotenv as dotenv_linux;
 use dotenvy::dotenv as dotenv_windows;
 use serde_json::{json, Result, Value};
-use file_types::properties;
-use file_types::json;
+use properties;
+use file_types::common;
 use structs::data::GameThreshold;
 use file_ops::thresholds::{ALIAS_MAP, THRESHOLDS};
 use file_ops::settings::{ALIASES_ENABLED, ALLOW_ALIAS_REUSE_AFTER_CREATION, SELECTED_STORES};
@@ -14,7 +14,7 @@ pub static THRESHOLD_FILENAME: &str = "thresholds.json";
 pub static SETTINGS_FILENAME: &str = "config.json";
 
 pub fn get_data_path() -> String {
-    if !properties::get_test_mode() { properties::set_test_mode(true); }
+    if !properties::is_testing_enabled() { properties::set_test_mode(true); }
     if cfg!(target_os = "windows") { dotenv_windows().ok(); }
     else if cfg!(target_os = "linux") { dotenv_linux().ok(); }
     let mut data_path = env::var("TEST_PATH").unwrap_or_else(|_| String::from("."));
@@ -29,7 +29,7 @@ pub fn get_data_path() -> String {
 pub fn get_threshold_path() -> String {
     let path_buf: PathBuf = [get_data_path(), THRESHOLD_FILENAME.to_string()].iter().collect();
     let threshold_path = path_buf.display().to_string();
-    let path_str = json::get_path(&threshold_path);
+    let path_str = common::get_path(&threshold_path);
     match metadata(&path_str){
         Ok(md) => {
             if md.len() == 0 {
@@ -38,7 +38,7 @@ pub fn get_threshold_path() -> String {
                     ALIAS_MAP.to_string(): {},
                 });
                 let data_str = serde_json::to_string_pretty(&data);
-                json::write_to_file(threshold_path.clone(), data_str.expect("Initial settings could not be created."));
+                common::write_to_file(threshold_path.clone(), data_str.expect("Initial settings could not be created."));
             }
         },
         Err(e) => eprintln!("Error: {}", e)
@@ -50,7 +50,24 @@ pub fn get_settings_path() -> String {
     let mut settings_path = get_data_path();
     let path_buf: PathBuf = [&settings_path, SETTINGS_FILENAME].iter().collect();
     settings_path = path_buf.display().to_string();
-    json::get_path(&settings_path)
+    common::get_path(&settings_path)
+}
+
+pub fn clear_settings() {
+    if !properties::is_testing_enabled() { properties::set_test_mode(true); }
+    let settings = json!({SELECTED_STORES: [], ALIASES_ENABLED: 1, ALLOW_ALIAS_REUSE_AFTER_CREATION: 1});
+    let settings_str = serde_json::to_string_pretty(&settings);
+    common::write_to_file(get_settings_path(), settings_str.expect("Clear settings."));
+}
+
+pub fn clear_thresholds(){
+    if !properties::is_testing_enabled() { properties::set_test_mode(true); }
+    let thresholds = json!({
+        THRESHOLDS.to_string(): [],
+        ALIAS_MAP.to_string(): {}
+    });
+    let thresholds_str = serde_json::to_string_pretty(&thresholds);
+    common::write_to_file(get_threshold_path(), thresholds_str.expect("Clear thresholds."));
 }
 
 pub fn load_threshold_data() -> Result<Value> {
@@ -83,17 +100,6 @@ pub fn load_alias_state() -> bool{
     serde_json::from_str::<bool>(&alias_enabled).unwrap_or_else(|_|false)
 }
 
-pub fn clear_settings() {
-    let settings = json!({SELECTED_STORES: [], ALIASES_ENABLED: 1, ALLOW_ALIAS_REUSE_AFTER_CREATION: 1});
-    let settings_str = serde_json::to_string_pretty(&settings);
-    json::write_to_file(get_settings_path(), settings_str.expect("Clear settings."));
-}
-
-pub fn clear_thresholds(){
-    let thresholds = json!({
-        THRESHOLDS.to_string(): [],
-        ALIAS_MAP.to_string(): {}
-    });
-    let thresholds_str = serde_json::to_string_pretty(&thresholds);
-    json::write_to_file(get_threshold_path(), thresholds_str.expect("Clear thresholds."));
+pub fn teardown(){
+    properties::set_test_mode(false);
 }

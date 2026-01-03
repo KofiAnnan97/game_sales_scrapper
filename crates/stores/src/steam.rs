@@ -1,16 +1,15 @@
-use dotenv::dotenv as dotenv_linux;
-use dotenvy::dotenv as dotenv_windows;
 use serde_json::{Result, Value, Error};
 use std::fs::read_to_string;
 use regex::Regex;
 use std::io::{self, Write};
-use std::env;
+
 use std::path::PathBuf;
-use file_types::{json, properties};
+use file_types::common;
+use properties;
 use structs::data::SaleInfo;
 use structs::steam::{App, PriceOverview};
 
-static CACHE_FILENAME : &str = "steam_game_titles_cache.json";
+static CACHE_FILENAME : &str = "cached_steam_games.json";
 
 static API_BASE_URL : &str = "https://api.steampowered.com";
 static STORE_BASE_URL : &str = "https://store.steampowered.com";
@@ -18,22 +17,11 @@ static STORE_BASE_URL : &str = "https://store.steampowered.com";
 static APP_LIST_ENDPOINT : &str = "/IStoreService/GetAppList/v1";
 static DETAILS_ENDPOINT : &str = "/api/appdetails";
 
-// Secrets
-fn get_api_key() -> String {
-    if cfg!(target_os = "windows") { dotenv_windows().ok(); }
-    else if cfg!(target_os = "linux") { dotenv_linux().ok(); }
-    let steam_api_token = match env::var("STEAM_API_KEY"){
-        Ok(token) => token,
-        Err(_) => panic!("STEAM_API_KEY environment variable not found"),
-    };
-    steam_api_token
-}
-
 // Caching Functions
 fn get_cache_path() -> String{
     let path_buf: PathBuf = [properties::get_data_path(), CACHE_FILENAME.to_string()].iter().collect();
     let cache_file_path = path_buf.display().to_string();
-    json::get_path(&cache_file_path)
+    common::get_path(&cache_file_path)
 }
 
 pub async fn load_cached_games() -> Result<Vec<App>> {
@@ -92,13 +80,13 @@ pub async fn update_cached_games(){
         }
     }
     let data_str = serde_json::to_string_pretty(&games_list).unwrap();
-    json::write_to_file(get_cache_path(), data_str);
+    common::write_to_file(get_cache_path(), data_str);
     println!("Cache update complete")
 }
 
 // API Functions 
 async fn get_all_games(client: &reqwest::Client) -> Result<String> {
-    let steam_api_key = get_api_key();
+    let steam_api_key = properties::get_steam_api_key();
     let last_app_id = get_last_appid().await;
     //println!("Last appid: {}", last_app_id);
     let query_string = [

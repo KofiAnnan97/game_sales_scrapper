@@ -9,6 +9,7 @@ edition.workspace = true
 stores = { path = "../stores" }
 structs = { path = "../structs" }
 file_types = { path = "../file_types" }
+properties = { path = "../properties" }
 
 # External crates
 reqwest = { workspace = true, features = ["json", "blocking"] }

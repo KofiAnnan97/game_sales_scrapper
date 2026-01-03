@@ -1,24 +1,31 @@
 # Roadmap
 
 ### Release 0.2.0
-- Features
+- Features/Updates
   - [X] Refactor project to use cargo workspace
+  - [X] Turn properties file into a crate
+    - [X] Add env vars to properties.json
+    - [X] Write encrypt and decrypt function for secrets/passwords
+  - [ ] Update dependencies and resolve any potential issues
   - [ ] Set up Humble Bundle Storefront
 - Bugs/Fixes
-  - [ ] Fix Windows tests for GitHub actions
   - [X] Fix GOG discount percentage (manually calculate)
   - [X] Fixed thresholds with same alias to support update and remove command
   - [X] Allow user to determine if aliases can be reused after initial creation
-  - [ ] Fix Steam game cache to check and update when any app info changes
   - [X] Fixed file pathing for tests using a test flag (stored within properties file)
+  - [ ] Fix Steam game cache to check and update when any app info changes
+  - [ ] Fix Windows tests for GitHub actions
 - Testing:
-  - [ ] Add tests for Humble Bundle API calls
   - [X] Add tests for multiple thresholds with the same alias
+  - [ ] Add tests for encrypting and decrypting secrets/passwords
+  - [ ] Add tests for retrieving environment variables
+  - [ ] Add tests for Humble Bundle API calls
 
 ### Backlog
-- Features
+- Features/Updates
   - Retrieve pricing data from Steam bundles 
   - Retrieve pricing data from game editions on GOG
 - Bugs/Fixes
+  - Configure Steam API call to not send steam key as plain text
 - Testing
   - Add the `add` and `bulk-insert` cmds for functional testing

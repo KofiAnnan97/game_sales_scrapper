@@ -3,7 +3,8 @@ use std::collections::HashMap;
 use file_ops::settings::{self, STEAM_STORE_ID, STEAM_STORE_NAME,
                           GOG_STORE_ID, GOG_STORE_NAME,
                           MICROSOFT_STORE_ID, MICROSOFT_STORE_NAME};
-use file_types::properties;
+use properties;
+use crate::tests::helper;
 
 // Constants
 static DEFAULT_ALIAS_STATE : bool = true;
@@ -11,14 +12,14 @@ static ALIAS_DISABLED : i32 = 0;
 static ALIAS_ENABLED : i32 = 1;
 
 fn default_settings() {
-    if !properties::get_test_mode() { properties::set_test_mode(true); }
+    if !properties::is_testing_enabled() { properties::set_test_mode(true); }
     settings::update_selected_stores(Vec::new());
     settings::update_alias_state(ALIAS_ENABLED);
 }
 
 #[test]
 fn get_available_stores() {
-    if !properties::get_test_mode() { properties::set_test_mode(true); }
+    if !properties::is_testing_enabled() { properties::set_test_mode(true); }
     let available_stores = settings::get_available_stores();
     let mut all_stores_valid = true;
     let mut invalid_store = "";
@@ -36,11 +37,12 @@ fn get_available_stores() {
     for store in available_stores {
         assert_ne!(store, invalid_store, "\'{}\' should not be a valid store", invalid_store);
     }
+    helper::teardown();
 }
 
 #[test]
 fn get_proper_store_name() {
-    if !properties::get_test_mode() { properties::set_test_mode(true); }
+    if !properties::is_testing_enabled() { properties::set_test_mode(true); }
     // Test valid store ids
     let mut store_name = settings::get_proper_store_name(STEAM_STORE_ID).unwrap();
     assert_eq!(STEAM_STORE_NAME, store_name, "{} != {}", store_name, STEAM_STORE_NAME);
@@ -51,6 +53,7 @@ fn get_proper_store_name() {
     // Test invalid store id
     store_name = settings::get_proper_store_name("fake_store").unwrap_or_default();
     assert_eq!("", store_name, "\'{}\' is not a valid store id", store_name);
+    helper::teardown();
 }
 
 #[test]
@@ -71,6 +74,7 @@ fn get_selected_stores() {
     assert_eq!(true, is_steam_selected, "{} should be selected", STEAM_STORE_ID);
     assert_eq!(true, is_gog_selected, "{} should be selected", GOG_STORE_ID);
     assert_eq!(false, is_ms_store_selected, "{} should not be selected", MICROSOFT_STORE_ID);
+    helper::teardown();
 }
 
 #[test]
@@ -78,6 +82,7 @@ fn get_alias_state() {
     default_settings();
     let are_aliases_enabled = settings::get_alias_state();
     assert_eq!(true, are_aliases_enabled, "Aliases should be enabled.");
+    helper::teardown();
 }
 
 #[test]
@@ -110,6 +115,7 @@ fn update_selected_stores() {
         let count = &store.1;
         assert_eq!(store_limit, *count, "\'{}\' should not have more than 1 entry.", store.0);
     }
+    helper::teardown();
 }
 
 #[test]
@@ -130,4 +136,5 @@ fn update_alias_state(){
             assert_eq!(false, are_aliases_enabled, "Aliases should not be enabled given input: {}.", i);
         }
     }
+    helper::teardown();
 }

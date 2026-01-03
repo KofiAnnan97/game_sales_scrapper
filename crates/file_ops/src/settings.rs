@@ -3,8 +3,8 @@ use std::fs::{read_to_string, metadata};
 use std::collections::HashMap;
 use std::path::PathBuf;
 
-use file_types::json;
-use file_types::properties;
+use file_types::common;
+use properties;
 
 static CONFIG_FILENAME : &str = "config.json";
 static ENABLED_STATE : i32 = 1;
@@ -54,7 +54,7 @@ pub fn get_proper_store_name(id: &str) -> Option<String> {
 fn get_path() -> String{
     let path_buf: PathBuf = [properties::get_data_path(), CONFIG_FILENAME.to_string()].iter().collect();
     let config_path = path_buf.display().to_string();
-    let path_str = json::get_path(&config_path);  //Creates file if it does not exist already
+    let path_str = common::get_path(&config_path);  //Creates file if it does not exist already
     match metadata(&path_str){
         Ok(md) => {
             if md.len() == 0 {
@@ -64,7 +64,7 @@ fn get_path() -> String{
                     ALLOW_ALIAS_REUSE_AFTER_CREATION.to_string(): 0
                 });
                 let settings_str = serde_json::to_string_pretty(&settings);
-                json::write_to_file(config_path.to_string(), settings_str.expect("Initial settings could not be created."));
+                common::write_to_file(config_path.to_string(), settings_str.expect("Initial settings could not be created."));
             }
         },
         Err(e) => eprintln!("Error: {}", e)
@@ -135,7 +135,7 @@ pub fn update_selected_stores(selected: Vec<String>) {
             }
             *selected_stores = json!(unique_stores);
             let settings_str = serde_json::to_string_pretty(&settings);
-            json::write_to_file(get_path(), settings_str.expect("Cannot update store search settings"));
+            common::write_to_file(get_path(), settings_str.expect("Cannot update store search settings"));
         },
         Err(e) => eprintln!("Error: {}", e)
     }
@@ -148,7 +148,7 @@ pub fn update_alias_state(is_enabled: i32){
             let enabled_status = if is_enabled == ENABLED_STATE || is_enabled == DISABLED_STATE { is_enabled } else { DISABLED_STATE };
             *settings.get_mut(ALIASES_ENABLED.to_string()).unwrap() = json!(enabled_status);
             let settings_str = serde_json::to_string_pretty(&settings);
-            json::write_to_file(get_path(), settings_str.expect("Cannot set state of aliases"));
+            common::write_to_file(get_path(), settings_str.expect("Cannot set state of aliases"));
         },
         Err(e) => eprintln!("Error: {}", e)
     }
@@ -161,7 +161,7 @@ pub fn update_alias_reuse_state(is_enabled: i32){
             let enabled_status = if is_enabled == ENABLED_STATE || is_enabled == DISABLED_STATE { is_enabled } else { DISABLED_STATE };
             *settings.get_mut(ALLOW_ALIAS_REUSE_AFTER_CREATION.to_string()).unwrap() = json!(enabled_status);
             let settings_str = serde_json::to_string_pretty(&settings);
-            json::write_to_file(get_path(), settings_str.expect("Cannot set state of alias duplicates"));
+            common::write_to_file(get_path(), settings_str.expect("Cannot set state of alias duplicates"));
         },
         Err(e) => eprintln!("Error: {}", e)
     }

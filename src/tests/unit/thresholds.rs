@@ -1,5 +1,6 @@
 use file_ops::{settings, thresholds};
-use file_types::{json as json_data, properties};
+use file_types::common;
+use properties;
 use file_ops::settings::{GOG_STORE_ID, MICROSOFT_STORE_ID, STEAM_STORE_ID};
 use file_ops::thresholds::update_thresholds;
 use structs::data::GameThreshold;
@@ -9,12 +10,12 @@ use structs::microsoft_store::{PriceInfo, ProductInfo as MSGame, ProductInfoBuil
 use crate::tests::helper;
 
 fn delete_thresholds() {
-    if !properties::get_test_mode() { properties::set_test_mode(true); }
+    if !properties::is_testing_enabled() { properties::set_test_mode(true); }
     settings::update_alias_reuse_state(1);
     let mut config_path = properties::get_data_path();
     config_path.push_str("/");
     config_path.push_str(helper::THRESHOLD_FILENAME);
-    json_data::delete_file(config_path);
+    common::delete_file(config_path);
 }
 
 fn add_simple_threshold(game_title: &str, game_alias: &str, price: f64) {
@@ -103,6 +104,7 @@ async fn add_steam_game() {
         },
         Err(_) => assert!(false, "Could not find game: {} ({})", game_title.clone(), game_id),
     }
+    helper::teardown();
 }
 
 #[test]
@@ -120,6 +122,7 @@ fn add_gog_game() {
         },
         Err(_) => assert!(false, "Could not find game: {} ({})", game_title.clone(), game_id),
     }
+    helper::teardown();
 }
 
 #[test]
@@ -137,10 +140,8 @@ fn add_microsoft_store_game() {
         },
         Err(_) => assert!(false, "Could not find game: {} ({})", game_title.clone(), game_id),
     }
+    helper::teardown();
 }
-
-/*#[test]
-fn set_game_alias_sequence() {}*/
 
 #[test]
 fn update_alias() {
@@ -165,6 +166,7 @@ fn update_alias() {
             assert_eq!(new_alias, thresholds[0].alias, "Alias should be \'{}\' not \'{}\'.", new_alias, thresholds[0].alias),
         Err(_) => assert!(false, "Could not load the thresholds when alias is expected to be {}.", new_alias)
     }
+    helper::teardown();
 }
 
 #[test]
@@ -197,6 +199,7 @@ fn update_price() {
         }
         Err(_) => assert!(false, "Could not load thresholds when desired price was updated..")
     }
+    helper::teardown();
 }
 
 #[test]
@@ -219,6 +222,7 @@ fn update_id(){
         },
         Err(_) => assert!(false, "Could not load thresholds when store IDs (integer) where updated.")
     }
+    helper::teardown();
 }
 
 #[test]
@@ -238,6 +242,7 @@ fn update_id_str(){
         },
         Err(_) => assert!(false, "Could not load thresholds when store IDs (string) where updated.")
     }
+    helper::teardown();
 }
 
 #[test]
@@ -283,4 +288,5 @@ fn remove_game(){
         Ok(thresholds) => assert_eq!(0, thresholds.len(), "Thresholds length after deletion should be 0"),
         Err(_) => assert!(false, "Could not load thresholds after deletion.")
     }
+    helper::teardown();
 }
