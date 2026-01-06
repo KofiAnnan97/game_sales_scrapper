@@ -11,6 +11,9 @@ up to send an email if any game is at or falls below their respective price thre
 - **Good Old Games (GOG)**
 - **Microsoft Store (PC)**
 
+### Resources
+- Requesting a STEAM API key := https://steamcommunity.com/dev
+
 ## Quick Start
 1. Setup SMTP server/service (TLS required)
 2. Nagivate to project folder and run `cargo build --release`

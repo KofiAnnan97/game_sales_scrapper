@@ -18,7 +18,7 @@ static APP_LIST_ENDPOINT : &str = "/IStoreService/GetAppList/v1";
 static DETAILS_ENDPOINT : &str = "/api/appdetails";
 
 static NUM_OF_RESULTS : u32 = 40000;
-static MAX_CACHE_ATTEMPTS : u32 = 5;
+static ROLLING_UPDATE_START_SIZE : usize = 100000;
 
 // Caching Functions
 fn get_cache_path() -> String{
@@ -42,52 +42,52 @@ fn get_last_appid(cached_games: &Vec<App>) -> u32 {
     }
 }
 
-pub async fn update_cached_games(){
-    let client = reqwest::Client::new();
-    let mut games_list : Vec<App> = load_cached_games().unwrap_or_default();
-    let mut last_appid = get_last_appid(&games_list);
-    let mut temp : Vec<App> = get_games(&client, NUM_OF_RESULTS, last_appid).await.unwrap_or_default();
-    if temp.len() == 0 {
-        println!("Could not find any more games on Steam.\nUpdating old entries...");
-        let games_list_size = games_list.len() as u32;
-        let mut batch_size = games_list_size/MAX_CACHE_ATTEMPTS;
-        let mut attempts = 0;
-        if batch_size < NUM_OF_RESULTS {
-            attempts = (games_list_size as f64/NUM_OF_RESULTS as f64).ceil() as u32;
-            batch_size = NUM_OF_RESULTS;
-        }
-        attempts = if attempts > MAX_CACHE_ATTEMPTS { MAX_CACHE_ATTEMPTS } else { attempts };
-        last_appid = 0;
-        for _ in 0..attempts {
-            let mut curr_batch = get_games(&client, batch_size, last_appid).await.unwrap_or_default();
-            temp.append(&mut curr_batch);
-            last_appid = temp.last().unwrap().app_id;
-        }
-    }
-    else { println!("Updating cached Steam game titles"); }
-    for game in temp.iter() {
+fn add_entries_to_cache(new_games: &mut Vec<App>, cached_games: &mut Vec<App>){
+    let mut game_idx = 0;
+    for ng in new_games.iter() {
         let mut unique = true;
-        for cached_game in games_list.iter_mut() {
-            if game.app_id == cached_game.app_id {
-                if game.last_modified > cached_game.last_modified {
-                    cached_game.name = game.name.to_string();
-                    cached_game.last_modified = game.last_modified;
-                    cached_game.price_change_number = game.price_change_number;
+        for i in game_idx..cached_games.len() {
+            let cached_game = cached_games.get_mut(i).unwrap();
+            if ng.app_id == cached_game.app_id {
+                if ng.last_modified > cached_game.last_modified {
+                    cached_game.name = ng.name.to_string();
+                    cached_game.last_modified = ng.last_modified;
+                    cached_game.price_change_number = ng.price_change_number;
                 }
-                else if game.name != "" { unique = false; }
+                game_idx = i;
+                unique = false;
+                break;
+            }
+            else if ng.app_id < cached_game.app_id {
+                game_idx = i;
                 break;
             }
         }
-        if unique && game.name != "".to_string() {
-            games_list.push(App {
-                name: game.name.clone(),
-                app_id: game.app_id.clone(),
-                last_modified: game.last_modified,
-                price_change_number: game.price_change_number,
+        if unique && ng.name != "".to_string() {
+            cached_games.push(App {
+                name: ng.name.clone(),
+                app_id: ng.app_id.clone(),
+                last_modified: ng.last_modified,
+                price_change_number: ng.price_change_number,
             });
         }
     }
-    temp.clear();
+    new_games.clear();
+}
+
+pub async fn update_cached_games(){
+    let client = reqwest::Client::new();
+    let mut games_list : Vec<App> = load_cached_games().unwrap_or_default();
+    let last_appid = get_last_appid(&games_list);
+    let mut temp : Vec<App> = get_games(&client, NUM_OF_RESULTS, last_appid).await.unwrap_or_default();
+    add_entries_to_cache(&mut temp, &mut games_list);
+    let rolling_last_appid = properties::get_sliding_steam_appid();
+    if rolling_last_appid < last_appid  && games_list.len() > ROLLING_UPDATE_START_SIZE {
+        temp = get_games(&client, NUM_OF_RESULTS, rolling_last_appid).await.unwrap_or_default();
+        properties::set_sliding_steam_appid(temp.last().unwrap().app_id);
+        add_entries_to_cache(&mut temp, &mut games_list);
+    }
+    else{ properties::set_sliding_steam_appid(0); }
     println!("Sorting entries...");
     games_list.sort_by(|a, b| a.app_id.cmp(&b.app_id));
     let data_str = serde_json::to_string_pretty(&games_list).unwrap();
@@ -241,7 +241,8 @@ pub async fn search_by_keyphrase(keyphrase: &str) -> Result<Vec<String>>{
         games_list = load_cached_games().unwrap_or_default();
     }
     let mut search_list : Vec<String> = Vec::new();
-    let re = Regex::new(keyphrase).unwrap();
+    let keyphrase_ignore_case = format!("(?i){}", keyphrase);
+    let re = Regex::new(&keyphrase_ignore_case).unwrap();
     for game in games_list.iter(){
         let caps = re.captures(&game.name);
         if !caps.is_none() { search_list.push(game.name.clone()); }
@@ -259,7 +260,7 @@ pub async fn search_game(keyphrase: &str) -> Option<String>{
                 }
                 println!("  [q] SKIP");
                 let mut input = String::new();
-                print!("Type integer corresponding to game title or type \"q\" to quit: ");
+                print!("Type integer corresponding to game title or type \'q\' to skip: ");
                 let _ = io::stdout().flush();
                 io::stdin()
                     .read_line(&mut input)

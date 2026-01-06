@@ -27,3 +27,4 @@ pub(crate) static PROP_SMTP_USERNAME : &str = "smtp_user";
 pub(crate) static PROP_SMTP_PASSWORD : &str = "smtp_pwd";
 pub(crate) static PROP_PROJECT_PATH : &str = "project_path";
 pub(crate) static PROP_TEST_MODE : &str = "test_mode";
+pub(crate) static PROP_SLIDING_STEAM_APPID : &str = "sliding_steam_appid";

@@ -12,7 +12,8 @@
   - [X] Fixed thresholds with same alias to support update and remove command
   - [X] Allow user to determine if aliases can be reused after initial creation
   - [X] Fixed file pathing for tests using a test flag (stored within properties file)
-  - [ ] Fix Steam game cache to check and update when any app info changes
+  - [X] Fix Steam game cache to check and update game info (using sliding window approach)
+  - [X] Made Steam games search case-insensitive
   - [ ] Fix Windows tests for GitHub actions
 - Testing:
   - [X] Add tests for multiple thresholds with the same alias

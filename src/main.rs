@@ -145,7 +145,7 @@ async fn gog_insert_sequence(alias: &str, title: &str, price: f64, client: &reqw
         }
         println!("  [q] SKIP");
         let mut input = String::new();
-        print!("Type integer corresponding to game title or type \"q\" to quit: ");
+        print!("Type integer corresponding to game title or type \'q\' to skip: ");
         let _ = io::stdout().flush();
         io::stdin()
             .read_line(&mut input)
