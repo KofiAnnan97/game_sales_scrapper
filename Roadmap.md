@@ -6,7 +6,6 @@
   - [X] Turn properties file into a crate
     - [X] Add env vars to properties.json
     - [X] Write encrypt and decrypt function for secrets/passwords
-  - [ ] Set up Humble Bundle Storefront
 - Bugs/Fixes
   - [X] Fix GOG discount percentage (manually calculate)
   - [X] Fixed thresholds with same alias to support update and remove command
@@ -14,16 +13,16 @@
   - [X] Fixed file pathing for tests using a test flag (stored within properties file)
   - [X] Fix Steam game cache to check and update game info (using sliding window approach)
   - [X] Made Steam games search case-insensitive
-  - [ ] Fix Windows tests for GitHub actions
+  - [X] Fix Windows tests for GitHub actions
 - Testing:
   - [X] Add tests for multiple thresholds with the same alias
   - [X] Add tests for encrypting and decrypting secrets/passwords
-  - [ ] Add tests for Humble Bundle API calls
 
 ### Backlog
 - Features/Updates
   - Retrieve pricing data from Steam bundles 
   - Retrieve pricing data from game editions on GOG
+  - Set up Humble Bundle Storefront & test
 - Bugs/Fixes
   - Configure Steam API call to not send steam key as plain text
   - Update dependencies and resolve any potential issues
