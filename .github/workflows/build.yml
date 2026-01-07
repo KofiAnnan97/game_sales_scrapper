@@ -18,14 +18,12 @@ env:
 jobs:
   linux:
     runs-on: ubuntu-latest
-    if: false
     steps:
       - uses: actions/checkout@v4
       - name: Build
         run: cargo build --release --verbose
   windows:
     runs-on: windows-latest
-    if: false
     steps:
       - uses: actions/checkout@v4
       - name: Build

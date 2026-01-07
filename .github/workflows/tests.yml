@@ -8,7 +8,6 @@ on:
     branches: 
       - "master"
       - "release/**"
-      - "fix/github-actions-windows-test"
   pull_request:
     branches: 
       - "master"
@@ -21,7 +20,6 @@ env:
 jobs:
   linux:
     runs-on: ubuntu-latest
-    if: false
     steps:
     - uses: actions/checkout@v4
     - name: Create env file
@@ -33,26 +31,15 @@ jobs:
     - name: Run tests
       run: cargo test --release -- --test-threads=1 --show-output
   windows:
-#    needs: linux
+    needs: linux
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
-#      - name: Set up Rust toolchain
-#        uses: actions-rust-lang/setup-rust-toolchain@v1
-#        with:
-#          toolchain: stable
-#          target: x86_64-pc-windows-gnu
-#          rustflags: "-A warnings"
       - name: Create env file
         run: .\setup\actions\create_env_file.ps1
-#      - name: Display env file [DELETE LATER]
-#        run: cat .env
       - name: Set up config for storefronts
         run: cargo run --release -- config -a --test_mode 1
       - name: Cache Steam
         run: cargo run --release -- --update-cache
       - name: Run tests
         run: cargo test --release -- --test-threads=1 --show-output
-#      - name: Check if data exists in test folder [DELETE LATER]
-#        if: always()
-#        run: tree .\src\tests /f

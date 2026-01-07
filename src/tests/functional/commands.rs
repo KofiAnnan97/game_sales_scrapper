@@ -80,7 +80,7 @@ fn config_cmd() {
     helper::clear_settings();
     let _ = if cfg!(target_os = "windows") {
         Command::new("cmd")
-            .args(["/C","cargo","run","--target=x86_64-pc-windows-gnu","--","config","-s","-g","-e","0"])
+            .args(["/C","cargo","run","--release","--target=x86_64-pc-windows-gnu","--","config","-s","-g","-e","0"])
             .output()
             .expect("failed to execute process")
     } else {
@@ -194,7 +194,7 @@ fn update_price_cmd() {
     let mut new_price = "19.99";
     let _ = if cfg!(target_os = "windows") {
         Command::new("cmd")
-            .args(["/C","cargo","run","--target=x86_64-pc-windows-gnu","--","update","-t",title,"-p",new_price])
+            .args(["/C","cargo","run","--release","--target=x86_64-pc-windows-gnu","--","update","-t",title,"-p",new_price])
             .output()
             .expect("failed to execute process")
     } else{
@@ -212,7 +212,7 @@ fn update_price_cmd() {
     new_price = "34.99";
     let _ = if cfg!(target_os = "windows") {
         Command::new("cmd")
-            .args(["/C","cargo","run","--target=x86_64-pc-windows-gnu","--","update","-t",alias,"-p",new_price])
+            .args(["/C","cargo","run","--release","--target=x86_64-pc-windows-gnu","--","update","-t",alias,"-p",new_price])
             .output()
             .expect("failed to execute process")
     } else{
@@ -241,7 +241,7 @@ fn remove_cmd() {
     // Remove threshold by title
     let _ = if cfg!(target_os = "windows") {
         Command::new("cmd")
-            .args(["/C","cargo","run","--target=x86_64-pc-windows-gnu","--","remove","-t", title])
+            .args(["/C","cargo","run","--release","--target=x86_64-pc-windows-gnu","--","remove","-t", title])
             .output()
             .expect("failed to execute process")
     } else{
@@ -257,7 +257,7 @@ fn remove_cmd() {
     add_fake_threshold(alias, title, price);
     let _ = if cfg!(target_os = "windows") {
         Command::new("cmd")
-            .args(["/C","cargo","run","--target=x86_64-pc-windows-gnu","--","remove","-t", alias])
+            .args(["/C","cargo","run","--release","--target=x86_64-pc-windows-gnu","--","remove","-t", alias])
             .output()
             .expect("failed to execute process")
     } else{
@@ -277,7 +277,7 @@ fn list_selected_stores_cmd() {
 
     let _ = if cfg!(target_os = "windows") {
         Command::new("cmd")
-            .args(["/C","cargo","run","--target=x86_64-pc-windows-gnu","--","config","-m"])
+            .args(["/C","cargo","run","--release","--target=x86_64-pc-windows-gnu","--","config","-m"])
             .output()
             .expect("failed to execute process")
     } else{
@@ -289,7 +289,7 @@ fn list_selected_stores_cmd() {
 
     let ss_out = if cfg!(target_os = "windows") {
         Command::new("cmd")
-            .args(["/C","cargo","run","--target=x86_64-pc-windows-gnu","--","--list-selected-stores", "--test_flag"])
+            .args(["/C","cargo","run","--release","--target=x86_64-pc-windows-gnu","--","--list-selected-stores", "--test_flag"])
             .output()
             .expect("failed to execute process")
     } else{
@@ -334,7 +334,7 @@ fn list_thresholds_cmd() {
 
     let lt_out = if cfg!(target_os = "windows") {
         Command::new("cmd")
-            .args(["/C","cargo","run","--target=x86_64-pc-windows-gnu","--","--list-thresholds"])
+            .args(["/C","cargo","run","--release","--target=x86_64-pc-windows-gnu","--","--list-thresholds"])
             .output()
             .expect("failed to execute process")
     } else{
@@ -366,7 +366,7 @@ async fn check_prices() {
     add_threshold("E33", E33_GAME_TITLE, E33_STEAM_ID, E33_GOG_ID, E33_MS_ID, 9999.99);
     let cp_out = if cfg!(target_os = "windows") {
         Command::new("cmd")
-            .args(["/C","cargo","run","--target=x86_64-pc-windows-gnu","--","--check-prices"])
+            .args(["/C","cargo","run","--release","--target=x86_64-pc-windows-gnu","--","--check-prices"])
             .output()
             .expect("failed to execute process")
     } else{
