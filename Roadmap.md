@@ -14,15 +14,17 @@
   - [X] Fix Steam game cache to check and update game info (using sliding window approach)
   - [X] Made Steam games search case-insensitive
   - [X] Fix Windows tests for GitHub actions
+    - [X] Optimized 'Run tests' step
 - Testing:
   - [X] Add tests for multiple thresholds with the same alias
   - [X] Add tests for encrypting and decrypting secrets/passwords
 
 ### Backlog
 - Features/Updates
+  - Set up Humble Bundle Storefront & test
+  - Implement option for Steam search without cache (cycle through games and display list of matching titles)
   - Retrieve pricing data from Steam bundles 
   - Retrieve pricing data from game editions on GOG
-  - Set up Humble Bundle Storefront & test
 - Bugs/Fixes
   - Configure Steam API call to not send steam key as plain text
   - Update dependencies and resolve any potential issues
