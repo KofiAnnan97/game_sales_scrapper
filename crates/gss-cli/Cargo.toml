@@ -1,0 +1,28 @@
+[package]
+name = "gss-cli"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+
+[lib]
+doctest = false
+
+[dependencies]
+# Internal crates
+alerting = { path = "../common/alerting" }
+file_ops = { path = "../common/file_ops" }
+file_types = { path = "../common/file_types" }
+stores = { path = "../common/stores" }
+structs = { path = "../common/structs" }
+properties = { path = "../common/properties" }
+constants = { path = "../common/constants" }
+
+# External crates
+reqwest = { workspace = true, features = ["json", "blocking"] }
+tokio = { workspace = true, features = ["full"] }
+clap = { workspace = true, features = ["derive", "cargo"] }
+dotenv.workspace = true
+dotenvy.workspace = true
+serde_json.workspace = true
+regex.workspace = true
+rand.workspace = true

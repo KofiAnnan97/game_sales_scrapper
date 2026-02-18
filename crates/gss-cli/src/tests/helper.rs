@@ -1,9 +1,6 @@
 use std::{env, fs};
 use std::fs::{metadata, read_to_string};
 use std::path::{Path, PathBuf};
-use clap::builder::Str;
-use dotenv::dotenv as dotenv_linux;
-use dotenvy::dotenv as dotenv_windows;
 use serde_json::{json, Result, Value};
 use properties;
 use file_types::common;
@@ -15,9 +12,7 @@ use constants::operations::properties::{CONFIG_DIR, DATA_DIR, TEST_PATH_ENV};
 
 pub(in crate::tests) fn get_data_path() -> String {
     if !properties::is_testing_enabled() { properties::set_test_mode(true); }
-    if cfg!(target_os = "windows") { dotenv_windows().ok(); }
-    else if cfg!(target_os = "linux") { dotenv_linux().ok(); }
-    let mut data_path = env::var(TEST_PATH_ENV).unwrap_or_else(|_| properties::get_test_path());
+    let mut data_path = properties::get_test_path();
     let path_buf: PathBuf = [&data_path, DATA_DIR].iter().collect();
     data_path = path_buf.display().to_string();
     if !Path::new(&data_path).is_dir() {
@@ -28,9 +23,7 @@ pub(in crate::tests) fn get_data_path() -> String {
 
 pub(in crate::tests) fn get_config_path() -> String {
     if !properties::is_testing_enabled() { properties::set_test_mode(true); }
-    if cfg!(target_os = "windows") { dotenv_windows().ok(); }
-    else if cfg!(target_os = "linux") { dotenv_linux().ok(); }
-    let mut config_path = env::var(TEST_PATH_ENV).unwrap_or_else(|_| properties::get_test_path());
+    let mut config_path = properties::get_test_path();
     let path_buf: PathBuf = [&config_path, CONFIG_DIR].iter().collect();
     config_path = path_buf.display().to_string();
     if !Path::new(&config_path).is_dir() {

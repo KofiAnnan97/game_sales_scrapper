@@ -1,17 +1,18 @@
 [package]
-name = "file_ops"
+name = "alerting"
 version.workspace = true
 authors.workspace = true
 edition.workspace = true
 
+[lib]  
+doctest = false
+test = false
+
 [dependencies]
 # Internal crates
-stores = { path = "../stores" }
 structs = { path = "../structs" }
-file_types = { path = "../file_types" }
 properties = { path = "../properties" }
 constants = { path = "../constants" }
 
 # External crates
-reqwest = { workspace = true, features = ["json", "blocking"] }
-serde_json.workspace = true
+lettre.workspace = true

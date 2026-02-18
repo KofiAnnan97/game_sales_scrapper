@@ -26,7 +26,7 @@ fi
 DATE_TIME=$(date +"%Y_%m_%d_%H_%M")
 LOG_NAME=$LOG_DIR/$DATE_TIME"_email.log"
 cd ..
-./target/release/game_sales_scrapper --send-email > $LOG_NAME
+./target/release/gss-cli --send-email > $LOG_NAME
 if [ -f $LOG_NAME ]; then
     echo "$LOG_NAME created"
 fi

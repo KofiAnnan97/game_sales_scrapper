@@ -56,17 +56,17 @@ Use the`--help` flag in command line to get more information on the supported co
         - `-z` := toggles whether the testing mode is enabled (if enabled script uses `TEST_PATH` env)
   ```commandline
     # Configure settings 
-    game_sales_scrapper config settings -a -e 1 -r 0
+    gss-cli config settings -a -e 1 -r 0
     # Update properties with .env
-    game_sales_scrapper config properties -f
+    gss-cli config properties -f
     ```
 - `add` := add a specified game (title must be exact to work).
     ```commandline
-    game_sales_scrapper add --title <title> --price <price>
+    gss-cli add --title <title> --price <price>
     ```
 - `bulk-insert` := add multiple games with a price threshold using a CSV file.
     ```commandline
-    game_sales_scrapper bulk-insert --file <file.csv>
+    gss-cli bulk-insert --file <file.csv>
     ```
     CSV Example:
     ```
@@ -78,29 +78,29 @@ Use the`--help` flag in command line to get more information on the supported co
     ```
 - `update` := update price threshold for a specified game.
     ```commandline
-    game_sales_scrapper update --title <title> --price <price>
+    gss-cli update --title <title> --price <price>
     ```
 - `remove` := remove a specified game.
     ```commandline
-    game_sales_scrapper remove --title <title>
+    gss-cli remove --title <title>
     ```
 - `list-selected-stores` := list whether a storefront is used to search for games.
     ```commandline 
-    game_sales_scrapper --list-selected-stores
+    gss-cli --list-selected-stores
     ```
 - `list-thresholds` := list all the stored price thresholds for selected games.
     ```commandline
-    game_sales_scrapper --list-thresholds
+    gss-cli --list-thresholds
     ```
 - `update-cache` := update the locally stored cache of steam games (title and app ids).
     ```commandline
-    game_sales_scrapper --update-cache
+    gss-cli --update-cache
     ```
 - `check-prices` := print out any games that are on sale that meet user respective price threshold.
     ```commandline
-    game_sales_scrapper --check-prices
+    gss-cli --check-prices
     ```
 - `send-email` := sends an email (using SMTP) containing a list of games that are below user defined price threshold for each game. No email is sent if no game has reached their price threshold.
     ```commandline 
-    game_sales_scrapper --send-email
+    gss-cli --send-email
     ```

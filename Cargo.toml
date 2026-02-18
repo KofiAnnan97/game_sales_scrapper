@@ -1,13 +1,14 @@
 [workspace]
 resolver = "3"
 members = [
-    "crates/constants",
-    "crates/structs",
-    "crates/file_types",
-    "crates/properties",
-    "crates/file_ops",
-    "crates/stores",
-    "crates/alerting",
+    "crates/common/constants",
+    "crates/common/structs",
+    "crates/common/file_types",
+    "crates/common/properties",
+    "crates/common/file_ops",
+    "crates/common/stores",
+    "crates/common/alerting", 
+    "crates/gss-cli",
 ]
 
 [workspace.package]
@@ -33,29 +34,3 @@ base64 = "0.22.1"
 hex = "0.4.3"
 chrono = "0.4.42"
 iced = "0.14.0"
-
-[package]
-name = "game_sales_scrapper"
-version.workspace = true
-authors.workspace = true
-edition.workspace = true
-
-[dependencies]
-# Internal crates
-alerting = { path = "crates/alerting" }
-file_ops = { path = "crates/file_ops" }
-file_types = { path = "crates/file_types" }
-stores = { path = "crates/stores" }
-structs = { path = "crates/structs" }
-properties = { path = "crates/properties" }
-constants = { path = "crates/constants" }
-
-# External crates
-reqwest = { workspace = true, features = ["json", "blocking"] }
-tokio = { workspace = true, features = ["full"] }
-clap = { workspace = true, features = ["derive", "cargo"] }
-dotenv.workspace = true
-dotenvy.workspace = true
-serde_json.workspace = true
-regex.workspace = true
-rand.workspace = true

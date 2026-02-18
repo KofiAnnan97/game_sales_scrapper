@@ -4,6 +4,10 @@ version.workspace = true
 authors.workspace = true
 edition.workspace = true
 
+[lib]  
+doctest = false 
+test = false
+
 [dependencies]
 #Internal crates
 structs = { path = "../structs" }
