@@ -3,7 +3,7 @@
 .idea
 
 # Secrets
-.env
+*.env*
 
 # Rust Build
 Cargo.lock
@@ -15,3 +15,6 @@ config/
 log/
 *.json
 *.csv
+
+# Exceptions
+!.env.template

@@ -1,4 +1,3 @@
-#[cfg(test)]
 use std::collections::HashMap;
 use std::{env, fs};
 use std::fs::read_to_string;
@@ -81,7 +80,7 @@ fn get_sample_csv(filename: &str) -> String {
 fn config_cmd() {
     helper::clear_settings(); 
     let _ = Command::new("cargo")
-        .args(["run","--release","--","config","settings","-s","-g","-e","0"])
+        .args(["run","--release","-p","gss-cli","--","config","settings","-s","-g","-e","0"])
         .output()
         .expect("failed to execute process");
     let stores = helper::load_stores();
@@ -121,7 +120,7 @@ async fn add_cmd() {
 
     // Update settings
     let _ = Command::new("cargo")
-        .args(["run","--release","--","config","settings","-a","-e","1"])
+        .args(["run","--release","-p","gss-cli","--","config","settings","-a","-e","1"])
         .output()
         .expect("failed to execute proces");
 
@@ -154,7 +153,7 @@ async fn bulk_insert_cmd() {
 
     // Update settings
     let _ = Command::new("cargo")
-        .args(["run","--","config","settings","-a","-e","0"])
+        .args(["run","release","-p","gss-cli","--","config","settings","-a","-e","0"])
         .output()
         .expect("failed to execute proces");
 
@@ -188,7 +187,7 @@ fn update_price_cmd() {
     // update threshold using game title
     let mut new_price = "19.99";
     let _ = Command::new("cargo")
-        .args(["run","--release","--","update","-t",title,"-p",new_price])
+        .args(["run","--release","-p","gss-cli","--","update","-t",title,"-p",new_price])
         .output()
         .expect("failed to execute process");
     let mut thresholds = helper::load_thresholds();
@@ -199,7 +198,7 @@ fn update_price_cmd() {
     // update price using alias
     new_price = "34.99";
     let _ = Command::new("cargo")
-        .args(["run","--release","--","update","-t",alias,"-p",new_price])
+        .args(["run","--release","-p","gss-cli","--","update","-t",alias,"-p",new_price])
         .output()
         .expect("failed to execute process");
     thresholds = helper::load_thresholds();
@@ -221,7 +220,7 @@ fn remove_cmd() {
 
     // Remove threshold by title
     let _ = Command::new("cargo")
-        .args(["run","--release","--","remove","-t", title])
+        .args(["run","--release","-p","gss-cli","--","remove","-t", title])
         .output()
         .expect("failed to execute process");
     let mut thresholds = helper::load_thresholds();
@@ -230,7 +229,7 @@ fn remove_cmd() {
     // Remove threshold by alias
     add_fake_threshold(alias, title, price);
     let _ = Command::new("cargo")
-        .args(["run","--release","--","remove","-t", alias])
+        .args(["run","--release","-p","gss-cli","--","remove","-t", alias])
         .output()
         .expect("failed to execute process");
     thresholds = helper::load_thresholds();
@@ -243,12 +242,12 @@ fn list_selected_stores_cmd() {
     helper::clear_settings();
 
     let _ = Command::new("cargo")
-        .args(["run","--release","--","config","settings","-m"])
+        .args(["run","--release","-p","gss-cli","--","config","settings","-m"])
         .output()
         .expect("failed to execute process");
 
     let ss_out = Command::new("cargo")
-        .args(["run","--release","--","--list-selected-stores", "--test_flag"])
+        .args(["run","--release","-p","gss-cli","--","--list-selected-stores", "--test_flag"])
         .output()
         .expect("failed to execute process");
     println!("{:?}", ss_out);
@@ -286,7 +285,7 @@ fn list_thresholds_cmd() {
     add_fake_threshold(alias, title, price);
 
     let lt_out = Command::new("cargo")
-        .args(["run","--release","--","--list-thresholds"])
+        .args(["run","--release","-p","gss-cli","--","--list-thresholds"])
         .output()
         .expect("failed to execute process");
     println!("{:?}", lt_out);
@@ -311,7 +310,7 @@ async fn check_prices() {
 
     add_threshold("E33", E33_GAME_TITLE, E33_STEAM_ID, E33_GOG_ID, E33_MS_ID, 9999.99);
     let cp_out = Command::new("cargo")
-        .args(["run","--release","--","--check-prices"])
+        .args(["run","--release","-p","gss-cli","--","--check-prices"])
         .output()
         .expect("failed to execute process");
     println!("{:?}", cp_out);

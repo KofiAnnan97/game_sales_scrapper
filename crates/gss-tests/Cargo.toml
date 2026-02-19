@@ -1,8 +1,11 @@
 [package]
-name = "gss-cli"
+name = "gss-tests"
 version.workspace = true
 authors.workspace = true
 edition.workspace = true
+
+[lib]
+doctests = false
 
 [dependencies]
 # Internal crates

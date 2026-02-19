@@ -1,21 +1,16 @@
-#[cfg(test)]
 use std::collections::HashMap;
 use file_ops::settings;
 use constants::operations::settings::{STEAM_STORE_ID, STEAM_STORE_NAME,
                                       GOG_STORE_ID, GOG_STORE_NAME,
-                                      MICROSOFT_STORE_ID, MICROSOFT_STORE_NAME};
+                                      MICROSOFT_STORE_ID, MICROSOFT_STORE_NAME,
+                                      ENABLED_STATE, DISABLED_STATE, DEFAULT_ALIAS_STATE};
 use properties;
 use crate::tests::helper;
-
-// Constants
-static DEFAULT_ALIAS_STATE : bool = true;
-static ALIAS_DISABLED : i32 = 0;
-static ALIAS_ENABLED : i32 = 1;
 
 fn default_settings() {
     if !properties::is_testing_enabled() { properties::set_test_mode(true); }
     settings::update_selected_stores(Vec::new());
-    settings::update_alias_state(ALIAS_ENABLED);
+    settings::update_alias_state(ENABLED_STATE);
 }
 
 #[test]
@@ -126,12 +121,12 @@ fn update_alias_state(){
     // Check default alias state is true
     assert_eq!(DEFAULT_ALIAS_STATE, are_aliases_enabled, "Aliases should be enabled by default.");
     // Check that aliases are disabled
-    settings::update_alias_state(ALIAS_DISABLED);
+    settings::update_alias_state(DISABLED_STATE);
     are_aliases_enabled = settings::get_alias_state();
     assert_eq!(false, are_aliases_enabled, "Aliases should not be enabled.");
     // Check that behavior of values that are not 1 or 0
     for i in -10..10 {
-        if i != ALIAS_ENABLED && i != ALIAS_DISABLED {
+        if i != ENABLED_STATE && i != DISABLED_STATE {
             settings::update_alias_state(i);
             let are_aliases_enabled = settings::get_alias_state();
             assert_eq!(false, are_aliases_enabled, "Aliases should not be enabled given input: {}.", i);

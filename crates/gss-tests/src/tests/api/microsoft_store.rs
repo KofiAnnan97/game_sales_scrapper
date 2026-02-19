@@ -1,4 +1,3 @@
-#[cfg(test)]
 use stores::pc::microsoft_store;
 
 // Constants

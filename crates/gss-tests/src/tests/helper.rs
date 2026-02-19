@@ -1,5 +1,4 @@
-use std::{env, fs};
-use std::fs::{metadata, read_to_string};
+use std::fs::{self, metadata, read_to_string};
 use std::path::{Path, PathBuf};
 use serde_json::{json, Result, Value};
 use properties;
@@ -8,7 +7,7 @@ use structs::internal::data::GameThreshold;
 use constants::operations::thresholds::{ALIAS_MAP, THRESHOLDS, THRESHOLD_FILENAME};
 use constants::operations::settings::{ALIASES_ENABLED, ALLOW_ALIAS_REUSE_AFTER_CREATION, 
                                       SELECTED_STORES, SETTINGS_FILENAME};
-use constants::operations::properties::{CONFIG_DIR, DATA_DIR, TEST_PATH_ENV};
+use constants::operations::properties::{CONFIG_DIR, DATA_DIR};
 
 pub(in crate::tests) fn get_data_path() -> String {
     if !properties::is_testing_enabled() { properties::set_test_mode(true); }

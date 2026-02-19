@@ -1,6 +1,5 @@
 use std::collections::HashMap;
-use std::io::Write;
-use std::io;
+use std::io::{self, Write};
 use clap::{arg, command, Arg, ArgAction, Command, ArgMatches};
 use clap::parser::ValueSource;
 use serde_json::Value;

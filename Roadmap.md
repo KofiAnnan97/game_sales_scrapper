@@ -22,9 +22,11 @@
   - [X] Made Steam games search case-insensitive
   - [X] Fix Windows tests for GitHub actions
     - [X] Optimized 'Run tests' step
+  - [ ] Don't prevent previous file path no longer exists from updating to a new valid one (properties)
 - Testing:
   - [X] Add tests for multiple thresholds with the same alias
   - [X] Add tests for encrypting and decrypting secrets/passwords
+  - [X] Move tests to a separate crate
 
 ### Backlog
 - Features/Updates

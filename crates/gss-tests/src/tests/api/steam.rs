@@ -1,4 +1,3 @@
-#[cfg(test)]
 use stores::pc::steam;
 
 // Constants
