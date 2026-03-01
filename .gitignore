@@ -9,6 +9,9 @@
 Cargo.lock
 target/
 
+# Executables
+*.exe
+
 # Ignore generated data and logs
 data/
 config/

@@ -53,7 +53,7 @@ Use the`--help` flag in command line to get more information on the supported co
 - `config` := sets what storefronts are used to search for games and enable aliases for game titles (enabled by default). 
     - `settings` := determine which storefront to search, whether aliases are enabled for games, and whether an alias can be reused (useful for different editions of the same product)
     -  `properties` := set the properties based on `.env` file or command line
-        - `-z` := toggles whether the testing mode is enabled (if enabled script uses `TEST_PATH` env)
+        - `-z` := toggles whether the testing mode is enabled (if enabled script uses the `TEST_PATH` environment variable)
   ```commandline
     # Configure settings 
     gss-cli config settings -a -e 1 -r 0

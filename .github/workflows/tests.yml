@@ -27,14 +27,14 @@ jobs:
     - name: Configure project
       run: |
         # Set properties
-        cargo run -- config properties -f
+        cargo run --release -p gss-cli -- config properties -f
         # Set test mode
-        cargo run --release -- config properties --test_mode 1
+        cargo run --release -p gss-cli -- config properties --test_mode 1
         # Set store fronts
-        cargo run --release -- config settings -a  
+        cargo run --release -p gss-cli -- config settings -a  
       shell: bash
     - name: Cache Steam games
-      run: cargo run --release -- --update-cache
+      run: cargo run --release -p gss-cli -- --update-cache
     - name: Run tests
       run: cargo test --release --all -- --test-threads=1 --show-output
   windows:
@@ -58,13 +58,13 @@ jobs:
       - name: Configure project
         run: |
           # Set properties
-          cargo run -- config properties -f
+          cargo run --release -p gss-cli -- config properties -f
           # Set test mode
-          cargo run --release -- config properties --test_mode 1
+          cargo run --release -p gss-cli -- config properties --test_mode 1
           # Set store fronts
-          cargo run --release -- config settings -a 
+          cargo run --release -p gss-cli -- config settings -a 
         shell: pwsh
-      - name: Cache Steam
-        run: cargo run --release -- --update-cache
+      - name: Cache Steam games
+        run: cargo run --release -p gss-cli -- --update-cache
       - name: Run tests
         run: cargo test --release --all -- --test-threads=1 --show-output

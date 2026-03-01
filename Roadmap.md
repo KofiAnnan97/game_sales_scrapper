@@ -22,7 +22,6 @@
   - [X] Made Steam games search case-insensitive
   - [X] Fix Windows tests for GitHub actions
     - [X] Optimized 'Run tests' step
-  - [ ] Don't prevent previous file path no longer exists from updating to a new valid one (properties)
 - Testing:
   - [X] Add tests for multiple thresholds with the same alias
   - [X] Add tests for encrypting and decrypting secrets/passwords
@@ -36,9 +35,15 @@
   - Retrieve pricing data from Steam bundles 
   - Retrieve pricing data from game editions on GOG
   - Add the option to send emails through AWS SES
+  - Add fuzzy search to remove command for potentional removal suggestions if tilte is not found
+  - Deteremine if defaulting the path should be in getters for project and test path if properties and dot env file have an invalid/empty path
+  - Create email body in script before calling the email::send_html_msg function 
 - Bugs/Fixes
   - Configure Steam API call to not send steam key as plain text
   - Update dependencies and resolve any potential issues
+  - When removing thesholds the alias should also be removed if
+    - threshold is the only one associated to the alias or
+    - if the alias is used to delete every threshold associated to it
 - Testing
   - Scope of untested code
     - Needs implementation
