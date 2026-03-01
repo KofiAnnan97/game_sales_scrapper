@@ -16,4 +16,4 @@ if(-not(Test-Path -path $TargetFolder) -and (Test-Path $TargetFolder -IsValid)){
 # Run script to get game sales
 $DateTime = (Get-Date -Format "yyyy_MM_dd_HH_mm")
 Set-Location -Path ..
-.\target\release\game_sales_scrapper.exe --send-email | Out-String | Set-Content $LogFolder\$DateTime"_email.log"
+.\target\release\gss-cli.exe --send-email | Out-String | Set-Content $LogFolder\$DateTime"_email.log"

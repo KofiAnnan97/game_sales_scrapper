@@ -6,6 +6,13 @@
   - [X] Turn properties file into a crate
     - [X] Add env vars to properties.json
     - [X] Write encrypt and decrypt function for secrets/passwords
+  - [X] Turn properties and settings in subcommands for config cmd
+    - [X] Setup separate config folder for settings and properties data
+  - [X] Add visual reminder if test mode is enabled
+  - [X] Set properties without .env file
+    - [X] Add check to confirm properties are set before use
+    - ~~[X] Check project path before allowing user to run commands (excluding properties subcmd)~~
+    - [X] Default project path and test path if not set by user 
 - Bugs/Fixes
   - [X] Fix GOG discount percentage (manually calculate)
   - [X] Fixed thresholds with same alias to support update and remove command
@@ -18,19 +25,30 @@
 - Testing:
   - [X] Add tests for multiple thresholds with the same alias
   - [X] Add tests for encrypting and decrypting secrets/passwords
+  - [X] Move tests to a separate crate
 
 ### Backlog
 - Features/Updates
   - Set up Humble Bundle Storefront & test
   - Implement option for Steam search without cache (cycle through games and display list of matching titles)
+  - Implement script as a desktop app
   - Retrieve pricing data from Steam bundles 
   - Retrieve pricing data from game editions on GOG
+  - Add the option to send emails through AWS SES
+  - Add fuzzy search to remove command for potentional removal suggestions if tilte is not found
+  - Deteremine if defaulting the path should be in getters for project and test path if properties and dot env file have an invalid/empty path
+  - Create email body in script before calling the email::send_html_msg function 
 - Bugs/Fixes
   - Configure Steam API call to not send steam key as plain text
   - Update dependencies and resolve any potential issues
+  - When removing thesholds the alias should also be removed if
+    - threshold is the only one associated to the alias or
+    - if the alias is used to delete every threshold associated to it
 - Testing
   - Scope of untested code
-    - `add` and `bulk-insert` script cmds
-    - `update-cache` and `send-email` script cmds (not plans for implementation)
-    - properties - creation, updating and retrieval
-    - retrieving environment variables
+    - Needs implementation
+      - `add` and `bulk-insert` script cmds
+      - properties (creation, updating and retrieval)
+      - retrieving environment variables
+    - No plans for implementation
+      - `update-cache` and `send-email` script cmds

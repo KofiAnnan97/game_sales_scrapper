@@ -1,0 +1,13 @@
+[package]
+name = "structs"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+
+[lib]  
+doctest = false
+test = false
+
+[dependencies]
+# External crates
+serde = { workspace = true, features = ["derive"] }

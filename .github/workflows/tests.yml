@@ -24,12 +24,19 @@ jobs:
     - uses: actions/checkout@v4
     - name: Create env file
       run: bash ./setup/actions/create_env_file.sh
-    - name: Set up config for storefronts
-      run: cargo run --release -- config -a --test_mode 1
+    - name: Configure project
+      run: |
+        # Set properties
+        cargo run --release -p gss-cli -- config properties -f
+        # Set test mode
+        cargo run --release -p gss-cli -- config properties --test_mode 1
+        # Set store fronts
+        cargo run --release -p gss-cli -- config settings -a  
+      shell: bash
     - name: Cache Steam games
-      run: cargo run --release -- --update-cache
+      run: cargo run --release -p gss-cli -- --update-cache
     - name: Run tests
-      run: cargo test --release -- --test-threads=1 --show-output
+      run: cargo test --release --all -- --test-threads=1 --show-output
   windows:
     needs: linux
     if: always()
@@ -48,9 +55,16 @@ jobs:
         shell: pwsh
       - name: Create env file
         run: .\setup\actions\create_env_file.ps1
-      - name: Set up config for storefronts
-        run: cargo run --release -- config -a --test_mode 1
-      - name: Cache Steam
-        run: cargo run --release -- --update-cache
+      - name: Configure project
+        run: |
+          # Set properties
+          cargo run --release -p gss-cli -- config properties -f
+          # Set test mode
+          cargo run --release -p gss-cli -- config properties --test_mode 1
+          # Set store fronts
+          cargo run --release -p gss-cli -- config settings -a 
+        shell: pwsh
+      - name: Cache Steam games
+        run: cargo run --release -p gss-cli -- --update-cache
       - name: Run tests
-        run: cargo test --release -- --test-threads=1 --show-output
+        run: cargo test --release --all -- --test-threads=1 --show-output

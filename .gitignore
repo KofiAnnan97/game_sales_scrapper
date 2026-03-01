@@ -3,14 +3,21 @@
 .idea
 
 # Secrets
-.env
+*.env*
 
 # Rust Build
 Cargo.lock
 target/
 
+# Executables
+*.exe
+
 # Ignore generated data and logs
 data/
+config/
 log/
 *.json
 *.csv
+
+# Exceptions
+!.env.template
