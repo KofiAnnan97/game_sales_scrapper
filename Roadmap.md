@@ -14,7 +14,6 @@
     - ~~[X] Check project path before allowing user to run commands (excluding properties subcmd)~~
     - [X] Default project path and test path if not set by user 
   - [X] Create email body in script before calling the email::send_html_msg function 
-  - [ ] Add fuzzy search to remove command for potentional removal suggestions if tilte is not found
 - Bugs/Fixes
   - [X] Fix GOG discount percentage (manually calculate)
   - [X] Fixed thresholds with same alias to support update and remove command
@@ -27,11 +26,15 @@
   - [X] When removing thesholds the alias map should also be updated
     - [X] if a threshold is removed then the game title should be removed from the alias map when present 
     - [X] if an alias is used to delete every game threshold associated to it then remove that alias 
+  - [ ] When updating the alias of a threshold the alias map should also be updated
+    - [ ] if the threshold is thhe only one associated to an alias remove that alias and create/update the new one
+    - [ ] otherwise remove title for old alias and create/update the new one 
 - Testing:
   - [X] Add tests for multiple thresholds with the same alias
   - [X] Add tests for encrypting and decrypting secrets/passwords
   - [X] Move tests to a separate crate
-  - [ ] Update unit tests for removing game thresholds
+  - [X] Update unit tests for removing game thresholds (adding alias map logic)
+  - [ ] Update unit tests for updating game thresholds (adding alias map logic)
 
 ### Backlog
 - Features/Updates
@@ -43,6 +46,7 @@
   - Add the option to send emails through AWS SES
   - Add fuzzy search to remove command for potentional removal suggestions if tilte is not found
   - Deteremine if defaulting the path should be in getters for project and test path if properties and dot env file have an invalid/empty path
+  - Add fuzzy search for update and remove command for potentional suggestions if tilte is not found
 - Bugs/Fixes
   - Configure Steam API call to not send steam key as plain text
   - Update dependencies and resolve any potential issues

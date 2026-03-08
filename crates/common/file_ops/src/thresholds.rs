@@ -70,12 +70,7 @@ pub fn update_thresholds(thresholds: Vec<GameThreshold>) {
     }
 }
 
-fn does_alias_exist(alias_name: &str) -> bool {
-    let alias_map = load_alias_map().unwrap_or_default();
-    alias_map.contains_key(alias_name)
-}
-
-fn update_alias_map(alias_map: HashMap<String, Vec<String>>){
+pub fn update_alias_map(alias_map: HashMap<String, Vec<String>>){
     match load_data() {
         Ok(data) => {
             let mut alias_data = data;
@@ -104,6 +99,11 @@ fn update_threshold_alias(alias_name: &str, game_title: String) {
             Err(e) => eprintln!("Error: {}", e)
         }
     }
+}
+
+fn does_alias_exist(alias_name: &str) -> bool {
+    let alias_map = load_alias_map().unwrap_or_default();
+    alias_map.contains_key(alias_name)
 }
 
 fn is_threshold(title: &str, game_thresh: &GameThreshold) -> bool {
@@ -256,15 +256,11 @@ pub fn set_game_alias() -> String {
 
 pub fn update_alias(title: &str, new_alias: &str){
     let mut thresholds = load_thresholds().unwrap_or_else(|_e|Vec::new());
-    let idx = thresholds.iter().position(|threshold| is_threshold(title, threshold));
-    if !idx.is_none() {
-        let i = idx.unwrap();
-        thresholds[i].alias = new_alias.to_string();
+    if let Some(idx) = thresholds.iter().position(|threshold| is_threshold(title, threshold)) {
+        thresholds[idx].alias = new_alias.to_string();
         update_thresholds(thresholds);
     }
-    else {
-        println!("Could not find threshold with title : \"{}\"", title);
-    }
+    else { println!("Could not find game threshold with title : \"{}\"", title); }
 }
 
 pub fn update_price(title: &str, price: f64) {

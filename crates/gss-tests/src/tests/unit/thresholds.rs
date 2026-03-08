@@ -1,9 +1,10 @@
+use std::collections::HashMap;
+
 use file_ops::{settings, thresholds};
 use file_types::common;
 use properties;
 use constants::operations::settings::{GOG_STORE_ID, MICROSOFT_STORE_ID, STEAM_STORE_ID};
-use constants::operations::thresholds::THRESHOLD_FILENAME;
-use file_ops::thresholds::update_thresholds;
+use constants::operations::thresholds::{THRESHOLD_FILENAME};
 use structs::internal::data::GameThreshold;
 use structs::response::steam::App;
 use structs::response::gog::{BaseMoney, FinalMoney, GameInfo as GOGGame, GameInfoBuilder as GOGGameBuilder, Price};
@@ -20,6 +21,7 @@ fn delete_thresholds() {
 }
 
 fn add_simple_threshold(game_title: &str, game_alias: &str, price: f64) {
+    let mut alias_map: HashMap<String, Vec<String>> = thresholds::load_alias_map().unwrap_or_default();
     let mut thresholds = thresholds::load_thresholds().unwrap_or_default();
     let mut unique_title = true;
     for threshold in &thresholds{
@@ -29,6 +31,14 @@ fn add_simple_threshold(game_title: &str, game_alias: &str, price: f64) {
         }
     }
     if unique_title {
+        if alias_map.contains_key(game_alias) {
+            let idx = alias_map.get(game_alias).unwrap().iter().position(|title| title == game_title);
+            if idx.is_none() {
+                alias_map.get_mut(game_alias).unwrap().push(game_title.to_string());
+            }
+        } else { 
+            alias_map.insert(game_alias.to_string(), vec![game_title.to_string()]);
+        }  
         thresholds.push(GameThreshold {
             title: game_title.to_string(),
             alias: game_alias.to_string(),
@@ -39,7 +49,8 @@ fn add_simple_threshold(game_title: &str, game_alias: &str, price: f64) {
             desired_price: price
         });
     }
-    update_thresholds(thresholds);
+    thresholds::update_alias_map(alias_map);
+    thresholds::update_thresholds(thresholds);
 }
 
 fn test_steam_app() -> App{
@@ -265,12 +276,20 @@ fn remove_game(){
         },
         Err(e) => assert!(false, "Could not load thresholds before deletion.\n{}",e)
     }
+    match thresholds::load_alias_map() {
+        Ok(aliases) => assert_eq!(1, aliases.len(), "There should be {} alias(es) not {}", 1, aliases.len()),
+        Err(_) => assert!(false, "Could not load alias map after deletion.")
+    }
 
     // Delete test threshold
     thresholds::remove(&first_game);
     match thresholds::load_thresholds(){
         Ok(thresholds) => assert_eq!(0, thresholds.len(), "Thresholds length after deletion should be 0"),
         Err(_) => assert!(false, "Could not load thresholds after deletion.")
+    }
+    match thresholds::load_alias_map() {
+        Ok(aliases) => assert_eq!(0, aliases.len(), "There should be no aliases present in the alias map"),
+        Err(_) => assert!(false, "Could not load alias map after deletion.")
     }
 
     //Delete multiple thresholds via alias
@@ -284,10 +303,19 @@ fn remove_game(){
         },
         Err(e) => assert!(false, "Could not load thresholds before deletion.\n{}",e)
     }
+    match thresholds::load_alias_map() {
+        Ok(aliases) => assert_eq!(1, aliases.len(), "There should be {} alias(es) not {}", 1, aliases.len()),
+        Err(_) => assert!(false, "Could not load alias map after deletion.")
+    }
+
     thresholds::remove(&game_alias_2);
     match thresholds::load_thresholds(){
         Ok(thresholds) => assert_eq!(0, thresholds.len(), "Thresholds length after deletion should be 0"),
         Err(_) => assert!(false, "Could not load thresholds after deletion.")
+    }
+    match thresholds::load_alias_map() {
+        Ok(aliases) => assert_eq!(0, aliases.len(), "There should be no aliases present in the alias map"),
+        Err(_) => assert!(false, "Could not load alias map after deletion.")
     }
     helper::teardown();
 }
