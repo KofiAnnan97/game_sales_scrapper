@@ -75,7 +75,19 @@ fn does_alias_exist(alias_name: &str) -> bool {
     alias_map.contains_key(alias_name)
 }
 
-fn update_alias_map(alias_name: &str, game_title: String) {
+fn update_alias_map(alias_map: HashMap<String, Vec<String>>){
+    match load_data() {
+        Ok(data) => {
+            let mut alias_data = data;
+            *alias_data.get_mut(ALIAS_MAP.to_string()).unwrap() = json!(alias_map);
+            let alias_str = serde_json::to_string_pretty(&alias_data);
+            common::write_to_file(get_path(), alias_str.expect("Cannot update alais map"));
+        },
+        Err(e) => eprintln!("Error: {}", e)
+    }
+}
+
+fn update_threshold_alias(alias_name: &str, game_title: String) {
     if alias_name != "" {
         let mut alias_map = load_alias_map().unwrap_or_default();
         if alias_map.contains_key(alias_name) {
@@ -115,7 +127,7 @@ pub async fn add_steam_game(new_alias: String, app: App, price: f64, client: &re
             if unique {
                 let mut alias_str = String::new();
                 if !does_alias_exist(&new_alias) || (does_alias_exist(&new_alias) && get_alias_reuse_state()){
-                    update_alias_map(&new_alias, app.name.clone());
+                    update_threshold_alias(&new_alias, app.name.clone());
                     alias_str = new_alias;
                 }
                 else{
@@ -160,7 +172,7 @@ pub fn add_gog_game(new_alias: String, game: &GOGGameInfo, price: f64){
         };
         let mut alias_str = String::new();
         if !does_alias_exist(&new_alias) || (does_alias_exist(&new_alias) && get_alias_reuse_state()){
-            update_alias_map(&new_alias, game.title.clone());
+            update_threshold_alias(&new_alias, game.title.clone());
             alias_str = new_alias;
         }
         else{
@@ -199,7 +211,7 @@ pub fn add_microsoft_store_game(new_alias: String, game: &ProductInfo, price: f6
     if unique {
         let mut alias_str = String::new();
         if !does_alias_exist(&new_alias) || (does_alias_exist(&new_alias) && get_alias_reuse_state()){
-            update_alias_map(&new_alias, game.title.clone());
+            update_threshold_alias(&new_alias, game.title.clone());
             alias_str = new_alias;
         }
         else{
@@ -212,7 +224,7 @@ pub fn add_microsoft_store_game(new_alias: String, game: &ProductInfo, price: f6
             steam_id: 0,
             gog_id: 0,
             microsoft_store_id: game.product_id.clone(),
-            currency: String::new(),
+            currency: String::from("USD"),
             desired_price: price
         });
         update_thresholds(thresholds);
@@ -329,17 +341,46 @@ pub fn update_id_str(title: &str, store_type: &str, id: &str){
     }
 }
 
+
 pub fn remove(title: &str){
+    let mut alias_map: HashMap<String, Vec<String>> = load_alias_map().unwrap_or_default();
     let mut thresholds = load_thresholds().unwrap_or_else(|_e|Vec::new());
-    let mut threshold_removed = false;
-    for i in (0..thresholds.len()).rev(){
-        if is_threshold(title, &thresholds[i]){
-            println!("Removing \"{}\".", thresholds[i].title);
-            thresholds.remove(i);
-            threshold_removed = true;
+    let mut threshold_removed = false; 
+    if does_alias_exist(title) {
+        let title_list = alias_map.get(title).unwrap();
+        for game_title in title_list.iter() {
+            if let Some(idx) =  thresholds.iter().position(|threshold| *game_title == threshold.title) {
+                println!("Removing \"{}\".", thresholds[idx].title);
+                thresholds.remove(idx);
+                threshold_removed = true;
+            };
+        }
+        alias_map.remove(title);
+    } 
+    else {
+        for i in (0..thresholds.len()).rev(){
+            if is_threshold(title, &thresholds[i]){
+                if !thresholds[i].alias.is_empty() {
+                    match alias_map.get_mut(&thresholds[i].alias) {
+                        Some(aliases) => {
+                            if let Some(idx) = aliases.iter().position(|title| title == &thresholds[i].title){
+                                aliases.remove(idx);
+                            };
+                            if aliases.is_empty() { alias_map.remove(&thresholds[i].alias); }
+                        }, 
+                        None => ()
+                    }
+                }
+                println!("Removing \"{}\".", thresholds[i].title);
+                thresholds.remove(i);            
+                threshold_removed = true;
+            }
         }
     }
-    if threshold_removed{ update_thresholds(thresholds); }
+    if threshold_removed{ 
+        update_alias_map(alias_map);
+        update_thresholds(thresholds); 
+    }
     else { println!("Failed to remove game using title/alias: \"{}\".", title); }
 }
 
