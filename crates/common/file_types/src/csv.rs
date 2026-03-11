@@ -2,7 +2,7 @@ use std::fs::File;
 use std::{error::Error};
 
 use structs::internal::data::SimpleGameThreshold;
-use crate::common;
+use crate::general;
 
 pub fn parse_game_prices(file_path: &str) -> Result<Vec<SimpleGameThreshold>, Box<dyn Error>>{
     let mut game_list: Vec<SimpleGameThreshold> = Vec::new();
@@ -37,5 +37,5 @@ pub fn generate_csv(file_path: &str, thresholds: Vec<SimpleGameThreshold>) {
         let row = format!("\n{}, {}", sgt.name, sgt.price); 
         data.push_str(row.as_str());
     }
-    common::write_to_file(file_path.to_owned(), data);
+    general::write_to_file(file_path.to_owned(), data);
 }

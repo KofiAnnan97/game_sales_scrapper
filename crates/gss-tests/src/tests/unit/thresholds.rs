@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use file_ops::{settings, thresholds};
-use file_types::common;
+use file_types::general;
 use properties;
 use constants::operations::settings::{GOG_STORE_ID, MICROSOFT_STORE_ID, STEAM_STORE_ID};
 use constants::operations::thresholds::{THRESHOLD_FILENAME};
@@ -17,7 +17,7 @@ fn delete_thresholds() {
     let mut config_path = properties::get_data_path();
     config_path.push_str("/");
     config_path.push_str(THRESHOLD_FILENAME);
-    common::delete_file(config_path);
+    general::delete_file(config_path);
 }
 
 fn add_simple_threshold(game_title: &str, game_alias: &str, price: f64) {

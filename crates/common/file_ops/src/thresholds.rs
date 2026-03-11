@@ -4,7 +4,7 @@ use std::path::PathBuf;
 use serde_json::{json, Result, Value};
 use std::fs::{metadata, read_to_string};
 
-use file_types::common;
+use file_types::general;
 use constants::operations::settings::{STEAM_STORE_ID, GOG_STORE_ID, MICROSOFT_STORE_ID,
                                       ALLOW_ALIAS_REUSE_AFTER_CREATION};
 use constants::operations::thresholds::*;
@@ -19,7 +19,7 @@ use properties;
 pub fn get_path() -> String {
     let path_buf: PathBuf = [properties::get_data_path(), THRESHOLD_FILENAME.to_string()].iter().collect();
     let thresh_path = path_buf.display().to_string();
-    let path_str = common::get_path(&thresh_path);
+    let path_str = general::get_path(&thresh_path);
     match metadata(&path_str){
         Ok(md) => {
             if md.len() == 0 {
@@ -28,7 +28,7 @@ pub fn get_path() -> String {
                     ALIAS_MAP.to_string(): {},
                 });
                 let data_str = serde_json::to_string_pretty(&data);
-                common::write_to_file(thresh_path.to_string(), data_str.expect("Initial settings could not be created."));
+                general::write_to_file(thresh_path.to_string(), data_str.expect("Initial settings could not be created."));
             }
         },
         Err(e) => eprintln!("Error: {}", e)
@@ -64,7 +64,7 @@ pub fn update_thresholds(thresholds: Vec<GameThreshold>) {
             let mut thresholds_data = data;
             *thresholds_data.get_mut(THRESHOLDS.to_string()).unwrap() = json!(thresholds);
             let thresholds_str = serde_json::to_string_pretty(&thresholds_data);
-            common::write_to_file(get_path(), thresholds_str.expect("Cannot update thresholds"));
+            general::write_to_file(get_path(), thresholds_str.expect("Cannot update thresholds"));
         },
         Err(e) => eprintln!("Error: {}", e)
     }
@@ -76,7 +76,7 @@ pub fn update_alias_map(alias_map: HashMap<String, Vec<String>>){
             let mut alias_data = data;
             *alias_data.get_mut(ALIAS_MAP.to_string()).unwrap() = json!(alias_map);
             let alias_str = serde_json::to_string_pretty(&alias_data);
-            common::write_to_file(get_path(), alias_str.expect("Cannot update alais map"));
+            general::write_to_file(get_path(), alias_str.expect("Cannot update alais map"));
         },
         Err(e) => eprintln!("Error: {}", e)
     }
@@ -94,7 +94,7 @@ fn update_threshold_alias(alias_name: &str, game_title: String) {
                 let mut alias_data = data;
                 *alias_data.get_mut(ALIAS_MAP.to_string()).unwrap() = json!(alias_map);
                 let alias_map_str = serde_json::to_string_pretty(&alias_data);
-                common::write_to_file(get_path(), alias_map_str.expect("Cannot update alias map"));
+                general::write_to_file(get_path(), alias_map_str.expect("Cannot update alias map"));
             },
             Err(e) => eprintln!("Error: {}", e)
         }

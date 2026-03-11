@@ -5,7 +5,7 @@ use dotenv::dotenv as dotenv_linux;
 use dotenvy::dotenv as dotenv_windows;
 use rand::distr::{Alphanumeric, SampleString};
 
-use file_types::common;
+use file_types::general;
 use crate::passwords;
 use constants::operations::properties::{DEFAULT_TEST_DIR, CONFIG_DIR, DECRYPT_FILENAME, 
                                         ENV_FILENAME, STEAM_API_KEY_ENV, RECIPIENT_EMAIL_ENV, 
@@ -16,7 +16,7 @@ use constants::operations::properties::{DEFAULT_TEST_DIR, CONFIG_DIR, DECRYPT_FI
 pub fn get_decrypt_key(project_path: String) -> String{
     let mut path_buf: PathBuf = [&project_path, CONFIG_DIR].iter().collect();
     let mut path_str: String = path_buf.display().to_string();
-    if !path_buf.is_dir() { let _ = fs::create_dir(&path_str); }
+    general::create_dir(&path_str);
     path_buf = [&path_str, DECRYPT_FILENAME].iter().collect();
     path_str = path_buf.display().to_string();
     let mut key_str = String::new();
@@ -26,7 +26,7 @@ pub fn get_decrypt_key(project_path: String) -> String{
             Ok(md) => {
                 if md.len() == 0 {
                     key_str = Alphanumeric.sample_string(&mut rand::rng(), 32);
-                    common::write_to_file(path_str, key_str.to_owned());
+                    general::write_to_file(path_str, key_str.to_owned());
                 }
             },
             Err(e) => eprintln!("Could not create decrypt key file: {}\n{}", DECRYPT_FILENAME, e)
