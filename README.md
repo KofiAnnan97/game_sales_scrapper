@@ -1,19 +1,28 @@
 # Game Sales Scrapper
-![GitHub Release](https://img.shields.io/github/v/release/KofiAnnan97/game_sales_scrapper?label=Latest%20Version) ![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/KofiAnnan97/game_sales_scrapper/build.yml?label=Build) ![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/KofiAnnan97/game_sales_scrapper/tests.yml?label=Tests) ![GitHub last commit](https://img.shields.io/github/last-commit/KofiAnnan97/game_sales_scrapper?label=Last%20Commit)
+![GitHub Release](https://img.shields.io/github/v/release/KofiAnnan97/game_sales_scrapper?label=Latest%20Release&color=blue&link=https://github.com/KofiAnnan97/game_sales_scrapper/releases) 
+![GitHub Relase Date](https://img.shields.io/github/release-date/KofiAnnan97/game_sales_scrapper?label=Release%20Date&color=teal) 
+![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/KofiAnnan97/game_sales_scrapper/build.yml?label=Builds) 
+![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/KofiAnnan97/game_sales_scrapper/tests.yml?label=Tests) 
 
 Roadmap: [[link](./Roadmap.md)]
 
-A script that checks multiple storefront to determine if a game has reached a user-defined price. Automation can be set 
-up to send an email if any game is at or falls below their respective price threshold.
+A script that checks multiple storefront to determine if a game has reached a user-defined price. Automation can be set up to send an email if any game is 
+at or falls below their respective price threshold.
 
 ### Supported Storefronts
 - **Steam**
 - **Good Old Games (GOG)**
 - **Microsoft Store (PC)**
 
+### Dependencies
+- Steam Web API key := https://steamcommunity.com/dev
+- For self-hosting:
+    - SMTP server
+    - Domain
+
 ## Quick Start
 1. Setup SMTP server/service (TLS required)
-2. Nagivate to project folder and run `cargo build --release`
+2. Navigate to project folder and run `cargo build --release`
 3. In the project folder, create `.env` with the following:
     ```
     STEAM_API_KEY={your_steam_api_key}
@@ -27,35 +36,40 @@ up to send an email if any game is at or falls below their respective price thre
     TEST_PATH={/path/to/test_directory}
     ```
     - For Windows use `\\` when defining the path.
-
-4. Add games and their respective price threshold using the [support commands](#supported-commands) below (supports commands from cargo).
-5. [Optional] Automate emails (in `setup/` folder)
+4. Initialize settings and properties (refer to [supported commands](#supported-commands))
+5. Add games and their respective price threshold using the [support commands](#supported-commands) below (supports commands from cargo).
+6. [Optional] Automate emails (in `setup/` folder)
     - **For Unix-based systems:** Update *SCHEDULE* variable to desired execution frequency and run `set_cron.sh -c "create"` with root privileges.
     - **For Windows systems:** Update *$trigger* variable to desired execution frequency and run `set_task_scheduler.ps1 -Cmd "create"`. 
     
-        If Powershell scripts execution is not enabled run the following with administrative privileges: 
+        If PowerShell scripts execution is not enabled run the following with administrative privileges: 
         ```
         Set-ExecutionPolicy RemoteSigned
         ```
-6. [Optional] Run tests locally `cargo test -- --test-threads=1`
+7. [Optional] Run tests locally `cargo test -- --test-threads=1`
 
 ## Supported Commands
 Use the`--help` flag in command line to get more information on the supported commands. Here's a brief description and example of each command.
 - `config` := sets what storefronts are used to search for games and enable aliases for game titles (enabled by default). 
-Use `-a` to search through all supported storefronts and can be configured to be more granular. This command will override previous settings.
-    ```commandline
-    game_sales_scrapper config -a
+    - `settings` := determine which storefront to search, whether aliases are enabled for games, and whether an alias can be reused (useful for different editions of the same product)
+    -  `properties` := set the properties based on `.env` file or command line
+        - `-z` := toggles whether the testing mode is enabled (if enabled script uses the `TEST_PATH` environment variable)
+  ```commandline
+    # Configure settings 
+    gss-cli config settings -a -e 1 -r 0
+    # Update properties with .env
+    gss-cli config properties -f
     ```
 - `add` := add a specified game (title must be exact to work).
     ```commandline
-    game_sales_scrapper add --title <title> --price <price>
+    gss-cli add --title <title> --price <price>
     ```
 - `bulk-insert` := add multiple games with a price threshold using a CSV file.
     ```commandline
-    game_sales_scrapper bulk-insert --file <file.csv>
+    gss-cli bulk-insert --file <file.csv>
     ```
     CSV Example:
-    ```text
+    ```
     games, price
     Hollow Knight, 9.99
     Cyberpunk 2077, 19.99
@@ -64,29 +78,29 @@ Use `-a` to search through all supported storefronts and can be configured to be
     ```
 - `update` := update price threshold for a specified game.
     ```commandline
-    game_sales_scrapper update --title <title> --price <price>
+    gss-cli update --title <title> --price <price>
     ```
 - `remove` := remove a specified game.
     ```commandline
-    game_sales_scrapper remove --title <title>
+    gss-cli remove --title <title>
     ```
 - `list-selected-stores` := list whether a storefront is used to search for games.
     ```commandline 
-    game_sales_scrapper --list-selected-stores
+    gss-cli --list-selected-stores
     ```
 - `list-thresholds` := list all the stored price thresholds for selected games.
     ```commandline
-    game_sales_scrapper --list-thresholds
+    gss-cli --list-thresholds
     ```
 - `update-cache` := update the locally stored cache of steam games (title and app ids).
     ```commandline
-    game_sales_scrapper --update-cache
+    gss-cli --update-cache
     ```
 - `check-prices` := print out any games that are on sale that meet user respective price threshold.
     ```commandline
-    game_sales_scrapper --check-prices
+    gss-cli --check-prices
     ```
 - `send-email` := sends an email (using SMTP) containing a list of games that are below user defined price threshold for each game. No email is sent if no game has reached their price threshold.
     ```commandline 
-    game_sales_scrapper --send-email
+    gss-cli --send-email
     ```
