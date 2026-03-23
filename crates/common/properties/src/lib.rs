@@ -2,7 +2,7 @@ use std::fs::{self, metadata, read_to_string};
 use std::path::{Path, PathBuf};
 use serde_json::{json, Value, Result};
 
-use file_types::common;
+use file_types::general;
 pub mod env_vars;
 pub mod passwords;
 use constants::operations::properties::{DATA_DIR, CONFIG_DIR, DEFAULT_TEST_DIR, PROPERTIES_FILENAME, ENV_FILENAME,
@@ -20,10 +20,10 @@ pub fn get_properties_path() -> String{
     if project_path.is_empty() { project_path = std::env::current_dir().unwrap().display().to_string(); }
     let mut path_buf: PathBuf = [&project_path, CONFIG_DIR].iter().collect();
     let data_path = path_buf.display().to_string();
-    if !Path::new(&data_path).is_dir() { let _ = fs::create_dir(&data_path); }
+    general::create_dir(&data_path);
     path_buf = [data_path, PROPERTIES_FILENAME.to_string()].iter().collect();
     let properties_path = path_buf.display().to_string();
-    let path_str = common::get_path(&properties_path);
+    let path_str = general::get_path(&properties_path);
     match metadata(&path_str){
         Ok(md) => {
             if md.len() == 0 {
@@ -33,9 +33,7 @@ pub fn get_properties_path() -> String{
                 if vars.is_empty() { 
                     let path_buf: PathBuf = [&project_path, DEFAULT_TEST_DIR].iter().collect();
                     generic_test_path = path_buf.display().to_string();
-                    if !Path::new(&generic_test_path).is_dir() { 
-                        let _ = fs::create_dir(&generic_test_path);
-                    }
+                    general::create_dir(&generic_test_path);
                     has_env = false; 
                 }
                 let properties = json!({
@@ -52,7 +50,7 @@ pub fn get_properties_path() -> String{
                     PROP_TEST_MODE: 0
                 });
                 let properties_str = serde_json::to_string_pretty(&properties);
-                common::write_to_file(properties_path.to_string(), properties_str.expect("Initial properties could not be created."));
+                general::write_to_file(properties_path.to_string(), properties_str.expect("Initial properties could not be created."));
             }
         },
         Err(e) => eprintln!("Error: {}", e)
@@ -65,7 +63,7 @@ pub fn get_data_path() -> String {
     let path: PathBuf = [&data_path, DATA_DIR].iter().collect();
     data_path = path.display().to_string();
     //println!("Path: {}", data_path);
-    if !Path::new(&data_path).is_dir() { let _ = fs::create_dir(&data_path); }
+    general::create_dir(&data_path);
     data_path
 }
 
@@ -73,7 +71,7 @@ pub fn get_config_path() -> String {
     let mut config_path = if is_testing_enabled() { get_test_path() } else { get_project_path() };
     let path: PathBuf = [&config_path, CONFIG_DIR].iter().collect();
     config_path = path.display().to_string();
-    if !Path::new(&config_path).is_dir() { let _ = fs::create_dir(&config_path); }
+    general::create_dir(&config_path);
     config_path
 }
 
@@ -136,7 +134,7 @@ pub fn update_properties_from_env() {
                 PROP_TEST_MODE: get_test_mode(),
             });
             let properties_str = serde_json::to_string_pretty(&properties);
-            common::write_to_file(get_properties_path(), properties_str.expect("Properties could not be updated."));
+            general::write_to_file(get_properties_path(), properties_str.expect("Properties could not be updated."));
         }
     } 
     else { eprintln!("Cannot find environment variables. Missing file: {ENV_FILENAME}."); }
@@ -238,7 +236,7 @@ pub fn get_test_path() -> String {
         }
         let path_buf: PathBuf = [&get_project_path(), DEFAULT_TEST_DIR].iter().collect();
         test_path = path_buf.display().to_string();
-        if !Path::new(&test_path).is_dir() { let _ = fs::create_dir(&test_path); }
+        general::create_dir(&test_path);
         set_test_path(&test_path);
     }
     test_path
@@ -266,7 +264,7 @@ pub fn set_steam_api_key(key_str: String) {
             let mut properties = data;
             *properties.get_mut(PROP_STEAM_API_KEY).unwrap() = json!(passwords::encrypt(&get_decrypt_key(get_project_path()), key_str));
             let properties_str = serde_json::to_string_pretty(&properties);
-            common::write_to_file(get_properties_path(), properties_str.expect("Sliding steam appid property could not be created/updated."));
+            general::write_to_file(get_properties_path(), properties_str.expect("Sliding steam appid property could not be created/updated."));
         }
         Err(e) => eprintln!("Error: {}", e)
     }
@@ -278,7 +276,7 @@ pub fn set_recipient(email_str: &str) {
             let mut properties = data;
             *properties.get_mut(PROP_RECIPIENT_EMAIL).unwrap() = json!(email_str);
             let properties_str = serde_json::to_string_pretty(&properties);
-            common::write_to_file(get_properties_path(), properties_str.expect("recipient email property could not be created/updated."));
+            general::write_to_file(get_properties_path(), properties_str.expect("recipient email property could not be created/updated."));
         }
         Err(e) => eprintln!("Error: {}", e)
     }
@@ -296,7 +294,7 @@ pub fn set_stmp_vars(host: String, port: u16, email: String, user: String, pass:
                 *properties.get_mut(PROP_SMTP_PASSWORD).unwrap() = json!(passwords::encrypt(&get_decrypt_key(get_project_path()), pass)); 
             }
             let properties_str = serde_json::to_string_pretty(&properties);
-            common::write_to_file(get_properties_path(), properties_str.expect("Refresh steam appid property could not be created."));
+            general::write_to_file(get_properties_path(), properties_str.expect("Refresh steam appid property could not be created."));
         }
         Err(e) => eprintln!("Error: {}", e)
     }
@@ -311,7 +309,7 @@ pub fn set_project_path(path: &str) {
             let mut properties = data;
             *properties.get_mut(PROP_PROJECT_PATH).unwrap() = json!(path);
             let properties_str = serde_json::to_string_pretty(&properties);
-            common::write_to_file(get_properties_path(), properties_str.expect("Project path property could not be created/updated."));
+            general::write_to_file(get_properties_path(), properties_str.expect("Project path property could not be created/updated."));
         }
         Err(e) => eprintln!("Error: {}", e)
     }
@@ -327,7 +325,7 @@ pub fn set_test_path(path: &str) {
             let mut properties = data;
             *properties.get_mut(PROP_TEST_PATH).unwrap() = json!(path);
             let properties_str = serde_json::to_string_pretty(&properties);
-            common::write_to_file(get_properties_path(), properties_str.expect("Test path property could not be created/updated."));
+            general::write_to_file(get_properties_path(), properties_str.expect("Test path property could not be created/updated."));
         }
         Err(e) => eprintln!("Error: {}", e)
     }
@@ -339,7 +337,7 @@ pub fn set_sliding_steam_appid(steam_appid: u32) {
             let mut properties = data;
             *properties.get_mut(PROP_SLIDING_STEAM_APPID).unwrap() = json!(steam_appid);
             let properties_str = serde_json::to_string_pretty(&properties);
-            common::write_to_file(get_properties_path(), properties_str.expect("Sliding steam appid property could not be created/updated."));
+            general::write_to_file(get_properties_path(), properties_str.expect("Sliding steam appid property could not be created/updated."));
         }
         Err(e) => eprintln!("Error: {}", e)
     }
@@ -352,7 +350,7 @@ pub fn set_test_mode(is_enabled: bool) {
             let enabled = if is_enabled { 1 } else { 0 };
             *properties.get_mut(PROP_TEST_MODE).unwrap() = json!(enabled);
             let properties_str = serde_json::to_string_pretty(&properties);
-            common::write_to_file(get_properties_path(), properties_str.expect("Test mode property could not be created."));
+            general::write_to_file(get_properties_path(), properties_str.expect("Test mode property could not be created."));
         },
         Err(e) => eprintln!("Error: {}", e)
     }

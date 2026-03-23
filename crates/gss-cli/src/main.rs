@@ -605,10 +605,12 @@ async fn main(){
         Some(("add", add_args)) => {
             let selected_stores = storefront_check();
             if properties::is_testing_enabled() { println!("------------------------\n* TEST MODE IS ENABLED *\n------------------------"); }
-            let alias = if add_args.contains_id("alias") && settings::get_alias_state() {
+            let alias = if add_args.contains_id("alias") {
                 add_args.get_one::<String>("alias").unwrap().clone()
-            } else {
+            } else if settings::get_alias_state() {
                 thresholds::set_game_alias()
+            } else {
+                String::new()
             };
             let title = add_args.get_one::<String>("title").unwrap().clone();
             let price = add_args.get_one::<f64>("price").unwrap().clone();
@@ -682,13 +684,14 @@ async fn main(){
             else if cmd.get_flag(SEND_EMAIL){
                 email::params_check();
                 let use_html = true;
-                let email_str = check_prices(use_html).await;
-                println!("Email Contents:\n{}\n", email_str);
-                if email_str.is_empty(){ println!("No game(s) on sale at price thresholds"); }
+                let sales_str = check_prices(use_html).await;
+                let html_body = format!(r#"{}"#, email::create_html_body(&sales_str));
+                println!("Email Contents:\n{}", html_body);
+                if sales_str.is_empty(){ println!("No game(s) on sale at price thresholds"); }
                 else {
                     println!("Sending email...");
                     let to_address = &properties::get_recipient();
-                    email::send_html_msg(to_address, "Check Out Which Games Are On Sale", &email_str);
+                    email::send_html_msg(to_address, "Check Out Which Games Are On Sale", &html_body);
                 }
             }
             else { println!("No/incorrect command given. Use \'--help\' for assistance."); }

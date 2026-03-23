@@ -13,6 +13,15 @@ pub fn get_path(path_str: &str) -> String{
     load_fp
 }
 
+pub fn create_dir(file_path: &str){
+    if !Path::new(file_path).is_dir() { 
+        match fs::create_dir_all(file_path){
+            Ok(_) => println!("Created directory: {}", file_path),
+            Err(e) => println!("Failed to create directory: {}, {}", file_path, e)
+        }
+    }
+}
+
 pub fn write_to_file(path: String, data: String){
     match write(&path, data) {
         Ok(_) => (),

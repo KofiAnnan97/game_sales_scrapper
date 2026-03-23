@@ -1,9 +1,8 @@
 # Read environment variables
 $STEAM_API_KEY = $Env:STEAM_API_KEY
 Set-Variable -Name "PROJECT_PATH" -Value $(python3 .\setup\actions\double_slash.py "$Env:PROJECT_PATH")
-#Set-Variable -Name "TEST_PATH" -Value $(python3 .\setup\actions\double_slash.py "$Env:PROJECT_PATH\\src\\tests")
 rustc setup\actions\double_slash.rs
-Set-Variable -Name "TEST_PATH" -Value $(.\double_slash.exe "$Env:PROJECT_PATH\\src\\tests")
+Set-Variable -Name "TEST_PATH" -Value $(.\double_slash.exe "$Env:PROJECT_PATH\\crates\\gss-tests")
 
 # Create file contents
 $envContent = @"

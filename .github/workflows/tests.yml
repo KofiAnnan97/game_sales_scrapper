@@ -36,7 +36,7 @@ jobs:
     - name: Cache Steam games
       run: cargo run --release -p gss-cli -- --update-cache
     - name: Run tests
-      run: cargo test --release --all -- --test-threads=1 --show-output
+      run: cargo test --release -- --test-threads=1 --show-output
   windows:
     needs: linux
     if: always()
@@ -67,4 +67,4 @@ jobs:
       - name: Cache Steam games
         run: cargo run --release -p gss-cli -- --update-cache
       - name: Run tests
-        run: cargo test --release --all -- --test-threads=1 --show-output
+        run: cargo test --release -- --test-threads=1 --show-output

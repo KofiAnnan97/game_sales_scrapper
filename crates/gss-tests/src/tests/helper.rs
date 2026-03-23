@@ -2,7 +2,7 @@ use std::fs::{self, metadata, read_to_string};
 use std::path::{Path, PathBuf};
 use serde_json::{json, Result, Value};
 use properties;
-use file_types::common;
+use file_types::general;
 use structs::internal::data::GameThreshold;
 use constants::operations::thresholds::{ALIAS_MAP, THRESHOLDS, THRESHOLD_FILENAME};
 use constants::operations::settings::{ALIASES_ENABLED, ALLOW_ALIAS_REUSE_AFTER_CREATION, 
@@ -14,9 +14,7 @@ pub(in crate::tests) fn get_data_path() -> String {
     let mut data_path = properties::get_test_path();
     let path_buf: PathBuf = [&data_path, DATA_DIR].iter().collect();
     data_path = path_buf.display().to_string();
-    if !Path::new(&data_path).is_dir() {
-        let _ = fs::create_dir(&data_path);
-    }
+    general::create_dir(&data_path);
     data_path
 }
 
@@ -25,16 +23,14 @@ pub(in crate::tests) fn get_config_path() -> String {
     let mut config_path = properties::get_test_path();
     let path_buf: PathBuf = [&config_path, CONFIG_DIR].iter().collect();
     config_path = path_buf.display().to_string();
-    if !Path::new(&config_path).is_dir() {
-        let _ = fs::create_dir(&config_path);
-    }
+    general::create_dir(&config_path);
     config_path
 }
 
 pub(in crate::tests) fn get_threshold_path() -> String {
     let path_buf: PathBuf = [get_data_path(), THRESHOLD_FILENAME.to_string()].iter().collect();
     let threshold_path = path_buf.display().to_string();
-    let path_str = common::get_path(&threshold_path);
+    let path_str = general::get_path(&threshold_path);
     match metadata(&path_str){
         Ok(md) => {
             if md.len() == 0 {
@@ -43,7 +39,7 @@ pub(in crate::tests) fn get_threshold_path() -> String {
                     ALIAS_MAP.to_string(): {},
                 });
                 let data_str = serde_json::to_string_pretty(&data);
-                common::write_to_file(threshold_path.clone(), data_str.expect("Initial settings could not be created."));
+                general::write_to_file(threshold_path.clone(), data_str.expect("Initial settings could not be created."));
             }
         },
         Err(e) => eprintln!("Error: {}", e)
@@ -55,14 +51,14 @@ pub(in crate::tests) fn get_settings_path() -> String {
     let mut settings_path = get_config_path();
     let path_buf: PathBuf = [&settings_path, SETTINGS_FILENAME].iter().collect();
     settings_path = path_buf.display().to_string();
-    common::get_path(&settings_path)
+    general::get_path(&settings_path)
 }
 
 pub(in crate::tests) fn clear_settings() {
     if !properties::is_testing_enabled() { properties::set_test_mode(true); }
     let settings = json!({SELECTED_STORES: [], ALIASES_ENABLED: 1, ALLOW_ALIAS_REUSE_AFTER_CREATION: 1});
     let settings_str = serde_json::to_string_pretty(&settings);
-    common::write_to_file(get_settings_path(), settings_str.expect("Clear settings."));
+    general::write_to_file(get_settings_path(), settings_str.expect("Clear settings."));
 }
 
 pub(in crate::tests) fn clear_thresholds(){
@@ -72,7 +68,7 @@ pub(in crate::tests) fn clear_thresholds(){
         ALIAS_MAP.to_string(): {}
     });
     let thresholds_str = serde_json::to_string_pretty(&thresholds);
-    common::write_to_file(get_threshold_path(), thresholds_str.expect("Clear thresholds."));
+    general::write_to_file(get_threshold_path(), thresholds_str.expect("Clear thresholds."));
 }
 
 pub(in crate::tests) fn load_threshold_data() -> Result<Value> {

@@ -150,13 +150,12 @@ pub fn send_html_msg(recipient: &str, subject: &str, body: &str) {
     let smtp_user = properties::get_smtp_user();
     let smtp_pwd = properties::get_smtp_pwd();
     
-    let html_content = format!(r#"{}"#, create_html_body(body));
     let email = Message::builder()
         .from(smtp_email.parse().unwrap())
         .to(recipient.parse().unwrap())
         .subject(subject)
         .multipart(
-            MultiPart::alternative().singlepart(SinglePart::html(html_content.to_string())),
+            MultiPart::alternative().singlepart(SinglePart::html(body.to_string())),
         )
         .unwrap();
 

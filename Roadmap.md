@@ -13,6 +13,8 @@
     - [X] Add check to confirm properties are set before use
     - ~~[X] Check project path before allowing user to run commands (excluding properties subcmd)~~
     - [X] Default project path and test path if not set by user 
+  - [X] Create email body in script before calling the email::send_html_msg function 
+  - [X] Add alias when printing out game thresholds
 - Bugs/Fixes
   - [X] Fix GOG discount percentage (manually calculate)
   - [X] Fixed thresholds with same alias to support update and remove command
@@ -22,10 +24,18 @@
   - [X] Made Steam games search case-insensitive
   - [X] Fix Windows tests for GitHub actions
     - [X] Optimized 'Run tests' step
+  - [X] When removing thesholds the alias map should also be updated
+    - [X] if a threshold is removed then the game title should be removed from the alias map when present 
+    - [X] if an alias is used to delete every game threshold associated to it then remove that alias 
+  - [X] When updating the alias of a threshold the alias map should also be updated
+    - [X] if the threshold is thhe only one associated to an alias remove that alias and create/update the new one
+    - [X] otherwise remove title for old alias and create/update the new one 
 - Testing:
   - [X] Add tests for multiple thresholds with the same alias
   - [X] Add tests for encrypting and decrypting secrets/passwords
   - [X] Move tests to a separate crate
+  - [X] Update unit tests for removing game thresholds (adding alias map logic)
+  - [X] Update unit tests for updating game thresholds (adding alias map logic)
 
 ### Backlog
 - Features/Updates
@@ -37,13 +47,11 @@
   - Add the option to send emails through AWS SES
   - Add fuzzy search to remove command for potentional removal suggestions if tilte is not found
   - Deteremine if defaulting the path should be in getters for project and test path if properties and dot env file have an invalid/empty path
-  - Create email body in script before calling the email::send_html_msg function 
+  - Add fuzzy search for update and remove command for potentional suggestions if tilte is not found
 - Bugs/Fixes
   - Configure Steam API call to not send steam key as plain text
   - Update dependencies and resolve any potential issues
-  - When removing thesholds the alias should also be removed if
-    - threshold is the only one associated to the alias or
-    - if the alias is used to delete every threshold associated to it
+  - Pull currency type for Microsoft store games
 - Testing
   - Scope of untested code
     - Needs implementation

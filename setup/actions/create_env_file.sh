@@ -3,7 +3,7 @@
 # Read environment variables
 STEAM_API_KEY=$(echo "$STEAM_API_KEY")
 PROJECT_PATH=$(echo "$PROJECT_PATH")
-TEST_PATH="$(echo "$PROJECT_PATH")/src/tests"
+TEST_PATH="$(echo "$PROJECT_PATH")/crates/gss-tests"
 
 # Create file contents
 touch .env

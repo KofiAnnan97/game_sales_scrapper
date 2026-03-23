@@ -10,7 +10,7 @@ use dotenvy::dotenv as dotenv_windows;
 use serde_json::{json, Value};
 
 use structs::internal::data::{GameThreshold, SimpleGameThreshold};
-use file_types::{common, csv};
+use file_types::{general, csv};
 use file_ops::settings;
 use constants::operations::settings::{GOG_STORE_ID, MICROSOFT_STORE_ID, STEAM_STORE_ID};
 use constants::operations::thresholds::THRESHOLDS;
@@ -24,7 +24,7 @@ static E33_MS_ID: &str = "9ppt8k6gqhrz";
 
 // Regex patterns
 static SELECT_STORES_PRTN: &str = r"\[(X|\s)\]\s+(.*)";
-static GAME_THRESH_PTRN: &str = r"-\s+(.*)\s+=>\s+(\d+.\d+|\d+)";
+static GAME_THRESH_PTRN: &str = r"-\s+(.*)\s\[.*\]\s+=>\s+(\d+.\d+|\d+)";
 static PRICE_CHECK_PTRN: &str = r"-\s(?<title>.*)\s:\s\d+.\d+\s->\s\d+.\d+\s\(";
 
 fn add_fake_threshold(alias: &str, title: &str, price: f64) {
@@ -55,7 +55,7 @@ fn add_threshold(alias: &str, title: &str, steam_id: u32, gog_id: u32, ms_id: &s
             let mut thresholds_data = data;
             *thresholds_data.get_mut(THRESHOLDS.to_string()).unwrap() = json!(thresholds);
             let thresholds_str = serde_json::to_string_pretty(&thresholds_data);
-            common::write_to_file(get_threshold_path(), thresholds_str.expect("Cannot update thresholds for testing"));
+            general::write_to_file(get_threshold_path(), thresholds_str.expect("Cannot update thresholds for testing"));
         },
         Err(e) => eprintln!("Error: {}", e)
     }

@@ -4,7 +4,7 @@ use regex::Regex;
 use std::io::{self, Write};
 
 use std::path::PathBuf;
-use file_types::common;
+use file_types::general;
 use properties;
 use constants::operations::properties::PROP_STEAM_API_KEY;
 use structs::internal::data::SaleInfo;
@@ -25,7 +25,7 @@ static SLIDING_UPDATE_START_SIZE : usize = 100000;
 fn get_cache_path() -> String{
     let path_buf: PathBuf = [properties::get_data_path(), CACHE_FILENAME.to_string()].iter().collect();
     let cache_file_path = path_buf.display().to_string();
-    common::get_path(&cache_file_path)
+    general::get_path(&cache_file_path)
 }
 
 fn load_cached_games() -> Result<Vec<App>> {
@@ -93,7 +93,7 @@ pub async fn update_cached_games(){
     println!("Sorting entries...");
     games_list.sort_by(|a, b| a.app_id.cmp(&b.app_id));
     let data_str = serde_json::to_string_pretty(&games_list).unwrap();
-    common::write_to_file(get_cache_path(), data_str);
+    general::write_to_file(get_cache_path(), data_str);
     println!("Cache update complete")
 }
 

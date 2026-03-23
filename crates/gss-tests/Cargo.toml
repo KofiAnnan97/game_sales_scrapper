@@ -4,9 +4,6 @@ version.workspace = true
 authors.workspace = true
 edition.workspace = true
 
-[lib]
-doctests = false
-
 [dependencies]
 # Internal crates
 alerting = { path = "../common/alerting" }
