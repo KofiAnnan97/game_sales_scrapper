@@ -170,14 +170,34 @@ fn update_alias() {
         Err(_) => assert!(false, "Could not load the thresholds when alias is expected to be empty.")
     }
 
+    // Check that alias map key is created for game
+    match thresholds::load_alias_map(){
+        Ok(map) => {
+            assert_eq!(true, map.contains_key(&game_alias), "Alias map does not contain key \'{}\'", &game_alias);
+            assert_eq!(game_title.clone(), map.get(&game_alias).unwrap()[0], "Title should be \'{}\' not \'{}\'.", game_title.clone(), map.get(&game_alias).unwrap()[0])
+        },
+        Err(_) => assert!(false, "Could not load the alias map"),
+    }
+
     // Check that new alias is present in threshold
     let new_alias = String::from("new_rg");
-    thresholds::update_alias(&game_title, &new_alias);
+    thresholds::update_threshold_alias(game_title.clone(), &new_alias);
     match thresholds::load_thresholds(){
         Ok(thresholds) =>
             assert_eq!(new_alias, thresholds[0].alias, "Alias should be \'{}\' not \'{}\'.", new_alias, thresholds[0].alias),
         Err(_) => assert!(false, "Could not load the thresholds when alias is expected to be {}.", new_alias)
     }
+
+    // Check that alias map is updated 
+    match thresholds::load_alias_map() {
+        Ok(map) => {
+            assert_eq!(false, map.contains_key(&game_alias),  "Alias map should not contain \'{}\'", &game_alias);
+            assert_eq!(true, map.contains_key(&new_alias), "Alias map does not contain key \'{}\'", &game_alias);
+            assert_eq!(game_title.clone(), map.get(&new_alias).unwrap()[0], "Title should be \'{}\' not \'{}\'.", game_title.clone(), map.get(&new_alias).unwrap()[0]);
+        },
+        Err(_) => assert!(false, "Could not load the alias map"),
+    }
+
     helper::teardown();
 }
 

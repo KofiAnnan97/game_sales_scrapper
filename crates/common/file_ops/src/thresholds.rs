@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::HashMap; 
 use std::io::{self, Write};
 use std::path::PathBuf;
 use serde_json::{json, Result, Value};
@@ -82,17 +82,38 @@ pub fn update_alias_map(alias_map: HashMap<String, Vec<String>>){
     }
 }
 
-fn update_threshold_alias(alias_name: &str, game_title: String) {
-    if alias_name != "" {
+pub fn update_threshold_alias(game_title: String, new_alias: &str) {
+    if new_alias != "" {
         let mut alias_map = load_alias_map().unwrap_or_default();
-        if alias_map.contains_key(alias_name) {
-            alias_map.get_mut(alias_name).unwrap().push(game_title);
+        
+        // Remove old alias for game in alias map
+        let mut thresholds = load_thresholds().unwrap_or_default();
+        let idx = thresholds.iter().position(|threshold| *threshold.title == game_title);
+        let mut old_alias: String = String::new();
+        if idx.is_some(){
+            let i = idx.unwrap();
+            old_alias = thresholds[i].alias.to_string();
+            thresholds[i].alias = String::from(new_alias);
         }
-        else { alias_map.insert(alias_name.to_string(), vec![game_title]); }
+        if alias_map.contains_key(&old_alias){
+            let mut alias_list = alias_map.get_mut(&old_alias).unwrap();
+            let val_idx = alias_list.iter().position(|threshold_title| *threshold_title == game_title);
+            if val_idx.is_some(){ alias_list.remove(val_idx.unwrap()); }
+            if alias_list.is_empty(){ alias_map.remove(&old_alias); }
+        }
+
+        // Add new alias for game in alias map
+        if alias_map.contains_key(new_alias) {
+            alias_map.get_mut(new_alias).unwrap().push(game_title);
+        }
+        else { alias_map.insert(new_alias.to_string(), vec![game_title]); }
+
+        // Saved new changes to thresholds file
         match load_data() {
             Ok(data) => {
                 let mut alias_data = data;
                 *alias_data.get_mut(ALIAS_MAP.to_string()).unwrap() = json!(alias_map);
+                *alias_data.get_mut(THRESHOLDS.to_string()).unwrap() = json!(thresholds);
                 let alias_map_str = serde_json::to_string_pretty(&alias_data);
                 general::write_to_file(get_path(), alias_map_str.expect("Cannot update alias map"));
             },
@@ -127,7 +148,7 @@ pub async fn add_steam_game(new_alias: String, app: App, price: f64, client: &re
             if unique {
                 let mut alias_str = String::new();
                 if !does_alias_exist(&new_alias) || (does_alias_exist(&new_alias) && get_alias_reuse_state()){
-                    update_threshold_alias(&new_alias, app.name.clone());
+                    update_threshold_alias(app.name.to_string(), &new_alias);
                     alias_str = new_alias;
                 }
                 else{
@@ -172,7 +193,7 @@ pub fn add_gog_game(new_alias: String, game: &GOGGameInfo, price: f64){
         };
         let mut alias_str = String::new();
         if !does_alias_exist(&new_alias) || (does_alias_exist(&new_alias) && get_alias_reuse_state()){
-            update_threshold_alias(&new_alias, game.title.clone());
+            update_threshold_alias(game.title.to_string(), &new_alias);
             alias_str = new_alias;
         }
         else{
@@ -211,7 +232,7 @@ pub fn add_microsoft_store_game(new_alias: String, game: &ProductInfo, price: f6
     if unique {
         let mut alias_str = String::new();
         if !does_alias_exist(&new_alias) || (does_alias_exist(&new_alias) && get_alias_reuse_state()){
-            update_threshold_alias(&new_alias, game.title.clone());
+            update_threshold_alias(game.title.to_string(), &new_alias);
             alias_str = new_alias;
         }
         else{
@@ -252,15 +273,6 @@ pub fn set_game_alias() -> String {
         }
     }
     alias
-}
-
-pub fn update_alias(title: &str, new_alias: &str){
-    let mut thresholds = load_thresholds().unwrap_or_else(|_e|Vec::new());
-    if let Some(idx) = thresholds.iter().position(|threshold| is_threshold(title, threshold)) {
-        thresholds[idx].alias = new_alias.to_string();
-        update_thresholds(thresholds);
-    }
-    else { println!("Could not find game threshold with title : \"{}\"", title); }
 }
 
 pub fn update_price(title: &str, price: f64) {

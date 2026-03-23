@@ -26,15 +26,15 @@
   - [X] When removing thesholds the alias map should also be updated
     - [X] if a threshold is removed then the game title should be removed from the alias map when present 
     - [X] if an alias is used to delete every game threshold associated to it then remove that alias 
-  - [ ] When updating the alias of a threshold the alias map should also be updated
-    - [ ] if the threshold is thhe only one associated to an alias remove that alias and create/update the new one
-    - [ ] otherwise remove title for old alias and create/update the new one 
+  - [X] When updating the alias of a threshold the alias map should also be updated
+    - [X] if the threshold is thhe only one associated to an alias remove that alias and create/update the new one
+    - [X] otherwise remove title for old alias and create/update the new one 
 - Testing:
   - [X] Add tests for multiple thresholds with the same alias
   - [X] Add tests for encrypting and decrypting secrets/passwords
   - [X] Move tests to a separate crate
   - [X] Update unit tests for removing game thresholds (adding alias map logic)
-  - [ ] Update unit tests for updating game thresholds (adding alias map logic)
+  - [X] Update unit tests for updating game thresholds (adding alias map logic)
 
 ### Backlog
 - Features/Updates

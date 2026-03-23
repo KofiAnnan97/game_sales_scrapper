@@ -15,7 +15,10 @@ pub fn get_path(path_str: &str) -> String{
 
 pub fn create_dir(file_path: &str){
     if !Path::new(file_path).is_dir() { 
-        let _ = fs::create_dir_all(file_path);
+        match fs::create_dir_all(file_path){
+            Ok(_) => println!("Created directory: {}", file_path),
+            Err(e) => println!("Failed to create directory: {}, {}", file_path, e)
+        }
     }
 }
 
