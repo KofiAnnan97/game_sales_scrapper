@@ -397,9 +397,16 @@ pub fn list_games() {
         Ok(data) => {
             println!("Price Thresholds");
             for threshold in data.iter() {
-                println!("  - {} => {} ({})", threshold.title, 
-                                              threshold.desired_price, 
-                                              threshold.currency);
+                if threshold.alias.is_empty() {
+                    println!("  - {} => {} ({})", threshold.title, 
+                                                threshold.desired_price, 
+                                                threshold.currency);
+                } else {
+                    println!("  - {} [{}] => {} ({})", threshold.title,
+                                                    threshold.alias, 
+                                                    threshold.desired_price, 
+                                                    threshold.currency);
+                }
             }
         },
         Err(e) => println!("Error: {}", e)

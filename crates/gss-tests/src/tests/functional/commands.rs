@@ -24,7 +24,7 @@ static E33_MS_ID: &str = "9ppt8k6gqhrz";
 
 // Regex patterns
 static SELECT_STORES_PRTN: &str = r"\[(X|\s)\]\s+(.*)";
-static GAME_THRESH_PTRN: &str = r"-\s+(.*)\s+=>\s+(\d+.\d+|\d+)";
+static GAME_THRESH_PTRN: &str = r"-\s+(.*)\s\[.*\]\s+=>\s+(\d+.\d+|\d+)";
 static PRICE_CHECK_PTRN: &str = r"-\s(?<title>.*)\s:\s\d+.\d+\s->\s\d+.\d+\s\(";
 
 fn add_fake_threshold(alias: &str, title: &str, price: f64) {

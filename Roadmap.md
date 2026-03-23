@@ -14,6 +14,7 @@
     - ~~[X] Check project path before allowing user to run commands (excluding properties subcmd)~~
     - [X] Default project path and test path if not set by user 
   - [X] Create email body in script before calling the email::send_html_msg function 
+  - [X] Add alias when printing out game thresholds
 - Bugs/Fixes
   - [X] Fix GOG discount percentage (manually calculate)
   - [X] Fixed thresholds with same alias to support update and remove command
