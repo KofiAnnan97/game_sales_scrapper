@@ -1,13 +1,13 @@
 use std::collections::HashMap;
-use std::{env, fs};
-use std::fs::read_to_string;
-use std::io::{Read, Write};
-use std::path::{Path, PathBuf};
-use std::process::{Command, Stdio};
+// use std::{env, fs};
+// use std::fs::read_to_string;
+// use std::io::{Read, Write};
+use std::path::{PathBuf};
+use std::process::{Command}; //, Stdio};
 use regex::Regex;
 use dotenv::dotenv as dotenv_linux;
 use dotenvy::dotenv as dotenv_windows;
-use serde_json::{json, Value};
+use serde_json::{json}; //, Value};
 
 use structs::internal::data::{GameThreshold, SimpleGameThreshold};
 use file_types::{general, csv};
@@ -108,7 +108,7 @@ async fn add_cmd() {
     helper::clear_thresholds();
 
     // Check that add fails without config setup
-    let price_str = "19.99";
+    // let price_str = "19.99";
     // let add_wo_config = Command::new("cargo")
     //     .args(["run","--","add","-t",E33_GAME_TITLE,"-p",price_str,"-a","0"])
     //     .output()

@@ -1,4 +1,4 @@
-use std::fs::{self, metadata, read_to_string};
+use std::fs::{metadata, read_to_string};
 use std::path::{Path, PathBuf};
 use serde_json::{json, Value, Result};
 

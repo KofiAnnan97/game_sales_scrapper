@@ -1,5 +1,5 @@
-use std::fs::{self, metadata, read_to_string};
-use std::path::{Path, PathBuf};
+use std::fs::{metadata, read_to_string};
+use std::path::{PathBuf};
 use serde_json::{json, Result, Value};
 use properties;
 use file_types::general;

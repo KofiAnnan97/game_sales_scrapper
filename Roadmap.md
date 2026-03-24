@@ -1,62 +1,33 @@
 # Roadmap
 
-### Release 0.2.0
+### Release 0.3.0
 - Features/Updates
-  - [X] Refactor project to use cargo workspace
-  - [X] Turn properties file into a crate
-    - [X] Add env vars to properties.json
-    - [X] Write encrypt and decrypt function for secrets/passwords
-  - [X] Turn properties and settings in subcommands for config cmd
-    - [X] Setup separate config folder for settings and properties data
-  - [X] Add visual reminder if test mode is enabled
-  - [X] Set properties without .env file
-    - [X] Add check to confirm properties are set before use
-    - ~~[X] Check project path before allowing user to run commands (excluding properties subcmd)~~
-    - [X] Default project path and test path if not set by user 
-  - [X] Create email body in script before calling the email::send_html_msg function 
-  - [X] Add alias when printing out game thresholds
+  - [ ] Implement script as a desktop app
+  - [ ] Update alias from command line
+  - [ ] Configure Steam API call to not send steam key as plain text
+  - [ ] Add fuzzy search to update and remove command for potential suggestions if the title or alias is not found
+  - [ ] Deteremine if defaulting the path should be in getters for project and test path if properties and dot env file have an invalid/empty path
 - Bugs/Fixes
-  - [X] Fix GOG discount percentage (manually calculate)
-  - [X] Fixed thresholds with same alias to support update and remove command
-  - [X] Allow user to determine if aliases can be reused after initial creation
-  - [X] Fixed file pathing for tests using a test flag (stored within properties file)
-  - [X] Fix Steam game cache to check and update game info (using sliding window approach)
-  - [X] Made Steam games search case-insensitive
-  - [X] Fix Windows tests for GitHub actions
-    - [X] Optimized 'Run tests' step
-  - [X] When removing thesholds the alias map should also be updated
-    - [X] if a threshold is removed then the game title should be removed from the alias map when present 
-    - [X] if an alias is used to delete every game threshold associated to it then remove that alias 
-  - [X] When updating the alias of a threshold the alias map should also be updated
-    - [X] if the threshold is thhe only one associated to an alias remove that alias and create/update the new one
-    - [X] otherwise remove title for old alias and create/update the new one 
+  - [ ] Configure Steam API call to not send steam key as plain text
+  - [ ] Pull currency type for Microsoft store games
+  - [ ] Update dependencies and resolve any potential issues
 - Testing:
-  - [X] Add tests for multiple thresholds with the same alias
-  - [X] Add tests for encrypting and decrypting secrets/passwords
-  - [X] Move tests to a separate crate
-  - [X] Update unit tests for removing game thresholds (adding alias map logic)
-  - [X] Update unit tests for updating game thresholds (adding alias map logic)
+  - [ ] Update tests to use proper stubbing
+  - [ ] Implement mocking
+  - [ ] Write tests for
+    - [ ] properties (creation, updating and retrieval)
+    - [ ] retrieving environment variables
 
 ### Backlog
 - Features/Updates
   - Set up Humble Bundle Storefront & test
-  - Implement option for Steam search without cache (cycle through games and display list of matching titles)
-  - Implement script as a desktop app
   - Retrieve pricing data from Steam bundles 
   - Retrieve pricing data from game editions on GOG
   - Add the option to send emails through AWS SES
-  - Add fuzzy search to remove command for potentional removal suggestions if tilte is not found
-  - Deteremine if defaulting the path should be in getters for project and test path if properties and dot env file have an invalid/empty path
-  - Add fuzzy search for update and remove command for potentional suggestions if tilte is not found
 - Bugs/Fixes
-  - Configure Steam API call to not send steam key as plain text
-  - Update dependencies and resolve any potential issues
-  - Pull currency type for Microsoft store games
 - Testing
   - Scope of untested code
     - Needs implementation
       - `add` and `bulk-insert` script cmds
-      - properties (creation, updating and retrieval)
-      - retrieving environment variables
     - No plans for implementation
       - `update-cache` and `send-email` script cmds
