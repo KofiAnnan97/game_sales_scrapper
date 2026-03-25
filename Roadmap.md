@@ -12,7 +12,7 @@
   - [ ] Pull currency type for Microsoft store games
   - [ ] Update dependencies and resolve any potential issues
 - Testing:
-  - [ ] Update tests to use proper stubbing
+  - [X] Update tests to use stubbing
   - [ ] Implement mocking
   - [ ] Write tests for
     - [ ] properties (creation, updating and retrieval)

@@ -1,15 +1,10 @@
-use std::collections::HashMap;
-
 use file_ops::{settings, thresholds};
 use file_types::general;
 use properties;
 use constants::operations::settings::{GOG_STORE_ID, MICROSOFT_STORE_ID, STEAM_STORE_ID};
 use constants::operations::thresholds::{THRESHOLD_FILENAME};
-use structs::internal::data::GameThreshold;
-use structs::response::steam::App;
-use structs::response::gog::{BaseMoney, FinalMoney, GameInfo as GOGGame, GameInfoBuilder as GOGGameBuilder, Price};
-use structs::response::microsoft_store::{PriceInfo, ProductInfo as MSGame, ProductInfoBuilder as MSGameBuilder};
-use crate::tests::helper;
+use crate::stubs::threshold_stubs;
+use crate::utils::file_operations;
 
 fn delete_thresholds() {
     if !properties::is_testing_enabled() { properties::set_test_mode(true); }
@@ -20,91 +15,11 @@ fn delete_thresholds() {
     general::delete_file(config_path);
 }
 
-fn add_simple_threshold(game_title: &str, game_alias: &str, price: f64) {
-    let mut alias_map: HashMap<String, Vec<String>> = thresholds::load_alias_map().unwrap_or_default();
-    let mut thresholds = thresholds::load_thresholds().unwrap_or_default();
-    let mut unique_title = true;
-    for threshold in &thresholds{
-        if threshold.title == game_title {
-            unique_title = false;
-            break;
-        }
-    }
-    if unique_title {
-        if alias_map.contains_key(game_alias) {
-            let idx = alias_map.get(game_alias).unwrap().iter().position(|title| title == game_title);
-            if idx.is_none() {
-                alias_map.get_mut(game_alias).unwrap().push(game_title.to_string());
-            }
-        } else { 
-            alias_map.insert(game_alias.to_string(), vec![game_title.to_string()]);
-        }  
-        thresholds.push(GameThreshold {
-            title: game_title.to_string(),
-            alias: game_alias.to_string(),
-            steam_id: 123,
-            gog_id: 456,
-            microsoft_store_id: String::from("abc"),
-            currency: String::from("USD"),
-            desired_price: price
-        });
-    }
-    thresholds::update_alias_map(alias_map);
-    thresholds::update_thresholds(thresholds);
-}
-
-fn test_steam_app() -> App{
-    App{
-        app_id: 220,
-        name: "Half-Life 2".to_string(),
-        last_modified: 678910,
-        price_change_number: 1112131415,
-    }
-}
-
-fn test_gog_game() -> GOGGame {
-    let id_str = String::from("123");
-    let title = String::from("Random GOG Game");
-    let price = Price {
-        final_price: String::new(),
-        base_price: String::new(),
-        discount: None,
-        final_money: FinalMoney {
-            amount: String::new(),
-            currency: "USD".to_string(),
-            discount: String::new(),
-        },
-        base_money: BaseMoney {
-            amount: String::new(),
-            currency: String::new(),
-        }
-    };
-    let icon_link = String::new();
-    let store_page_link = String::new();
-    GOGGameBuilder::new(id_str, title, price, icon_link, store_page_link)
-}
-
-fn test_ms_game() -> MSGame {
-    let id_str = String::from("abc");
-    let title = String::from("Random Microsoft Game");
-    let price = PriceInfo {
-        msrp: None,
-        price: None,
-        badge_text: None,
-        force_to_display_price: false,
-        narrator_text: "".to_string(),
-        ownership: 0,
-    };
-    let icon_link = String::new();
-    let store_page_link = String::new();
-    MSGameBuilder::new(id_str, title, price, icon_link, store_page_link)
-}
-
 #[tokio::test]
 async fn add_steam_game() {
     delete_thresholds();
     let client = reqwest::Client::new();
-    let app = test_steam_app();
+    let app = threshold_stubs::test_steam_app();
     let game_title = &app.name.clone();
     let game_id = app.app_id;
     thresholds::add_steam_game(game_title.clone(), app, 10.00, &client).await;
@@ -116,13 +31,13 @@ async fn add_steam_game() {
         },
         Err(_) => assert!(false, "Could not find game: {} ({})", game_title.clone(), game_id),
     }
-    helper::teardown();
+    file_operations::teardown();
 }
 
 #[test]
 fn add_gog_game() {
     delete_thresholds();
-    let game = test_gog_game();
+    let game = threshold_stubs::test_gog_game();
     let game_title = &game.title.clone();
     let game_id = game.id.parse::<u32>().unwrap();
     thresholds::add_gog_game(game_title.clone(), &game, 10.00);
@@ -134,13 +49,13 @@ fn add_gog_game() {
         },
         Err(_) => assert!(false, "Could not find game: {} ({})", game_title.clone(), game_id),
     }
-    helper::teardown();
+    file_operations::teardown();
 }
 
 #[test]
 fn add_microsoft_store_game() {
     delete_thresholds();
-    let game = test_ms_game();
+    let game = threshold_stubs::test_ms_game();
     let game_title = &game.title.clone();
     let game_id = &game.product_id.clone();
     thresholds::add_microsoft_store_game(game_title.clone(), &game, 10.00);
@@ -152,7 +67,7 @@ fn add_microsoft_store_game() {
         },
         Err(_) => assert!(false, "Could not find game: {} ({})", game_title.clone(), game_id),
     }
-    helper::teardown();
+    file_operations::teardown();
 }
 
 #[test]
@@ -161,7 +76,7 @@ fn update_alias() {
     let game_title = String::from("Random Game");
     let game_alias = String::from("rg");
     let price = 10.0;
-    add_simple_threshold(&game_title, &game_alias, price);
+    threshold_stubs::add_simple_threshold(&game_title, &game_alias, price);
 
     // Check that alias is empty
     match thresholds::load_thresholds(){
@@ -198,7 +113,7 @@ fn update_alias() {
         Err(_) => assert!(false, "Could not load the alias map"),
     }
 
-    helper::teardown();
+    file_operations::teardown();
 }
 
 #[test]
@@ -207,7 +122,7 @@ fn update_price() {
     let first_game = String::from("Random Game");
     let game_alias = String::from("rg");
     let price = 10.0;
-    add_simple_threshold(&first_game, &game_alias, price);
+    threshold_stubs::add_simple_threshold(&first_game, &game_alias, price);
 
     // Check that new price is present in threshold
     let new_price = 20.00;
@@ -220,7 +135,7 @@ fn update_price() {
 
     // Check if the price can be updated for two thresholds with the same alias
     let second_game = String::from("Random Game 2");
-    add_simple_threshold(&second_game, &game_alias, new_price);
+    threshold_stubs::add_simple_threshold(&second_game, &game_alias, new_price);
     let last_price = 40.00;
     thresholds::update_price(&game_alias, last_price);
     match thresholds::load_thresholds(){
@@ -231,7 +146,7 @@ fn update_price() {
         }
         Err(_) => assert!(false, "Could not load thresholds when desired price was updated..")
     }
-    helper::teardown();
+    file_operations::teardown();
 }
 
 #[test]
@@ -240,7 +155,7 @@ fn update_id(){
     let game_title = String::from("Random Game");
     let game_alias = String::from("rg");
     let price = 10.0;
-    add_simple_threshold(&game_title, &game_alias, price);
+    threshold_stubs::add_simple_threshold(&game_title, &game_alias, price);
 
     // Check that new store ids are successfully updated
     let new_steam_id = 333;
@@ -254,7 +169,7 @@ fn update_id(){
         },
         Err(_) => assert!(false, "Could not load thresholds when store IDs (integer) where updated.")
     }
-    helper::teardown();
+    file_operations::teardown();
 }
 
 #[test]
@@ -263,7 +178,7 @@ fn update_id_str(){
     let game_title = String::from("Random Game");
     let game_alias = String::from("rg");
     let price = 10.0;
-    add_simple_threshold(&game_title, &game_alias, price);
+    threshold_stubs::add_simple_threshold(&game_title, &game_alias, price);
 
     // Check that new store ids are successfully updated
     let new_ms_id = "cba";
@@ -274,7 +189,7 @@ fn update_id_str(){
         },
         Err(_) => assert!(false, "Could not load thresholds when store IDs (string) where updated.")
     }
-    helper::teardown();
+    file_operations::teardown();
 }
 
 #[test]
@@ -286,7 +201,7 @@ fn remove_game(){
     let game_alias = String::from("rg");
     let game_alias_2 = String::from("rg2");
     let price = 10.0;
-    add_simple_threshold(&first_game, &game_alias, price);
+    threshold_stubs::add_simple_threshold(&first_game, &game_alias, price);
 
     // Check that threshold is properly added
     match thresholds::load_thresholds(){
@@ -313,8 +228,8 @@ fn remove_game(){
     }
 
     //Delete multiple thresholds via alias
-    add_simple_threshold(&second_game, &game_alias_2, price);
-    add_simple_threshold(&third_game, &game_alias_2, price);
+    threshold_stubs::add_simple_threshold(&second_game, &game_alias_2, price);
+    threshold_stubs::add_simple_threshold(&third_game, &game_alias_2, price);
     match thresholds::load_thresholds(){
         Ok(thresholds) => {
             assert_eq!(2, thresholds.len(), "Thresholds length before deletion should be 1");
@@ -337,5 +252,5 @@ fn remove_game(){
         Ok(aliases) => assert_eq!(0, aliases.len(), "There should be no aliases present in the alias map"),
         Err(_) => assert!(false, "Could not load alias map after deletion.")
     }
-    helper::teardown();
+    file_operations::teardown();
 }
