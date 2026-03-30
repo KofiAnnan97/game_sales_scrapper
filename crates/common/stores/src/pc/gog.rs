@@ -3,14 +3,13 @@ use std::f64;
 
 use structs::internal::data::{SaleInfo};
 use structs::response::gog::{Game, PriceOverview, GameInfo};
-
-pub static VERSION: u32 = 2;
+use constants::stores::gog::*;
 
 pub async fn search_game_by_title(title: &str) -> Result<Vec<Game>> {
     let http_client = reqwest::Client::new();
     let media_type = "game";
     let limit :i32 = 30;
-    let url = format!("https://embed.gog.com/games/ajax/filtered?mediaType={}&search={}&limit={}", media_type, title, limit);
+    let url = format!("{}{}?mediaType={}&search={}&limit={}", BASE_URL_V1, MEDIA_ENDPOINT_V1, media_type, title, limit);
     //println!("{}", url);
     let resp = http_client.get(url)
         .send()
@@ -40,7 +39,7 @@ pub async fn get_price_details(title: &str) -> Option<PriceOverview> {
     let http_client = reqwest::Client::new();
     let media_type = "game";
     let limit_num : i32 = 30;
-    let url = format!("https://embed.gog.com/games/ajax/filtered?mediaType={}&search={}&limit={}", media_type, title, limit_num);
+    let url = format!("{}{}?mediaType={}&search={}&limit={}", BASE_URL_V1, MEDIA_ENDPOINT_V1, media_type, title, limit_num);
     //println!("{}", url);
     let resp = http_client.get(url)
         .send()
@@ -65,10 +64,6 @@ pub async fn get_price_details(title: &str) -> Option<PriceOverview> {
 }
 
 // Version 2
-
-static BASE_URL : &str = "https://catalog.gog.com";
-static CATALOG_ENDPOINT : &str = "/v1/catalog";
-
 pub async fn search_game_by_title_v2(title: &str, http_client: &reqwest::Client) -> Result<Vec<GameInfo>>{
     let mut like_title = String::from("like:");
     like_title.push_str(title);
@@ -82,7 +77,7 @@ pub async fn search_game_by_title_v2(title: &str, http_client: &reqwest::Client)
         ("locale", "en-US"),
         ("currencyCode", "USD"),
     ];
-    let url = format!("{}{}", BASE_URL, CATALOG_ENDPOINT);
+    let url = format!("{}{}", BASE_URL_V2, CATALOG_ENDPOINT_V2);
     let resp = http_client.get(url)
         .query(&query_string)
         .send()
@@ -111,7 +106,7 @@ pub async fn get_price_details_v2(title: &str, http_client: &reqwest::Client) ->
         ("locale", "en-US"),
         ("currencyCode", "USD"),
     ];
-    let url = format!("{}{}", BASE_URL, CATALOG_ENDPOINT);
+    let url = format!("{}{}", BASE_URL_V2, CATALOG_ENDPOINT_V2);
     let resp = http_client.get(url)
         .query(&query_string)
         .send()

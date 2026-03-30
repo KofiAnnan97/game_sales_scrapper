@@ -9,17 +9,7 @@ use properties;
 use constants::operations::properties::PROP_STEAM_API_KEY;
 use structs::internal::data::SaleInfo;
 use structs::response::steam::{App, PriceOverview};
-
-static CACHE_FILENAME : &str = "cached_steam_games.json";
-
-static API_BASE_URL : &str = "https://api.steampowered.com";
-static STORE_BASE_URL : &str = "https://store.steampowered.com";
-
-static APP_LIST_ENDPOINT : &str = "/IStoreService/GetAppList/v1";
-static DETAILS_ENDPOINT : &str = "/api/appdetails";
-
-static NUM_OF_RESULTS : u32 = 40000;
-static SLIDING_UPDATE_START_SIZE : usize = 100000;
+use constants::stores::steam::*;
 
 // Caching Functions
 fn get_cache_path() -> String{

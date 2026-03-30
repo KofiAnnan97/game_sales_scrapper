@@ -9,6 +9,7 @@ use constants::operations::properties::{PROP_PROJECT_PATH, PROP_RECIPIENT_EMAIL,
                                         PROP_SMTP_PORT, PROP_SMTP_USERNAME, PROP_TEST_MODE};
 use constants::operations::settings::{GOG_STORE_ID, MICROSOFT_STORE_ID, STEAM_STORE_ID};
 use constants::cli::args::*;
+use constants::stores::gog::VERSION as GOG_VERSION;
 
 use stores::pc::{steam, gog, microsoft_store};
 use alerting::email;
@@ -61,7 +62,7 @@ async fn check_prices(use_html: bool) -> String {
             }
         }
         if elem.gog_id != 0 {
-            if gog::VERSION == 1{
+            if GOG_VERSION == 1{
                 match gog::get_price_details(&elem.title).await {
                     Some(po) => {
                         let current_price = po.final_amount.parse::<f64>().unwrap();
@@ -75,7 +76,7 @@ async fn check_prices(use_html: bool) -> String {
                     None => ()
                 }
             }
-            else if gog::VERSION == 2{
+            else if GOG_VERSION == 2{
                 match gog::get_price_details_v2(&elem.title, &http_client).await {
                     Some(info) => {
                         let current_price = info.current_price.parse::<f64>().unwrap();

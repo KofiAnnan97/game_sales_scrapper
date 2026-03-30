@@ -2,10 +2,7 @@ use serde_json::{Result, Value, Error};
 
 use structs::internal::data::SaleInfo;
 use structs::response::microsoft_store::{ProductInfo, GameInfo};
-
-static BASE_URL : &str = "https://apps.microsoft.com";
-static SEARCH_ENDPOINT : &str = "/api/products/search";
-static PDP_ENDPOINT : &str = "/api/pages/pdp";
+use constants::stores::microsoft_store::*;
 
 pub async fn search_game_by_title(title: &str, http_client: &reqwest::Client) -> Result<Vec<ProductInfo>> {
     let query_string = [
