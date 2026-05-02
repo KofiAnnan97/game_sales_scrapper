@@ -1,13 +1,15 @@
-use std::fs::{metadata, read_to_string};
-use std::path::{PathBuf};
+use std::fs::{self, metadata, read_to_string};
+use std::path::{Path, PathBuf};
 use serde_json::{json, Result, Value};
 use properties;
 use file_types::general;
-use structs::internal::data::GameThreshold;
+use structs::internal::data::{self, GameThreshold};
 use constants::operations::thresholds::{ALIAS_MAP, THRESHOLDS, THRESHOLD_FILENAME};
 use constants::operations::settings::{ALIASES_ENABLED, ALLOW_ALIAS_REUSE_AFTER_CREATION, 
                                       SELECTED_STORES, SETTINGS_FILENAME};
 use constants::operations::properties::{CONFIG_DIR, DATA_DIR};
+use constants::stores::steam::{CACHE_FILENAME};
+use structs::response::steam::App;
 
 pub fn get_data_path() -> String {
     if !properties::is_testing_enabled() { properties::set_test_mode(true); }
@@ -69,6 +71,15 @@ pub fn clear_thresholds(){
     });
     let thresholds_str = serde_json::to_string_pretty(&thresholds);
     general::write_to_file(get_threshold_path(), thresholds_str.expect("Clear thresholds."));
+}
+
+pub fn load_steam_cache() -> Vec<App> {
+    let path_buf: PathBuf = [get_data_path(), CACHE_FILENAME.to_string()].iter().collect();
+    let filepath = path_buf.display().to_string();
+    let data = read_to_string(filepath).unwrap();
+    let body: Value = serde_json::from_str(&data).expect("Cannot parse steam cache for testing");
+    let cache = serde_json::to_string(&body).unwrap();
+    serde_json::from_str::<Vec<App>>(&cache).unwrap_or_default()
 }
 
 pub fn load_threshold_data() -> Result<Value> {

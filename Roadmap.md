@@ -13,9 +13,10 @@
   - [ ] Update dependencies and resolve any potential issues
 - Testing:
   - [X] Update tests to use stubbing
+  - [ ] Implement temp directories
   - [ ] Implement mocking
   - [ ] Write tests for
-    - [ ] properties (creation, updating and retrieval)
+    - [X] properties (creation, updating and retrieval)
     - [ ] retrieving environment variables
 
 ### Backlog

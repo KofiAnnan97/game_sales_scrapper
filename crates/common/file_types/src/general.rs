@@ -29,6 +29,11 @@ pub fn write_to_file(path: String, data: String){
     }
 }
 
+pub fn write_file(path: &Path, filename: &str, data: &str) {
+    let file_path = path.join(filename).display().to_string();
+    write_to_file(file_path, data.to_string());
+}
+
 pub fn delete_file(file_path: String){
     match fs::remove_file(get_path(&file_path)){
         Ok(_) => println!("Successfully deleted {}", file_path),
