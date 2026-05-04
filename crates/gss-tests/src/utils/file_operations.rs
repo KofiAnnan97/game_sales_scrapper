@@ -1,4 +1,4 @@
-use std::fs::{self, metadata, read_to_string};
+use std::fs::{metadata, read_to_string};
 use std::path::{Path, PathBuf};
 use serde_json::{json, Result, Value};
 use properties;
@@ -7,7 +7,7 @@ use structs::internal::data::{self, GameThreshold};
 use constants::operations::thresholds::{ALIAS_MAP, THRESHOLDS, THRESHOLD_FILENAME};
 use constants::operations::settings::{ALIASES_ENABLED, ALLOW_ALIAS_REUSE_AFTER_CREATION, 
                                       SELECTED_STORES, SETTINGS_FILENAME};
-use constants::operations::properties::{CONFIG_DIR, DATA_DIR};
+use constants::operations::properties::*;
 use constants::stores::steam::{CACHE_FILENAME};
 use structs::response::steam::App;
 
@@ -110,6 +110,31 @@ pub fn load_alias_state() -> bool{
     let body : Value = serde_json::from_str(&data).expect("Get alias state - could not convert to JSON");
     let alias_enabled =serde_json::to_string(&body[ALIASES_ENABLED]).unwrap();
     serde_json::from_str::<bool>(&alias_enabled).unwrap_or_else(|_|false)
+}
+
+pub fn create_env_str(steam_api_key_val: &str, recipient_email_val: &str, smtp_host_val: &str, smtp_port_val: &str, smtp_email_val: &str, 
+    smtp_username_val: &str, smtp_password_val: &str, dir_path: &Path)-> String {
+    format!(
+        "{steam_env}=\"{steam_api_key_val}\"\n{recipient_env}=\"{recipient_email_val}\"\n{host_env}=\"{smtp_host_val}\"\n{port_env}={smtp_port_val}\n{email_env}=\"{smtp_email_val}\"\n{user_env}=\"{smtp_username_val}\"\n{pwd_env}=\"{smtp_password_val}\"\n{project_env}=\"{project_path_val}\"\n{test_env}=\"{test_path_val}\"\n",
+        steam_env = STEAM_API_KEY_ENV,
+        recipient_env = RECIPIENT_EMAIL_ENV,
+        host_env = SMTP_HOST_ENV,
+        port_env = SMTP_PORT_ENV,
+        email_env = SMTP_EMAIL_ENV,
+        user_env = SMTP_USERNAME_ENV,
+        pwd_env = SMTP_PASSWORD_ENV,
+        project_env = PROJECT_PATH_ENV,
+        test_env = TEST_PATH_ENV,
+        steam_api_key_val = steam_api_key_val,
+        recipient_email_val = recipient_email_val,
+        smtp_host_val = smtp_host_val,
+        smtp_port_val = smtp_port_val,
+        smtp_email_val = smtp_email_val,
+        smtp_username_val = smtp_username_val,
+        smtp_password_val = smtp_password_val,
+        project_path_val = dir_path.display().to_string(),
+        test_path_val = dir_path.join(DEFAULT_TEST_DIR).display().to_string()
+    )
 }
 
 pub fn teardown(){

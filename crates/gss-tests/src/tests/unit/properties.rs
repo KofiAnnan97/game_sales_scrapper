@@ -18,50 +18,12 @@ fn test_lock() -> &'static Mutex<()> {
     TEST_LOCK.get_or_init(|| Mutex::new(()))
 }
 
-fn retrieve_env_var(env_var: &str) -> Option<String> {
-    env::var(env_var).ok()
-}
-
-fn restore_env_var(env_var: &str, value: Option<String>) {
-    unsafe {
-        match value {
-            Some(data) => env::set_var(env_var, data),
-            None => env::remove_var(env_var),
-        }
-    }
-}
-
-fn create_env_str(steam_api_key_val: &str, recipient_email_val: &str, smtp_host_val: &str, smtp_port_val: &str, smtp_email_val: &str, 
-    smtp_username_val: &str, smtp_password_val: &str, dir_path: &Path)-> String {
-    format!(
-        "{steam_env}=\"{steam_api_key_val}\"\n{recipient_env}=\"{recipient_email_val}\"\n{host_env}=\"{smtp_host_val}\"\n{port_env}={smtp_port_val}\n{email_env}=\"{smtp_email_val}\"\n{user_env}=\"{smtp_username_val}\"\n{pwd_env}=\"{smtp_password_val}\"\n{project_env}=\"{project_path_val}\"\n{test_env}=\"{test_path_val}\"\n",
-        steam_env = STEAM_API_KEY_ENV,
-        recipient_env = RECIPIENT_EMAIL_ENV,
-        host_env = SMTP_HOST_ENV,
-        port_env = SMTP_PORT_ENV,
-        email_env = SMTP_EMAIL_ENV,
-        user_env = SMTP_USERNAME_ENV,
-        pwd_env = SMTP_PASSWORD_ENV,
-        project_env = PROJECT_PATH_ENV,
-        test_env = TEST_PATH_ENV,
-        steam_api_key_val = steam_api_key_val,
-        recipient_email_val = recipient_email_val,
-        smtp_host_val = smtp_host_val,
-        smtp_port_val = smtp_port_val,
-        smtp_email_val = smtp_email_val,
-        smtp_username_val = smtp_username_val,
-        smtp_password_val = smtp_password_val,
-        project_path_val = dir_path.display().to_string(),
-        test_path_val = dir_path.join(DEFAULT_TEST_DIR).display().to_string()
-    )
-}
-
 #[test]
 fn create_properties_file() {
     let _guard = test_lock().lock().unwrap();
     let temp_dir = tmp_setup::create(TMP_DIR_TITLE, file_operations::load_steam_cache());
-    let prev_project_path = retrieve_env_var(PROJECT_PATH_ENV);
-    let prev_test_path = retrieve_env_var(TEST_PATH_ENV);
+    let prev_project_path = tmp_setup::retrieve_env_var(PROJECT_PATH_ENV);
+    let prev_test_path = tmp_setup::retrieve_env_var(TEST_PATH_ENV);
     let prev_dir = env::current_dir().unwrap();
 
     unsafe {
@@ -87,8 +49,8 @@ fn create_properties_file() {
     assert_eq!(json[PROP_TEST_PATH].as_str().unwrap(), temp_dir.join(DEFAULT_TEST_DIR).display().to_string(), "Expected {} to be {} in properties file", PROP_TEST_PATH, temp_dir.join(DEFAULT_TEST_DIR).display().to_string());
 
     env::set_current_dir(prev_dir).unwrap();
-    restore_env_var(PROJECT_PATH_ENV, prev_project_path);
-    restore_env_var(TEST_PATH_ENV, prev_test_path);
+    tmp_setup::restore_env_var(PROJECT_PATH_ENV, prev_project_path);
+    tmp_setup::restore_env_var(TEST_PATH_ENV, prev_test_path);
     tmp_setup::clean_up(&temp_dir);
 }
 
@@ -96,8 +58,8 @@ fn create_properties_file() {
 fn load_properties_from_file() {
     let _guard = test_lock().lock().unwrap();
     let temp_dir = tmp_setup::create(TMP_DIR_TITLE, file_operations::load_steam_cache());
-    let prev_project_path = retrieve_env_var(PROJECT_PATH_ENV);
-    let prev_test_path = retrieve_env_var(TEST_PATH_ENV);
+    let prev_project_path = tmp_setup::retrieve_env_var(PROJECT_PATH_ENV);
+    let prev_test_path = tmp_setup::retrieve_env_var(TEST_PATH_ENV);
     let prev_dir = env::current_dir().unwrap();
 
     unsafe {
@@ -120,8 +82,8 @@ fn load_properties_from_file() {
     assert_eq!(loaded_properties[PROP_TEST_PATH].as_str().unwrap(), temp_dir.join(DEFAULT_TEST_DIR).display().to_string());
 
     env::set_current_dir(prev_dir).unwrap();
-    restore_env_var(PROJECT_PATH_ENV, prev_project_path);
-    restore_env_var(TEST_PATH_ENV, prev_test_path);
+    tmp_setup::restore_env_var(PROJECT_PATH_ENV, prev_project_path);
+    tmp_setup::restore_env_var(TEST_PATH_ENV, prev_test_path);
     tmp_setup::clean_up(&temp_dir);
 }
 
@@ -129,8 +91,8 @@ fn load_properties_from_file() {
 fn sub_directories_created() {
     let _guard = test_lock().lock().unwrap();
     let temp_dir = tmp_setup::create(TMP_DIR_TITLE, file_operations::load_steam_cache());
-    let prev_project_path = retrieve_env_var(PROJECT_PATH_ENV);
-    let prev_test_path = retrieve_env_var(TEST_PATH_ENV);
+    let prev_project_path = tmp_setup::retrieve_env_var(PROJECT_PATH_ENV);
+    let prev_test_path = tmp_setup::retrieve_env_var(TEST_PATH_ENV);
     let prev_dir = env::current_dir().unwrap();
 
     unsafe {
@@ -150,8 +112,8 @@ fn sub_directories_created() {
     assert!(Path::new(&config_path).is_dir());
 
     env::set_current_dir(prev_dir).unwrap();
-    restore_env_var(PROJECT_PATH_ENV, prev_project_path);
-    restore_env_var(TEST_PATH_ENV, prev_test_path);
+    tmp_setup::restore_env_var(PROJECT_PATH_ENV, prev_project_path);
+    tmp_setup::restore_env_var(TEST_PATH_ENV, prev_test_path);
     tmp_setup::clean_up(&temp_dir);
 }
 
@@ -159,8 +121,8 @@ fn sub_directories_created() {
 fn update_properties_from_env() {
     let _guard = test_lock().lock().unwrap();
     let temp_dir = tmp_setup::create(TMP_DIR_TITLE, file_operations::load_steam_cache());
-    let prev_project_path = retrieve_env_var(PROJECT_PATH_ENV);
-    let prev_test_path = retrieve_env_var(TEST_PATH_ENV);
+    let prev_project_path = tmp_setup::retrieve_env_var(PROJECT_PATH_ENV);
+    let prev_test_path = tmp_setup::retrieve_env_var(TEST_PATH_ENV);
     let prev_dir = env::current_dir().unwrap();
 
 
@@ -172,7 +134,7 @@ fn update_properties_from_env() {
     let mut smtp_email_val = "user@initial.com";
     let mut smtp_username_val = "initial_user";
     let mut smtp_password_val = "initial_pwd";
-    let mut env_data = create_env_str(steam_api_key_val, recipient_email_val, smtp_host_val, smtp_port_val, smtp_email_val, smtp_username_val, smtp_password_val, &temp_dir);
+    let mut env_data = file_operations::create_env_str(steam_api_key_val, recipient_email_val, smtp_host_val, smtp_port_val, smtp_email_val, smtp_username_val, smtp_password_val, &temp_dir);
     general::write_file(&temp_dir, ENV_FILENAME, &env_data);
 
     steam_api_key_val = "UPDATED";
@@ -182,7 +144,7 @@ fn update_properties_from_env() {
     smtp_email_val = "user@updated.com";
     smtp_username_val = "updated_user";
     smtp_password_val = "updated_pwd";
-    env_data = create_env_str( steam_api_key_val, recipient_email_val, smtp_host_val, smtp_port_val, smtp_email_val, smtp_username_val, smtp_password_val, &temp_dir);
+    env_data = file_operations::create_env_str( steam_api_key_val, recipient_email_val, smtp_host_val, smtp_port_val, smtp_email_val, smtp_username_val, smtp_password_val, &temp_dir);
     // println!("Env data:\n{}", env_data);
     general::write_file(&temp_dir, ENV_FILENAME, &env_data);
 
@@ -219,7 +181,7 @@ fn update_properties_from_env() {
     assert_eq!(updated_properties[PROP_TEST_PATH].as_str().unwrap(), temp_dir.join(DEFAULT_TEST_DIR).display().to_string());
 
     env::set_current_dir(prev_dir).unwrap();
-    restore_env_var(PROJECT_PATH_ENV, prev_project_path);
-    restore_env_var(TEST_PATH_ENV, prev_test_path);
+    tmp_setup::restore_env_var(PROJECT_PATH_ENV, prev_project_path);
+    tmp_setup::restore_env_var(TEST_PATH_ENV, prev_test_path);
     tmp_setup::clean_up(&temp_dir);
 }

@@ -49,3 +49,16 @@ pub fn clean_up(path: &Path) {
         println!("Cleaned up temporary directory: {}", path.display());
     }
 }
+
+pub fn retrieve_env_var(env_var: &str) -> Option<String> {
+    env::var(env_var).ok()
+}
+
+pub fn restore_env_var(env_var: &str, value: Option<String>) {
+    unsafe {
+        match value {
+            Some(data) => env::set_var(env_var, data),
+            None => env::remove_var(env_var),
+        }
+    }
+}

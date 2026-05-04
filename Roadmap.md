@@ -17,7 +17,7 @@
   - [ ] Implement mocking
   - [ ] Write tests for
     - [X] properties (creation, updating and retrieval)
-    - [ ] retrieving environment variables
+    - [X] retrieving environment variables
 
 ### Backlog
 - Features/Updates
