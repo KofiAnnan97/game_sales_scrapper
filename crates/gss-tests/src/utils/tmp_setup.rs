@@ -2,6 +2,8 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::env;
 use serde_json::json;
+use std::sync::{Mutex, OnceLock};
+
 use file_types::general;
 use constants::operations::thresholds::{ALIAS_MAP, THRESHOLDS, THRESHOLD_FILENAME};
 use constants::operations::settings::{ALIASES_ENABLED, ALLOW_ALIAS_REUSE_AFTER_CREATION, 
@@ -10,13 +12,19 @@ use constants::operations::properties::{CONFIG_DIR, DATA_DIR};
 use constants::stores::steam::{CACHE_FILENAME};
 use structs::response::steam::App;
 
+static TMP_DIR_PREFIX: &str = "gss_tests";
+static TEST_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+
+pub fn test_lock() -> &'static Mutex<()> {
+    TEST_LOCK.get_or_init(|| Mutex::new(()))
+}
 
 fn get_dir(title: &str) -> PathBuf {
     let timestamp = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap()
         .as_nanos();
-    let path = env::temp_dir().join(format!("gss_test_{}_{}", title, timestamp));
+    let path = env::temp_dir().join(format!("{}_{}_{}", TMP_DIR_PREFIX, title, timestamp));
     fs::create_dir_all(&path).unwrap();
     path
 }

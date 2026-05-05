@@ -13,9 +13,9 @@
   - [ ] Update dependencies and resolve any potential issues
 - Testing:
   - [X] Update tests to use stubbing
-  - [ ] Implement temp directories
-  - [ ] Implement mocking
-  - [ ] Write tests for
+  - [X] Implement temp directories (for all file based tests)
+  - [ ] Mock api calls for user commands (check prices)
+  - [X] Write tests for
     - [X] properties (creation, updating and retrieval)
     - [X] retrieving environment variables
 

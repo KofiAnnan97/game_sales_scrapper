@@ -1,7 +1,6 @@
 use std::panic;
 use std::env;
 use std::path::{PathBuf};
-use std::sync::{Mutex, OnceLock};
 
 use properties::{self, env_vars::{self, get_decrypt_key}, passwords};
 use file_types::general;
@@ -9,11 +8,6 @@ use constants::operations::properties::*;
 use crate::utils::{file_operations, tmp_setup};
 
 const TMP_DIR_TITLE: &str = "env_vars";
-static TEST_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
-
-fn test_lock() -> &'static Mutex<()> {
-    TEST_LOCK.get_or_init(|| Mutex::new(()))
-}
 
 fn delete_decrypt_key(){
     let path_buf : PathBuf = [CONFIG_DIR.to_string(), DECRYPT_FILENAME.to_string()].iter().collect();
@@ -23,7 +17,7 @@ fn delete_decrypt_key(){
 #[test]
 // #[ignore]
 fn check_environment_variables() {
-    let _guard = test_lock().lock().unwrap();
+    let _guard = tmp_setup::test_lock().lock().unwrap();
     let temp_dir = tmp_setup::create(TMP_DIR_TITLE, file_operations::load_steam_cache());
     let prev_project_path = tmp_setup::retrieve_env_var(PROJECT_PATH_ENV);
     let prev_test_path = tmp_setup::retrieve_env_var(TEST_PATH_ENV);
@@ -95,7 +89,7 @@ fn check_environment_variables() {
 
 #[test]
 fn no_variables(){
-    let _guard = test_lock().lock().unwrap();
+    let _guard = tmp_setup::test_lock().lock().unwrap();
     let temp_dir = tmp_setup::create(TMP_DIR_TITLE, file_operations::load_steam_cache());
     let prev_project_path = tmp_setup::retrieve_env_var(PROJECT_PATH_ENV);
     let prev_test_path = tmp_setup::retrieve_env_var(TEST_PATH_ENV);
@@ -165,7 +159,7 @@ fn no_variables(){
 
 #[test]
 fn decrypt_key_created() {
-    let _guard = test_lock().lock().unwrap();
+    let _guard = tmp_setup::test_lock().lock().unwrap();
     let temp_dir = tmp_setup::create(TMP_DIR_TITLE, file_operations::load_steam_cache());
     let prev_project_path = tmp_setup::retrieve_env_var(PROJECT_PATH_ENV);
     let prev_test_path = tmp_setup::retrieve_env_var(TEST_PATH_ENV);
@@ -189,7 +183,7 @@ fn decrypt_key_created() {
 
 #[test]
 fn read_custom_env_file() {
-    let _guard = test_lock().lock().unwrap();
+    let _guard = tmp_setup::test_lock().lock().unwrap();
     let temp_dir = tmp_setup::create(TMP_DIR_TITLE, file_operations::load_steam_cache());
     let prev_project_path = tmp_setup::retrieve_env_var(PROJECT_PATH_ENV);
     let prev_test_path = tmp_setup::retrieve_env_var(TEST_PATH_ENV);
@@ -211,4 +205,3 @@ fn read_custom_env_file() {
         env::remove_var("GSS_TEST_CUSTOM_VAR");
     }
 }
-

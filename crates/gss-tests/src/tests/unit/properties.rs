@@ -1,7 +1,6 @@
 use std::env;
 use std::fs::{read_to_string};
 use std::path::{Path};
-use std::sync::{Mutex, OnceLock};
 
 use file_types::general;
 use properties;
@@ -12,15 +11,10 @@ use crate::utils::{file_operations, tmp_setup};
 
 
 const TMP_DIR_TITLE: &str = "properties";
-static TEST_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
-
-fn test_lock() -> &'static Mutex<()> {
-    TEST_LOCK.get_or_init(|| Mutex::new(()))
-}
 
 #[test]
 fn create_properties_file() {
-    let _guard = test_lock().lock().unwrap();
+    let _guard = tmp_setup::test_lock().lock().unwrap();
     let temp_dir = tmp_setup::create(TMP_DIR_TITLE, file_operations::load_steam_cache());
     let prev_project_path = tmp_setup::retrieve_env_var(PROJECT_PATH_ENV);
     let prev_test_path = tmp_setup::retrieve_env_var(TEST_PATH_ENV);
@@ -56,7 +50,7 @@ fn create_properties_file() {
 
 #[test]
 fn load_properties_from_file() {
-    let _guard = test_lock().lock().unwrap();
+    let _guard = tmp_setup::test_lock().lock().unwrap();
     let temp_dir = tmp_setup::create(TMP_DIR_TITLE, file_operations::load_steam_cache());
     let prev_project_path = tmp_setup::retrieve_env_var(PROJECT_PATH_ENV);
     let prev_test_path = tmp_setup::retrieve_env_var(TEST_PATH_ENV);
@@ -89,7 +83,7 @@ fn load_properties_from_file() {
 
 #[test]
 fn sub_directories_created() {
-    let _guard = test_lock().lock().unwrap();
+    let _guard = tmp_setup::test_lock().lock().unwrap();
     let temp_dir = tmp_setup::create(TMP_DIR_TITLE, file_operations::load_steam_cache());
     let prev_project_path = tmp_setup::retrieve_env_var(PROJECT_PATH_ENV);
     let prev_test_path = tmp_setup::retrieve_env_var(TEST_PATH_ENV);
@@ -119,7 +113,7 @@ fn sub_directories_created() {
 
 #[test]
 fn update_properties_from_env() {
-    let _guard = test_lock().lock().unwrap();
+    let _guard = tmp_setup::test_lock().lock().unwrap();
     let temp_dir = tmp_setup::create(TMP_DIR_TITLE, file_operations::load_steam_cache());
     let prev_project_path = tmp_setup::retrieve_env_var(PROJECT_PATH_ENV);
     let prev_test_path = tmp_setup::retrieve_env_var(TEST_PATH_ENV);
