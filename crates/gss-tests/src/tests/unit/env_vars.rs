@@ -17,13 +17,7 @@ fn delete_decrypt_key(){
 #[test]
 // #[ignore]
 fn check_environment_variables() {
-    let _guard = tmp_setup::test_lock().lock().unwrap();
-    let temp_dir = tmp_setup::create(TMP_DIR_TITLE, file_operations::load_steam_cache());
-    let prev_project_path = tmp_setup::retrieve_env_var(PROJECT_PATH_ENV);
-    let prev_test_path = tmp_setup::retrieve_env_var(TEST_PATH_ENV);
-    let prev_dir = env::current_dir().unwrap();
-
-    env::set_current_dir(&temp_dir).unwrap();
+    let _tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, file_operations::load_steam_cache());
     let steam_api_key_val = "INITIAL";
     let recipient_email_val = "recipient@example.com";
     let smtp_host_val = "smtp.initial.com";
@@ -31,8 +25,8 @@ fn check_environment_variables() {
     let smtp_email_val = "user@initial.com";
     let smtp_username_val = "initial_user";
     let smtp_password_val = "initial_pwd";
-    let env_data = file_operations::create_env_str(steam_api_key_val, recipient_email_val, smtp_host_val, smtp_port_val, smtp_email_val, smtp_username_val, smtp_password_val, &temp_dir);
-    general::write_file(&temp_dir, ENV_FILENAME, &env_data);
+    let env_data = file_operations::create_env_str(steam_api_key_val, recipient_email_val, smtp_host_val, smtp_port_val, smtp_email_val, smtp_username_val, smtp_password_val, &_tmp_env.temp_dir);
+    general::write_file(&_tmp_env.temp_dir, ENV_FILENAME, &env_data);
     
     unsafe {
         env::remove_var(STEAM_API_KEY_ENV);
@@ -45,7 +39,7 @@ fn check_environment_variables() {
         env::remove_var(PROJECT_PATH_ENV);
         env::remove_var(TEST_PATH_ENV);
     }
-    env::set_current_dir(&temp_dir).unwrap();
+    env::set_current_dir(&_tmp_env.temp_dir).unwrap();
 
     let vars = env_vars::get_variables();
     println!("Test Environment Variables: {:?}", vars);
@@ -76,26 +70,17 @@ fn check_environment_variables() {
         assert_eq!(smtp_port_val.parse::<u64>().unwrap(), port, "{} should be 0 not {}", smtp_port_val, port);
         assert_eq!(smtp_email_val, email, "Environment variable should be {} not {}", smtp_email_val, email);
         assert_eq!(smtp_username_val, user, "Environment variable should be {} not {}", smtp_username_val, user);
-        assert_eq!(temp_dir.display().to_string(), project_path, "Environment variable should be {} not {}", temp_dir.display().to_string(), project_path);
-        let expected_test_path = temp_dir.join(DEFAULT_TEST_DIR);
+        assert_eq!(_tmp_env.temp_dir.display().to_string(), project_path, "Environment variable should be {} not {}", _tmp_env.temp_dir.display().to_string(), project_path);
+        let expected_test_path = _tmp_env.temp_dir.join(DEFAULT_TEST_DIR);
         assert_eq!(expected_test_path.display().to_string(), test_path, "Environment variable should be {} not {}", expected_test_path.display().to_string(), test_path);
 
-        env::set_current_dir(prev_dir).unwrap();
-        tmp_setup::restore_env_var(PROJECT_PATH_ENV, prev_project_path);
-        tmp_setup::restore_env_var(TEST_PATH_ENV, prev_test_path);
-        tmp_setup::clean_up(&temp_dir);
+        _tmp_env.tear_down();
     }
 }
 
 #[test]
 fn no_variables(){
-    let _guard = tmp_setup::test_lock().lock().unwrap();
-    let temp_dir = tmp_setup::create(TMP_DIR_TITLE, file_operations::load_steam_cache());
-    let prev_project_path = tmp_setup::retrieve_env_var(PROJECT_PATH_ENV);
-    let prev_test_path = tmp_setup::retrieve_env_var(TEST_PATH_ENV);
-    let prev_dir = env::current_dir().unwrap();
-    
-    env::set_current_dir(&temp_dir).unwrap();
+    let _tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, file_operations::load_steam_cache());
     let steam_api_key_val = "";
     let recipient_email_val = "";
     let smtp_host_val = "";
@@ -103,8 +88,8 @@ fn no_variables(){
     let smtp_email_val = "";
     let smtp_username_val = "";
     let smtp_password_val = "";
-    let env_data = file_operations::create_env_str(steam_api_key_val, recipient_email_val, smtp_host_val, smtp_port_val, smtp_email_val, smtp_username_val, smtp_password_val, &temp_dir);
-    general::write_file(&temp_dir, ENV_FILENAME, &env_data);
+    let env_data = file_operations::create_env_str(steam_api_key_val, recipient_email_val, smtp_host_val, smtp_port_val, smtp_email_val, smtp_username_val, smtp_password_val, &_tmp_env.temp_dir);
+    general::write_file(&_tmp_env.temp_dir, ENV_FILENAME, &env_data);
 
     unsafe {
         env::remove_var(STEAM_API_KEY_ENV);
@@ -117,7 +102,7 @@ fn no_variables(){
         env::remove_var(PROJECT_PATH_ENV);
         env::remove_var(TEST_PATH_ENV);
     }
-    env::set_current_dir(&temp_dir).unwrap();
+    env::set_current_dir(&_tmp_env.temp_dir).unwrap();
 
     let vars = env_vars::get_variables();
     println!("Test Environment Variables: {:?}", vars);
@@ -147,61 +132,46 @@ fn no_variables(){
     assert_eq!(0, port, "{} should be 0 not {}", 0, port);
     assert_eq!(smtp_email_val, email, "Environment variable should be {} not {}", smtp_email_val, email);
     assert_eq!(smtp_username_val, user, "Environment variable should be {} not {}", smtp_username_val, user);
-    assert_eq!(temp_dir.display().to_string(), project_path, "Environment variable should be {} not {}", temp_dir.display().to_string(), project_path);
-    let expected_test_path = temp_dir.join(DEFAULT_TEST_DIR);
+    assert_eq!(_tmp_env.temp_dir.display().to_string(), project_path, "Environment variable should be {} not {}", _tmp_env.temp_dir.display().to_string(), project_path);
+    let expected_test_path = _tmp_env.temp_dir.join(DEFAULT_TEST_DIR);
     assert_eq!(expected_test_path.display().to_string(), test_path, "Environment variable should be {} not {}", expected_test_path.display().to_string(), test_path);
 
-    env::set_current_dir(prev_dir).unwrap();
-    tmp_setup::restore_env_var(PROJECT_PATH_ENV, prev_project_path);
-    tmp_setup::restore_env_var(TEST_PATH_ENV, prev_test_path);
-    tmp_setup::clean_up(&temp_dir);
+    _tmp_env.tear_down();
 }
 
 #[test]
 fn decrypt_key_created() {
-    let _guard = tmp_setup::test_lock().lock().unwrap();
-    let temp_dir = tmp_setup::create(TMP_DIR_TITLE, file_operations::load_steam_cache());
-    let prev_project_path = tmp_setup::retrieve_env_var(PROJECT_PATH_ENV);
-    let prev_test_path = tmp_setup::retrieve_env_var(TEST_PATH_ENV);
-    let prev_dir = env::current_dir().unwrap();
+    let _tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, file_operations::load_steam_cache());
 
-    let decrypt_file: PathBuf = [temp_dir.display().to_string(), CONFIG_DIR.to_string(), DECRYPT_FILENAME.to_string()].iter().collect();
+    let decrypt_file: PathBuf = [_tmp_env.temp_dir.display().to_string(), CONFIG_DIR.to_string(), DECRYPT_FILENAME.to_string()].iter().collect();
 
     assert!(!decrypt_file.exists(), "Decrypt key should not exist before creation");
-    let initial_key = get_decrypt_key(temp_dir.display().to_string());
+    let initial_key = get_decrypt_key(_tmp_env.temp_dir.display().to_string());
     assert_eq!(32, initial_key.len(), "Decrypt key should be 32 characters long");
     assert!(decrypt_file.is_file(), "Decrypt key file should be created");
 
-    let curr_key = get_decrypt_key(temp_dir.display().to_string());
+    let curr_key = get_decrypt_key(_tmp_env.temp_dir.display().to_string());
     assert_eq!(initial_key, curr_key, "Decrypt key should be reused from the same file");
 
-    env::set_current_dir(prev_dir).unwrap();
-    tmp_setup::restore_env_var(PROJECT_PATH_ENV, prev_project_path);
-    tmp_setup::restore_env_var(TEST_PATH_ENV, prev_test_path);
-    tmp_setup::clean_up(&temp_dir);
+    _tmp_env.tear_down();
 }
 
 #[test]
 fn read_custom_env_file() {
-    let _guard = tmp_setup::test_lock().lock().unwrap();
-    let temp_dir = tmp_setup::create(TMP_DIR_TITLE, file_operations::load_steam_cache());
-    let prev_project_path = tmp_setup::retrieve_env_var(PROJECT_PATH_ENV);
-    let prev_test_path = tmp_setup::retrieve_env_var(TEST_PATH_ENV);
-    let prev_dir = env::current_dir().unwrap();
-    env::set_current_dir(&temp_dir).unwrap();
+    let _tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, file_operations::load_steam_cache());
+    env::set_current_dir(&_tmp_env.temp_dir).unwrap();
 
     let env_filename = "custom.env";
-    let env_data = "GSS_TEST_CUSTOM_VAR=\"VALUE123\"\n";
-    general::write_file(&temp_dir, env_filename, env_data);
+    let env_var_name = "CUSTOM_VAR";
+    let env_var_value = "CUSTOM_VALUE";
+    let env_data = format!("{}=\"{}\"\n", env_var_name, env_var_value);
+    general::write_file(&_tmp_env.temp_dir, env_filename, &env_data);
 
     env_vars::load_dotenv(Some(env_filename));
-    assert_eq!(env::var("GSS_TEST_CUSTOM_VAR").unwrap(), "VALUE123");
+    assert_eq!(env::var(env_var_name).unwrap(), env_var_value, "Environment variable should be {} not {}", env_var_value, env::var(env_var_name).unwrap());
 
-    env::set_current_dir(prev_dir).unwrap();
-    tmp_setup::restore_env_var(PROJECT_PATH_ENV, prev_project_path);
-    tmp_setup::restore_env_var(TEST_PATH_ENV, prev_test_path);
-    tmp_setup::clean_up(&temp_dir);
+    _tmp_env.tear_down();
     unsafe {
-        env::remove_var("GSS_TEST_CUSTOM_VAR");
+        env::remove_var(env_var_name);
     }
 }

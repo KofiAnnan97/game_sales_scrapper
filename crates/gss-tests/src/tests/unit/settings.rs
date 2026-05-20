@@ -1,11 +1,9 @@
 use std::collections::HashMap;
-use std::env;
 use file_ops::settings;
 use constants::operations::settings::{STEAM_STORE_ID, STEAM_STORE_NAME,
                                       GOG_STORE_ID, GOG_STORE_NAME,
                                       MICROSOFT_STORE_ID, MICROSOFT_STORE_NAME,
                                       ENABLED_STATE, DISABLED_STATE, DEFAULT_ALIAS_STATE};
-use constants::operations::properties::{PROJECT_PATH_ENV, TEST_PATH_ENV};
 use properties;
 use crate::utils::{file_operations, tmp_setup};
 
@@ -13,17 +11,7 @@ static TMP_DIR_TITLE : &str = "settings";
 
 #[test]
 fn get_available_stores() {
-    let _guard = tmp_setup::test_lock().lock().unwrap();
-    let temp_dir = tmp_setup::create(TMP_DIR_TITLE, file_operations::load_steam_cache());
-    let prev_project_path = tmp_setup::retrieve_env_var(PROJECT_PATH_ENV);
-    let prev_test_path = tmp_setup::retrieve_env_var(TEST_PATH_ENV);
-    let prev_dir = env::current_dir().unwrap();
-
-    unsafe {
-        env::set_var(PROJECT_PATH_ENV, temp_dir.display().to_string());
-        env::set_var(TEST_PATH_ENV, temp_dir.display().to_string());
-    }
-    env::set_current_dir(&temp_dir).unwrap();
+    let _tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, file_operations::load_steam_cache());
     let _ = properties::load_properties();
 
     let available_stores = settings::get_available_stores();
@@ -44,25 +32,12 @@ fn get_available_stores() {
         assert_ne!(store, invalid_store, "\'{}\' should not be a valid store", invalid_store);
     }
 
-    env::set_current_dir(prev_dir).unwrap();
-    tmp_setup::restore_env_var(PROJECT_PATH_ENV, prev_project_path);
-    tmp_setup::restore_env_var(TEST_PATH_ENV, prev_test_path);
-    tmp_setup::clean_up(&temp_dir);
+     _tmp_env.tear_down();
 }
 
 #[test]
 fn get_proper_store_name() {
-    let _guard = tmp_setup::test_lock().lock().unwrap();
-    let temp_dir = tmp_setup::create(TMP_DIR_TITLE, file_operations::load_steam_cache());
-    let prev_project_path = tmp_setup::retrieve_env_var(PROJECT_PATH_ENV);
-    let prev_test_path = tmp_setup::retrieve_env_var(TEST_PATH_ENV);
-    let prev_dir = env::current_dir().unwrap();
-
-    unsafe {
-        env::set_var(PROJECT_PATH_ENV, temp_dir.display().to_string());
-        env::set_var(TEST_PATH_ENV, temp_dir.display().to_string());
-    }
-    env::set_current_dir(&temp_dir).unwrap();
+    let _tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, file_operations::load_steam_cache());
     let _ = properties::load_properties();
 
     // Test valid store ids
@@ -76,25 +51,12 @@ fn get_proper_store_name() {
     store_name = settings::get_proper_store_name("fake_store").unwrap_or_default();
     assert_eq!("", store_name, "\'{}\' is not a valid store id", store_name);
 
-    env::set_current_dir(prev_dir).unwrap();
-    tmp_setup::restore_env_var(PROJECT_PATH_ENV, prev_project_path);
-    tmp_setup::restore_env_var(TEST_PATH_ENV, prev_test_path);
-    tmp_setup::clean_up(&temp_dir);
+    _tmp_env.tear_down();
 }
 
 #[test]
 fn get_selected_stores() {
-    let _guard = tmp_setup::test_lock().lock().unwrap();
-    let temp_dir = tmp_setup::create(TMP_DIR_TITLE, file_operations::load_steam_cache());
-    let prev_project_path = tmp_setup::retrieve_env_var(PROJECT_PATH_ENV);
-    let prev_test_path = tmp_setup::retrieve_env_var(TEST_PATH_ENV);
-    let prev_dir = env::current_dir().unwrap();
-
-    unsafe {
-        env::set_var(PROJECT_PATH_ENV, temp_dir.display().to_string());
-        env::set_var(TEST_PATH_ENV, temp_dir.display().to_string());
-    }
-    env::set_current_dir(&temp_dir).unwrap();
+    let _tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, file_operations::load_steam_cache());
     let _ = properties::load_properties();
     
     let stores = vec![String::from(STEAM_STORE_ID),
@@ -113,49 +75,23 @@ fn get_selected_stores() {
     assert_eq!(true, is_gog_selected, "{} should be selected", GOG_STORE_ID);
     assert_eq!(false, is_ms_store_selected, "{} should not be selected", MICROSOFT_STORE_ID);
     
-    env::set_current_dir(prev_dir).unwrap();
-    tmp_setup::restore_env_var(PROJECT_PATH_ENV, prev_project_path);
-    tmp_setup::restore_env_var(TEST_PATH_ENV, prev_test_path);
-    tmp_setup::clean_up(&temp_dir);
+    _tmp_env.tear_down();
 }
 
 #[test]
 fn get_alias_state() {
-    let _guard = tmp_setup::test_lock().lock().unwrap();
-    let temp_dir = tmp_setup::create(TMP_DIR_TITLE, file_operations::load_steam_cache());
-    let prev_project_path = tmp_setup::retrieve_env_var(PROJECT_PATH_ENV);
-    let prev_test_path = tmp_setup::retrieve_env_var(TEST_PATH_ENV);
-    let prev_dir = env::current_dir().unwrap();
-
-    unsafe {
-        env::set_var(PROJECT_PATH_ENV, temp_dir.display().to_string());
-        env::set_var(TEST_PATH_ENV, temp_dir.display().to_string());
-    }
-    env::set_current_dir(&temp_dir).unwrap();
+    let _test_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, file_operations::load_steam_cache());    
     let _ = properties::load_properties();
     
     let are_aliases_enabled = settings::get_alias_state();
     assert_eq!(true, are_aliases_enabled, "Aliases should be enabled.");
     
-    env::set_current_dir(prev_dir).unwrap();
-    tmp_setup::restore_env_var(PROJECT_PATH_ENV, prev_project_path);
-    tmp_setup::restore_env_var(TEST_PATH_ENV, prev_test_path);
-    tmp_setup::clean_up(&temp_dir);
+    _test_env.tear_down();
 }
 
 #[test]
 fn update_selected_stores() {
-    let _guard = tmp_setup::test_lock().lock().unwrap();
-    let temp_dir = tmp_setup::create(TMP_DIR_TITLE, file_operations::load_steam_cache());
-    let prev_project_path = tmp_setup::retrieve_env_var(PROJECT_PATH_ENV);
-    let prev_test_path = tmp_setup::retrieve_env_var(TEST_PATH_ENV);
-    let prev_dir = env::current_dir().unwrap();
-
-    unsafe {
-        env::set_var(PROJECT_PATH_ENV, temp_dir.display().to_string());
-        env::set_var(TEST_PATH_ENV, temp_dir.display().to_string());
-    }
-    env::set_current_dir(&temp_dir).unwrap();
+    let _tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, file_operations::load_steam_cache());
     let _ = properties::load_properties();
     
     let mut selected_stores = settings::get_selected_stores();
@@ -186,25 +122,12 @@ fn update_selected_stores() {
         assert_eq!(store_limit, *count, "\'{}\' should not have more than 1 entry.", store.0);
     }
 
-    env::set_current_dir(prev_dir).unwrap();
-    tmp_setup::restore_env_var(PROJECT_PATH_ENV, prev_project_path);
-    tmp_setup::restore_env_var(TEST_PATH_ENV, prev_test_path);
-    tmp_setup::clean_up(&temp_dir);
+    _tmp_env.tear_down();
 }
 
 #[test]
 fn update_alias_state(){
-    let _guard = tmp_setup::test_lock().lock().unwrap();
-    let temp_dir = tmp_setup::create(TMP_DIR_TITLE, file_operations::load_steam_cache());
-    let prev_project_path = tmp_setup::retrieve_env_var(PROJECT_PATH_ENV);
-    let prev_test_path = tmp_setup::retrieve_env_var(TEST_PATH_ENV);
-    let prev_dir = env::current_dir().unwrap();
-
-    unsafe {
-        env::set_var(PROJECT_PATH_ENV, temp_dir.display().to_string());
-        env::set_var(TEST_PATH_ENV, temp_dir.display().to_string());
-    }
-    env::set_current_dir(&temp_dir).unwrap();
+    let _tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, file_operations::load_steam_cache());
     let _ = properties::load_properties();
     
     let mut are_aliases_enabled = settings::get_alias_state();
@@ -223,8 +146,5 @@ fn update_alias_state(){
         }
     }
     
-    env::set_current_dir(prev_dir).unwrap();
-    tmp_setup::restore_env_var(PROJECT_PATH_ENV, prev_project_path);
-    tmp_setup::restore_env_var(TEST_PATH_ENV, prev_test_path);
-    tmp_setup::clean_up(&temp_dir);
+    _tmp_env.tear_down();
 }

@@ -14,18 +14,7 @@ const TMP_DIR_TITLE: &str = "properties";
 
 #[test]
 fn create_properties_file() {
-    let _guard = tmp_setup::test_lock().lock().unwrap();
-    let temp_dir = tmp_setup::create(TMP_DIR_TITLE, file_operations::load_steam_cache());
-    let prev_project_path = tmp_setup::retrieve_env_var(PROJECT_PATH_ENV);
-    let prev_test_path = tmp_setup::retrieve_env_var(TEST_PATH_ENV);
-    let prev_dir = env::current_dir().unwrap();
-
-    unsafe {
-        env::set_var(PROJECT_PATH_ENV, temp_dir.display().to_string());
-        env::remove_var(TEST_PATH_ENV);
-    }
-    env::set_current_dir(&temp_dir).unwrap();
-
+    let _tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, file_operations::load_steam_cache());
     let properties_path = properties::get_properties_path();
     assert!(Path::new(&properties_path).is_file());
     assert!(properties_path.ends_with(&format!("{}{}{}", CONFIG_DIR, std::path::MAIN_SEPARATOR, PROPERTIES_FILENAME)));
@@ -39,29 +28,15 @@ fn create_properties_file() {
     assert_eq!(json[PROP_SMTP_USERNAME].as_str().unwrap(), "", "Expected {} to be empty string in properties file", PROP_SMTP_USERNAME);
     assert_eq!(json[PROP_SMTP_PASSWORD].as_str().unwrap(), "", "Expected {} to be empty string in properties file", PROP_SMTP_PASSWORD);
     assert_eq!(json[PROP_SMTP_PORT].as_i64().unwrap(), 0, "Expected {} to be 0 in properties file", PROP_SMTP_PORT);
-    assert_eq!(json[PROP_PROJECT_PATH].as_str().unwrap(), temp_dir.display().to_string(), "Expected {} to be {} in properties file", PROP_PROJECT_PATH, temp_dir.display().to_string());
-    assert_eq!(json[PROP_TEST_PATH].as_str().unwrap(), temp_dir.join(DEFAULT_TEST_DIR).display().to_string(), "Expected {} to be {} in properties file", PROP_TEST_PATH, temp_dir.join(DEFAULT_TEST_DIR).display().to_string());
+    assert_eq!(json[PROP_PROJECT_PATH].as_str().unwrap(), _tmp_env.temp_dir.display().to_string(), "Expected {} to be {} in properties file", PROP_PROJECT_PATH, _tmp_env.temp_dir.display().to_string());
+    assert_eq!(json[PROP_TEST_PATH].as_str().unwrap(), _tmp_env.temp_dir.join(DEFAULT_TEST_DIR).display().to_string(), "Expected {} to be {} in properties file", PROP_TEST_PATH, _tmp_env.temp_dir.join(DEFAULT_TEST_DIR).display().to_string());
 
-    env::set_current_dir(prev_dir).unwrap();
-    tmp_setup::restore_env_var(PROJECT_PATH_ENV, prev_project_path);
-    tmp_setup::restore_env_var(TEST_PATH_ENV, prev_test_path);
-    tmp_setup::clean_up(&temp_dir);
+    _tmp_env.tear_down();
 }
 
 #[test]
 fn load_properties_from_file() {
-    let _guard = tmp_setup::test_lock().lock().unwrap();
-    let temp_dir = tmp_setup::create(TMP_DIR_TITLE, file_operations::load_steam_cache());
-    let prev_project_path = tmp_setup::retrieve_env_var(PROJECT_PATH_ENV);
-    let prev_test_path = tmp_setup::retrieve_env_var(TEST_PATH_ENV);
-    let prev_dir = env::current_dir().unwrap();
-
-    unsafe {
-        env::set_var(PROJECT_PATH_ENV, temp_dir.display().to_string());
-        env::remove_var(TEST_PATH_ENV);
-    }
-    env::set_current_dir(&temp_dir).unwrap();
-
+    let _tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, file_operations::load_steam_cache());
     let _ = properties::get_properties_path();
     let loaded_properties = properties::load_properties().expect("Properties should load");
 
@@ -72,55 +47,31 @@ fn load_properties_from_file() {
     assert_eq!(loaded_properties[PROP_SMTP_EMAIL].as_str().unwrap(), "", "Expected {} to be empty string in loaded properties", PROP_SMTP_EMAIL);
     assert_eq!(loaded_properties[PROP_SMTP_USERNAME].as_str().unwrap(), "", "Expected {} to be empty string in loaded properties", PROP_SMTP_USERNAME);
     assert_eq!(loaded_properties[PROP_SMTP_PASSWORD].as_str().unwrap(), "", "Expected {} to be empty string in loaded properties", PROP_SMTP_PASSWORD);
-    assert_eq!(loaded_properties[PROP_PROJECT_PATH].as_str().unwrap(), temp_dir.display().to_string());
-    assert_eq!(loaded_properties[PROP_TEST_PATH].as_str().unwrap(), temp_dir.join(DEFAULT_TEST_DIR).display().to_string());
+    assert_eq!(loaded_properties[PROP_PROJECT_PATH].as_str().unwrap(), _tmp_env.temp_dir.display().to_string());
+    assert_eq!(loaded_properties[PROP_TEST_PATH].as_str().unwrap(), _tmp_env.temp_dir.join(DEFAULT_TEST_DIR).display().to_string());
 
-    env::set_current_dir(prev_dir).unwrap();
-    tmp_setup::restore_env_var(PROJECT_PATH_ENV, prev_project_path);
-    tmp_setup::restore_env_var(TEST_PATH_ENV, prev_test_path);
-    tmp_setup::clean_up(&temp_dir);
+    _tmp_env.tear_down();
 }
 
 #[test]
 fn sub_directories_created() {
-    let _guard = tmp_setup::test_lock().lock().unwrap();
-    let temp_dir = tmp_setup::create(TMP_DIR_TITLE, file_operations::load_steam_cache());
-    let prev_project_path = tmp_setup::retrieve_env_var(PROJECT_PATH_ENV);
-    let prev_test_path = tmp_setup::retrieve_env_var(TEST_PATH_ENV);
-    let prev_dir = env::current_dir().unwrap();
-
-    unsafe {
-        env::set_var(PROJECT_PATH_ENV, temp_dir.display().to_string());
-        env::remove_var(TEST_PATH_ENV);
-    }
-    env::set_current_dir(&temp_dir).unwrap();
-
+    let _tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, file_operations::load_steam_cache());
     let _ = properties::get_properties_path();
 
     let data_path = properties::get_data_path();
     let config_path = properties::get_config_path();
 
-    assert_eq!(data_path, temp_dir.join(DATA_DIR).display().to_string());
-    assert_eq!(config_path, temp_dir.join(CONFIG_DIR).display().to_string());
+    assert_eq!(data_path, _tmp_env.temp_dir.join(DATA_DIR).display().to_string());
+    assert_eq!(config_path, _tmp_env.temp_dir.join(CONFIG_DIR).display().to_string());
     assert!(Path::new(&data_path).is_dir());
     assert!(Path::new(&config_path).is_dir());
 
-    env::set_current_dir(prev_dir).unwrap();
-    tmp_setup::restore_env_var(PROJECT_PATH_ENV, prev_project_path);
-    tmp_setup::restore_env_var(TEST_PATH_ENV, prev_test_path);
-    tmp_setup::clean_up(&temp_dir);
+    _tmp_env.tear_down();
 }
 
 #[test]
 fn update_properties_from_env() {
-    let _guard = tmp_setup::test_lock().lock().unwrap();
-    let temp_dir = tmp_setup::create(TMP_DIR_TITLE, file_operations::load_steam_cache());
-    let prev_project_path = tmp_setup::retrieve_env_var(PROJECT_PATH_ENV);
-    let prev_test_path = tmp_setup::retrieve_env_var(TEST_PATH_ENV);
-    let prev_dir = env::current_dir().unwrap();
-
-
-    env::set_current_dir(&temp_dir).unwrap();
+    let _tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, file_operations::load_steam_cache());
     let mut steam_api_key_val = "INITIAL";
     let mut recipient_email_val = "recipient@example.com";
     let mut smtp_host_val = "smtp.initial.com";
@@ -128,8 +79,8 @@ fn update_properties_from_env() {
     let mut smtp_email_val = "user@initial.com";
     let mut smtp_username_val = "initial_user";
     let mut smtp_password_val = "initial_pwd";
-    let mut env_data = file_operations::create_env_str(steam_api_key_val, recipient_email_val, smtp_host_val, smtp_port_val, smtp_email_val, smtp_username_val, smtp_password_val, &temp_dir);
-    general::write_file(&temp_dir, ENV_FILENAME, &env_data);
+    let mut env_data = file_operations::create_env_str(steam_api_key_val, recipient_email_val, smtp_host_val, smtp_port_val, smtp_email_val, smtp_username_val, smtp_password_val, &_tmp_env.temp_dir);
+    general::write_file(&_tmp_env.temp_dir, ENV_FILENAME, &env_data);
 
     steam_api_key_val = "UPDATED";
     recipient_email_val = "recipient2@example.com";
@@ -138,9 +89,9 @@ fn update_properties_from_env() {
     smtp_email_val = "user@updated.com";
     smtp_username_val = "updated_user";
     smtp_password_val = "updated_pwd";
-    env_data = file_operations::create_env_str( steam_api_key_val, recipient_email_val, smtp_host_val, smtp_port_val, smtp_email_val, smtp_username_val, smtp_password_val, &temp_dir);
+    env_data = file_operations::create_env_str( steam_api_key_val, recipient_email_val, smtp_host_val, smtp_port_val, smtp_email_val, smtp_username_val, smtp_password_val, &_tmp_env.temp_dir);
     // println!("Env data:\n{}", env_data);
-    general::write_file(&temp_dir, ENV_FILENAME, &env_data);
+    general::write_file(&_tmp_env.temp_dir, ENV_FILENAME, &env_data);
 
     unsafe {
         env::remove_var(STEAM_API_KEY_ENV);
@@ -171,11 +122,8 @@ fn update_properties_from_env() {
     let encrypted_smtp_pwd = updated_properties[PROP_SMTP_PASSWORD].as_str().unwrap().to_string();
     let decrypted_smtp_pwd = properties::passwords::decrypt(&key_str, encrypted_smtp_pwd);
     assert_eq!(decrypted_smtp_pwd, smtp_password_val);
-    assert_eq!(updated_properties[PROP_PROJECT_PATH].as_str().unwrap(), temp_dir.display().to_string());
-    assert_eq!(updated_properties[PROP_TEST_PATH].as_str().unwrap(), temp_dir.join(DEFAULT_TEST_DIR).display().to_string());
+    assert_eq!(updated_properties[PROP_PROJECT_PATH].as_str().unwrap(), _tmp_env.temp_dir.display().to_string());
+    assert_eq!(updated_properties[PROP_TEST_PATH].as_str().unwrap(), _tmp_env.temp_dir.join(DEFAULT_TEST_DIR).display().to_string());
 
-    env::set_current_dir(prev_dir).unwrap();
-    tmp_setup::restore_env_var(PROJECT_PATH_ENV, prev_project_path);
-    tmp_setup::restore_env_var(TEST_PATH_ENV, prev_test_path);
-    tmp_setup::clean_up(&temp_dir);
+    _tmp_env.tear_down();
 }

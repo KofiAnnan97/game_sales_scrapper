@@ -10,17 +10,7 @@ const TMP_DIR_TITLE: &str = "thresholds";
 
 #[tokio::test]
 async fn add_steam_game() {
-    let _guard = tmp_setup::test_lock().lock().unwrap();
-    let temp_dir = tmp_setup::create(TMP_DIR_TITLE, file_operations::load_steam_cache());
-    let prev_project_path = tmp_setup::retrieve_env_var(PROJECT_PATH_ENV);
-    let prev_test_path = tmp_setup::retrieve_env_var(TEST_PATH_ENV);
-    let prev_dir = env::current_dir().unwrap();
-
-    unsafe {
-        env::set_var(PROJECT_PATH_ENV, temp_dir.display().to_string());
-        env::set_var(TEST_PATH_ENV, temp_dir.display().to_string());
-    }
-    env::set_current_dir(&temp_dir).unwrap();
+    let _tmp_env: tmp_setup::TempEnvironment = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, file_operations::load_steam_cache());
     let _ = properties::load_properties();
 
     // delete_thresholds();
@@ -38,25 +28,12 @@ async fn add_steam_game() {
         Err(_) => assert!(false, "Could not find game: {} ({})", game_title.clone(), game_id),
     }
     
-    env::set_current_dir(prev_dir).unwrap();
-    tmp_setup::restore_env_var(PROJECT_PATH_ENV, prev_project_path);
-    tmp_setup::restore_env_var(TEST_PATH_ENV, prev_test_path);
-    tmp_setup::clean_up(&temp_dir);
+    _tmp_env.tear_down();
 }
 
 #[test]
 fn add_gog_game() {
-    let _guard = tmp_setup::test_lock().lock().unwrap();
-    let temp_dir = tmp_setup::create(TMP_DIR_TITLE, file_operations::load_steam_cache());
-    let prev_project_path = tmp_setup::retrieve_env_var(PROJECT_PATH_ENV);
-    let prev_test_path = tmp_setup::retrieve_env_var(TEST_PATH_ENV);
-    let prev_dir = env::current_dir().unwrap();
-
-    unsafe {
-        env::set_var(PROJECT_PATH_ENV, temp_dir.display().to_string());
-        env::set_var(TEST_PATH_ENV, temp_dir.display().to_string());
-    }
-    env::set_current_dir(&temp_dir).unwrap();
+    let _tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, file_operations::load_steam_cache());
     let _ = properties::load_properties();
 
     let game = threshold_stubs::test_gog_game();
@@ -72,24 +49,12 @@ fn add_gog_game() {
         Err(_) => assert!(false, "Could not find game: {} ({})", game_title.clone(), game_id),
     }
     
-    env::set_current_dir(prev_dir).unwrap();
-    tmp_setup::restore_env_var(PROJECT_PATH_ENV, prev_project_path);
-    tmp_setup::restore_env_var(TEST_PATH_ENV, prev_test_path);
-    tmp_setup::clean_up(&temp_dir);}
+    _tmp_env.tear_down();
+}
 
 #[test]
 fn add_microsoft_store_game() {
-    let _guard = tmp_setup::test_lock().lock().unwrap();
-    let temp_dir = tmp_setup::create(TMP_DIR_TITLE, file_operations::load_steam_cache());
-    let prev_project_path = tmp_setup::retrieve_env_var(PROJECT_PATH_ENV);
-    let prev_test_path = tmp_setup::retrieve_env_var(TEST_PATH_ENV);
-    let prev_dir = env::current_dir().unwrap();
-
-    unsafe {
-        env::set_var(PROJECT_PATH_ENV, temp_dir.display().to_string());
-        env::set_var(TEST_PATH_ENV, temp_dir.display().to_string());
-    }
-    env::set_current_dir(&temp_dir).unwrap();
+    let _tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, file_operations::load_steam_cache());
     let _ = properties::load_properties();
 
     let game = threshold_stubs::test_ms_game();
@@ -105,25 +70,12 @@ fn add_microsoft_store_game() {
         Err(_) => assert!(false, "Could not find game: {} ({})", game_title.clone(), game_id),
     }
     
-    env::set_current_dir(prev_dir).unwrap();
-    tmp_setup::restore_env_var(PROJECT_PATH_ENV, prev_project_path);
-    tmp_setup::restore_env_var(TEST_PATH_ENV, prev_test_path);
-    tmp_setup::clean_up(&temp_dir);
+    _tmp_env.tear_down();
 }
 
 #[test]
 fn update_alias() {
-    let _guard = tmp_setup::test_lock().lock().unwrap();
-    let temp_dir = tmp_setup::create(TMP_DIR_TITLE, file_operations::load_steam_cache());
-    let prev_project_path = tmp_setup::retrieve_env_var(PROJECT_PATH_ENV);
-    let prev_test_path = tmp_setup::retrieve_env_var(TEST_PATH_ENV);
-    let prev_dir = env::current_dir().unwrap();
-
-    unsafe {
-        env::set_var(PROJECT_PATH_ENV, temp_dir.display().to_string());
-        env::set_var(TEST_PATH_ENV, temp_dir.display().to_string());
-    }
-    env::set_current_dir(&temp_dir).unwrap();
+    let _tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, file_operations::load_steam_cache());
     let _ = properties::load_properties();
 
     let game_title = String::from("Random Game");
@@ -166,25 +118,12 @@ fn update_alias() {
         Err(_) => assert!(false, "Could not load the alias map"),
     }
 
-    env::set_current_dir(prev_dir).unwrap();
-    tmp_setup::restore_env_var(PROJECT_PATH_ENV, prev_project_path);
-    tmp_setup::restore_env_var(TEST_PATH_ENV, prev_test_path);
-    tmp_setup::clean_up(&temp_dir);
+    _tmp_env.tear_down();
 }
 
 #[test]
 fn update_price() {
-    let _guard = tmp_setup::test_lock().lock().unwrap();
-    let temp_dir = tmp_setup::create(TMP_DIR_TITLE, file_operations::load_steam_cache());
-    let prev_project_path = tmp_setup::retrieve_env_var(PROJECT_PATH_ENV);
-    let prev_test_path = tmp_setup::retrieve_env_var(TEST_PATH_ENV);
-    let prev_dir = env::current_dir().unwrap();
-
-    unsafe {
-        env::set_var(PROJECT_PATH_ENV, temp_dir.display().to_string());
-        env::set_var(TEST_PATH_ENV, temp_dir.display().to_string());
-    }
-    env::set_current_dir(&temp_dir).unwrap();
+    let _tmp_env: tmp_setup::TempEnvironment = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, file_operations::load_steam_cache());
     let _ = properties::load_properties();
 
     let first_game = String::from("Random Game");
@@ -215,25 +154,12 @@ fn update_price() {
         Err(_) => assert!(false, "Could not load thresholds when desired price was updated..")
     }
 
-    env::set_current_dir(prev_dir).unwrap();
-    tmp_setup::restore_env_var(PROJECT_PATH_ENV, prev_project_path);
-    tmp_setup::restore_env_var(TEST_PATH_ENV, prev_test_path);
-    tmp_setup::clean_up(&temp_dir);
+    _tmp_env.tear_down();
 }
 
 #[test]
 fn update_id(){
-    let _guard = tmp_setup::test_lock().lock().unwrap();
-    let temp_dir = tmp_setup::create(TMP_DIR_TITLE, file_operations::load_steam_cache());
-    let prev_project_path = tmp_setup::retrieve_env_var(PROJECT_PATH_ENV);
-    let prev_test_path = tmp_setup::retrieve_env_var(TEST_PATH_ENV);
-    let prev_dir = env::current_dir().unwrap();
-
-    unsafe {
-        env::set_var(PROJECT_PATH_ENV, temp_dir.display().to_string());
-        env::set_var(TEST_PATH_ENV, temp_dir.display().to_string());
-    }
-    env::set_current_dir(&temp_dir).unwrap();
+    let _tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, file_operations::load_steam_cache());
     let _ = properties::load_properties();
 
     let game_title = String::from("Random Game");
@@ -254,25 +180,12 @@ fn update_id(){
         Err(_) => assert!(false, "Could not load thresholds when store IDs (integer) where updated.")
     }
 
-    env::set_current_dir(prev_dir).unwrap();
-    tmp_setup::restore_env_var(PROJECT_PATH_ENV, prev_project_path);
-    tmp_setup::restore_env_var(TEST_PATH_ENV, prev_test_path);
-    tmp_setup::clean_up(&temp_dir);
+    _tmp_env.tear_down();
 }
 
 #[test]
 fn update_id_str(){
-    let _guard = tmp_setup::test_lock().lock().unwrap();
-    let temp_dir = tmp_setup::create(TMP_DIR_TITLE, file_operations::load_steam_cache());
-    let prev_project_path = tmp_setup::retrieve_env_var(PROJECT_PATH_ENV);
-    let prev_test_path = tmp_setup::retrieve_env_var(TEST_PATH_ENV);
-    let prev_dir = env::current_dir().unwrap();
-
-    unsafe {
-        env::set_var(PROJECT_PATH_ENV, temp_dir.display().to_string());
-        env::set_var(TEST_PATH_ENV, temp_dir.display().to_string());
-    }
-    env::set_current_dir(&temp_dir).unwrap();
+    let _tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, file_operations::load_steam_cache());
     let _ = properties::load_properties();
 
     let game_title = String::from("Random Game");
@@ -290,25 +203,12 @@ fn update_id_str(){
         Err(_) => assert!(false, "Could not load thresholds when store IDs (string) where updated.")
     }
     
-    env::set_current_dir(prev_dir).unwrap();
-    tmp_setup::restore_env_var(PROJECT_PATH_ENV, prev_project_path);
-    tmp_setup::restore_env_var(TEST_PATH_ENV, prev_test_path);
-    tmp_setup::clean_up(&temp_dir);
+    _tmp_env.tear_down();
 }
 
 #[test]
 fn remove_game(){
-    let _guard = tmp_setup::test_lock().lock().unwrap();
-    let temp_dir = tmp_setup::create(TMP_DIR_TITLE, file_operations::load_steam_cache());
-    let prev_project_path = tmp_setup::retrieve_env_var(PROJECT_PATH_ENV);
-    let prev_test_path = tmp_setup::retrieve_env_var(TEST_PATH_ENV);
-    let prev_dir = env::current_dir().unwrap();
-
-    unsafe {
-        env::set_var(PROJECT_PATH_ENV, temp_dir.display().to_string());
-        env::set_var(TEST_PATH_ENV, temp_dir.display().to_string());
-    }
-    env::set_current_dir(&temp_dir).unwrap();
+    let _tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, file_operations::load_steam_cache());
     let _ = properties::load_properties();
 
     let first_game = String::from("Random Game");
@@ -369,8 +269,5 @@ fn remove_game(){
         Err(_) => assert!(false, "Could not load alias map after deletion.")
     }
     
-    env::set_current_dir(prev_dir).unwrap();
-    tmp_setup::restore_env_var(PROJECT_PATH_ENV, prev_project_path);
-    tmp_setup::restore_env_var(TEST_PATH_ENV, prev_test_path);
-    tmp_setup::clean_up(&temp_dir);
+    _tmp_env.tear_down();
 }

@@ -1,11 +1,16 @@
 use stores::pc::steam;
+use crate::utils::{file_operations, tmp_setup};
+
 
 // Constants
 static GAME_TITLE: &str = "Half-Life 2";
 static GAME_ID: u32 = 220;
+static TMP_DIR_TITLE: &str = "steam_api";
 
 #[tokio::test]
 async fn search_game() {
+    let _test_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, file_operations::load_steam_cache());
+
     let search_list = steam::search_by_keyphrase(GAME_TITLE)
         .await.unwrap_or_else(|_| Vec::new());
     let mut is_game_present = false;
@@ -16,6 +21,8 @@ async fn search_game() {
         }
     }
     assert!(is_game_present, "Could not find game: {}", GAME_TITLE);
+
+    _test_env.tear_down();
 }
 
 #[tokio::test]
