@@ -14,7 +14,7 @@ const TMP_DIR_TITLE: &str = "properties";
 
 #[test]
 fn create_properties_file() {
-    let _tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, file_operations::load_steam_cache());
+    let _tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, Vec::new());
     let properties_path = properties::get_properties_path();
     assert!(Path::new(&properties_path).is_file());
     assert!(properties_path.ends_with(&format!("{}{}{}", CONFIG_DIR, std::path::MAIN_SEPARATOR, PROPERTIES_FILENAME)));
@@ -36,7 +36,7 @@ fn create_properties_file() {
 
 #[test]
 fn load_properties_from_file() {
-    let _tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, file_operations::load_steam_cache());
+    let _tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, Vec::new());
     let _ = properties::get_properties_path();
     let loaded_properties = properties::load_properties().expect("Properties should load");
 
@@ -55,7 +55,7 @@ fn load_properties_from_file() {
 
 #[test]
 fn sub_directories_created() {
-    let _tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, file_operations::load_steam_cache());
+    let _tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, Vec::new());
     let _ = properties::get_properties_path();
 
     let data_path = properties::get_data_path();
@@ -71,7 +71,7 @@ fn sub_directories_created() {
 
 #[test]
 fn update_properties_from_env() {
-    let _tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, file_operations::load_steam_cache());
+    let _tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, Vec::new());
     let mut steam_api_key_val = "INITIAL";
     let mut recipient_email_val = "recipient@example.com";
     let mut smtp_host_val = "smtp.initial.com";

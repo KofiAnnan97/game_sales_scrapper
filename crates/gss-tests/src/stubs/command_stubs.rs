@@ -1,14 +1,13 @@
 use std::path::PathBuf;
 
-use constants::operations::thresholds::THRESHOLDS;
+use constants::operations::{properties::DATA_DIR, thresholds::THRESHOLDS};
 use dotenv::dotenv as dotenv_linux;
 use dotenvy::dotenv as dotenv_windows;
 use file_types::{csv, general};
 use serde_json::json;
-use structs::internal::data::{GameThreshold, SimpleGameThreshold};
+use structs::internal::data::{GameThreshold, SimpleGameThreshold, SaleInfo};
 
 use crate::utils::file_operations::{self, get_threshold_path};
-
 
 pub fn add_fake_threshold(alias: &str, title: &str, price: f64) {
     add_threshold(alias, title, 1, 2, "c", price);
@@ -51,10 +50,48 @@ pub fn get_sample_csv(filename: &str) -> String {
     ];
     if cfg!(target_os = "windows") { dotenv_windows().ok(); }
     else if cfg!(target_os = "linux") { dotenv_linux().ok(); }
-    //let test_path = std::env::var("TEST_PATH").unwrap_or(String::from("."));
-    let test_path = properties::get_data_path();
-    let path_buf: PathBuf = [&test_path, "data", filename].iter().collect();
+    let test_path = properties::get_test_path();
+    let path_buf: PathBuf = [&test_path, DATA_DIR, filename].iter().collect();
     let csv_path = path_buf.display().to_string();
     csv::generate_csv(&csv_path, thresholds);
     csv_path
+}
+
+pub fn get_steam_price_check(title: &str, base_price: f64, curr_price: f64) -> SaleInfo {
+    let discount_amount: u32 = (((base_price - curr_price) / base_price) * 100.0) as u32;
+    let steam_sales_info = SaleInfo{
+        discount_percentage: format!("{}%", discount_amount),
+        icon_link: String::new(),
+        title: title.to_string(),
+        original_price: base_price.to_string(),
+        current_price: curr_price.to_string(),
+        store_page_link: String::new(),
+    };
+    steam_sales_info
+}
+
+pub fn get_gog_price_check(title: &str, base_price: f64, curr_price: f64) -> SaleInfo {
+    let discount_amount: u32 = (((base_price - curr_price) / base_price) * 100.0) as u32;
+    let gog_sales_info = SaleInfo{
+        discount_percentage: format!("{}%", discount_amount),
+        icon_link: String::new(),
+        title: title.to_string(),
+        original_price: base_price.to_string(),
+        current_price: curr_price.to_string(),
+        store_page_link: String::new(),
+    };
+    gog_sales_info
+}
+
+pub fn get_ms_price_check(title: &str, base_price: f64, curr_price: f64) -> SaleInfo {
+    let discount_amount: u32 = (((base_price - curr_price) / base_price) * 100.0) as u32;
+    let ms_sales_info = SaleInfo{
+        discount_percentage: format!("{}%", discount_amount),
+        icon_link: String::new(),
+        title: title.to_string(),
+        original_price: base_price.to_string(),
+        current_price: curr_price.to_string(),
+        store_page_link: String::new(),
+    };
+    ms_sales_info
 }

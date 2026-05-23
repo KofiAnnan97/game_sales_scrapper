@@ -5,13 +5,13 @@ use constants::operations::settings::{STEAM_STORE_ID, STEAM_STORE_NAME,
                                       MICROSOFT_STORE_ID, MICROSOFT_STORE_NAME,
                                       ENABLED_STATE, DISABLED_STATE, DEFAULT_ALIAS_STATE};
 use properties;
-use crate::utils::{file_operations, tmp_setup};
+use crate::utils::{tmp_setup};
 
 static TMP_DIR_TITLE : &str = "settings";
 
 #[test]
 fn get_available_stores() {
-    let _tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, file_operations::load_steam_cache());
+    let _tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, Vec::new());
     let _ = properties::load_properties();
 
     let available_stores = settings::get_available_stores();
@@ -37,7 +37,7 @@ fn get_available_stores() {
 
 #[test]
 fn get_proper_store_name() {
-    let _tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, file_operations::load_steam_cache());
+    let _tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, Vec::new());
     let _ = properties::load_properties();
 
     // Test valid store ids
@@ -56,7 +56,7 @@ fn get_proper_store_name() {
 
 #[test]
 fn get_selected_stores() {
-    let _tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, file_operations::load_steam_cache());
+    let _tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, Vec::new());
     let _ = properties::load_properties();
     
     let stores = vec![String::from(STEAM_STORE_ID),
@@ -80,7 +80,7 @@ fn get_selected_stores() {
 
 #[test]
 fn get_alias_state() {
-    let _test_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, file_operations::load_steam_cache());    
+    let _test_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, Vec::new());    
     let _ = properties::load_properties();
     
     let are_aliases_enabled = settings::get_alias_state();
@@ -91,7 +91,7 @@ fn get_alias_state() {
 
 #[test]
 fn update_selected_stores() {
-    let _tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, file_operations::load_steam_cache());
+    let _tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, Vec::new());
     let _ = properties::load_properties();
     
     let mut selected_stores = settings::get_selected_stores();
@@ -127,7 +127,7 @@ fn update_selected_stores() {
 
 #[test]
 fn update_alias_state(){
-    let _tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, file_operations::load_steam_cache());
+    let _tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, Vec::new());
     let _ = properties::load_properties();
     
     let mut are_aliases_enabled = settings::get_alias_state();

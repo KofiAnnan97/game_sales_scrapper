@@ -17,7 +17,7 @@ fn delete_decrypt_key(){
 #[test]
 // #[ignore]
 fn check_environment_variables() {
-    let _tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, file_operations::load_steam_cache());
+    let _tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, Vec::new());
     let steam_api_key_val = "INITIAL";
     let recipient_email_val = "recipient@example.com";
     let smtp_host_val = "smtp.initial.com";
@@ -80,7 +80,7 @@ fn check_environment_variables() {
 
 #[test]
 fn no_variables(){
-    let _tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, file_operations::load_steam_cache());
+    let _tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, Vec::new());
     let steam_api_key_val = "";
     let recipient_email_val = "";
     let smtp_host_val = "";
@@ -141,7 +141,7 @@ fn no_variables(){
 
 #[test]
 fn decrypt_key_created() {
-    let _tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, file_operations::load_steam_cache());
+    let _tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, Vec::new());
 
     let decrypt_file: PathBuf = [_tmp_env.temp_dir.display().to_string(), CONFIG_DIR.to_string(), DECRYPT_FILENAME.to_string()].iter().collect();
 
@@ -158,7 +158,7 @@ fn decrypt_key_created() {
 
 #[test]
 fn read_custom_env_file() {
-    let _tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, file_operations::load_steam_cache());
+    let _tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, Vec::new());
     env::set_current_dir(&_tmp_env.temp_dir).unwrap();
 
     let env_filename = "custom.env";

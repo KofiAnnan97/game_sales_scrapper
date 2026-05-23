@@ -8,6 +8,10 @@ use regex::Regex;
 
 use file_ops::settings;
 use constants::operations::settings::{GOG_STORE_ID, MICROSOFT_STORE_ID, STEAM_STORE_ID};
+// use constants::stores::microsoft_store::BASE_URL as MS_BASE_URL;
+// use stores::pc::microsoft_store::{self, MockMicrosoftStoreApi};
+// use stores::pc::gog::MockGogApi;
+// use stores::pc::steam::MockSteamApi;
 use crate::stubs::command_stubs;
 use crate::utils::file_operations;
 
@@ -22,9 +26,14 @@ static SELECT_STORES_PRTN: &str = r"\[(X|\s)\]\s+(.*)";
 static GAME_THRESH_PTRN: &str = r"-\s+(.*)\s\[.*\]\s+=>\s+(\d+.\d+|\d+)";
 static PRICE_CHECK_PTRN: &str = r"-\s(?<title>.*)\s:\s\d+.\d+\s->\s\d+.\d+\s\(";
 
+fn setup(){
+    file_operations::clear_thresholds();
+    file_operations::clear_settings();
+}
+
 #[test]
 fn config_cmd() {
-    file_operations::clear_settings(); 
+    setup();
     let _ = Command::new("cargo")
         .args(["run","--release","-p","gss-cli","--","config","settings","-s","-g","-e","0"])
         .output()
@@ -50,9 +59,7 @@ fn config_cmd() {
 #[tokio::test]
 #[ignore = "Not fully implemented"]
 async fn add_cmd() {
-    file_operations::clear_settings();
-    file_operations::clear_thresholds();
-
+    setup();
     // Check that add fails without config setup
     // let price_str = "19.99";
     // let add_wo_config = Command::new("cargo")
@@ -92,10 +99,9 @@ async fn add_cmd() {
 #[tokio::test]
 #[ignore = "Not fully implemented"]
 async fn bulk_insert_cmd() {
-    file_operations::clear_settings();
-    file_operations::clear_thresholds();
+    setup();
     let filename = "bulk-insert-test.csv";
-    let csv_path = command_stubs::get_sample_csv(filename);
+    let _csv_path = command_stubs::get_sample_csv(filename);
 
     // Update settings
     let _ = Command::new("cargo")
@@ -122,9 +128,7 @@ async fn bulk_insert_cmd() {
 
 #[test]
 fn update_price_cmd() {
-    file_operations::clear_thresholds();
-    file_operations::clear_settings();
-    
+    setup();
     let title = "A single game";
     let alias = "ASG";
     let price = 69.99;
@@ -156,9 +160,7 @@ fn update_price_cmd() {
 
 #[test]
 fn remove_cmd() {
-    file_operations::clear_thresholds();
-    file_operations::clear_settings();
-
+    setup();
     let title = "Soon to be removed";
     let alias = "SR";
     let price = 69.99;
@@ -185,8 +187,7 @@ fn remove_cmd() {
 
 #[test]
 fn list_selected_stores_cmd() {
-    file_operations::clear_settings();
-
+    setup();
     let _ = Command::new("cargo")
         .args(["run","--release","-p","gss-cli","--","config","settings","-m"])
         .output()
@@ -222,9 +223,7 @@ fn list_selected_stores_cmd() {
 
 #[test]
 fn list_thresholds_cmd() {
-    file_operations::clear_thresholds();
-    file_operations::clear_settings();
-
+    setup();
     let title = "Listed game #1";
     let alias = "LG1";
     let price = 69.99;
@@ -251,10 +250,23 @@ fn list_thresholds_cmd() {
 
 #[tokio::test]
 async fn check_prices() {
-    file_operations::clear_thresholds();
-    file_operations::clear_settings();
-
+    setup();
     command_stubs::add_threshold("E33", E33_GAME_TITLE, E33_STEAM_ID, E33_GOG_ID, E33_MS_ID, 9999.99);
+    // WORK IN PROGRESS: Need to figure out how to mock the API calls that happen when check-prices is ran.
+    // let mut steam_mock = MockSteamApi::new();
+    // steam_mock.expect_get_price_details()
+    //     .withf(|steam_id| steam_id == &E33_STEAM_ID)
+    //     .return_once(|_|  Ok(command_stubs::get_steam_price_check(E33_GAME_TITLE, 9999.99, 9.99)));
+
+    // let mut gog_mock = MockGogApi::new();
+    // gog_mock.expect_get_price_details_v2()
+    //     .withf(|title| title == E33_GAME_TITLE)
+    //     .return_once(|_|  Some(command_stubs::get_gog_price_check(E33_GAME_TITLE, 9999.99, 9.99)));
+
+    // let mut ms_mock = MockMicrosoftStoreApi::new();
+    // ms_mock.expect_get_price_details()
+    //     .withf(|xbox_id| xbox_id == E33_MS_ID)
+    //     .return_once(|_| Some(command_stubs::get_ms_price_check(E33_GAME_TITLE, 9999.99, 9.99)));
     let cp_out = Command::new("cargo")
         .args(["run","--release","-p","gss-cli","--","--check-prices"])
         .output()
@@ -280,13 +292,13 @@ async fn check_prices() {
         else if lines[i].is_empty() { continue; }
         else{
             for(_, [game_title]) in re.captures_iter(lines[i]).map(|c| c.extract() ){
-                if let Some(games) =games_by_store.get_mut(curr_store){
+                if let Some(games) = games_by_store.get_mut(curr_store){
                     games.push(&game_title);
                 }
             }
         }
     }
-    //print!("{:?}", games_by_store);
+    // print!("Games by store:{:?}", games_by_store);
 
     let expected = HashMap::from([
         (steam_proper.as_str(), vec![E33_GAME_TITLE]),

@@ -9,6 +9,9 @@ pub static STORE_BASE_URL : &str = "https://store.steampowered.com";
 pub static APP_LIST_ENDPOINT : &str = "/IStoreService/GetAppList/v1";
 pub static DETAILS_ENDPOINT : &str = "/api/appdetails";
 
+//Store page
+pub static STORE_PAGE_URL : &str = "https://store.steampowered.com/app/";
+
 // Cache update parameters
 pub static NUM_OF_RESULTS : u32 = 40000;
 pub static SLIDING_UPDATE_START_SIZE : usize = 100000;

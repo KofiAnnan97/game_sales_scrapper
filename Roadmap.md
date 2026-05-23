@@ -4,7 +4,6 @@
 - Features/Updates
   - [ ] Implement script as a desktop app
   - [ ] Update alias from command line
-  - [ ] Configure Steam API call to not send steam key as plain text
   - [ ] Add fuzzy search to update and remove command for potential suggestions if the title or alias is not found
   - [ ] Deteremine if defaulting the path should be in getters for project and test path if properties and dot env file have an invalid/empty path
 - Bugs/Fixes
@@ -14,7 +13,7 @@
 - Testing:
   - [X] Update tests to use stubbing
   - [X] Implement temp directories (for all file based tests)
-  - [ ] Mock api calls for user commands (check prices)
+  - [ ] Mock api calls for user commands (check prices) -> may need to moved out to later
   - [X] Write tests for
     - [X] properties (creation, updating and retrieval)
     - [X] retrieving environment variables

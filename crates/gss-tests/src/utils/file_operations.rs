@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 use serde_json::{json, Result, Value};
 use properties;
 use file_types::general;
-use structs::internal::data::{self, GameThreshold};
+use structs::internal::data::{GameThreshold};
 use constants::operations::thresholds::{ALIAS_MAP, THRESHOLDS, THRESHOLD_FILENAME};
 use constants::operations::settings::{ALIASES_ENABLED, ALLOW_ALIAS_REUSE_AFTER_CREATION, 
                                       SELECTED_STORES, SETTINGS_FILENAME};

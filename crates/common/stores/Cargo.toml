@@ -22,3 +22,5 @@ regex.workspace = true
 exitcode.workspace = true
 rand.workspace = true
 chrono.workspace = true
+mockall.workspace = true
+async-trait.workspace = true

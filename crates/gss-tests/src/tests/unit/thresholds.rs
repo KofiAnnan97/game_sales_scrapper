@@ -1,16 +1,14 @@
-use std::env;
 use file_ops::{thresholds};
 use properties;
 use constants::operations::settings::{GOG_STORE_ID, MICROSOFT_STORE_ID, STEAM_STORE_ID};
-use constants::operations::properties::{PROJECT_PATH_ENV, TEST_PATH_ENV};
 use crate::stubs::threshold_stubs;
-use crate::utils::{file_operations, tmp_setup};
+use crate::utils::{tmp_setup};
 
 const TMP_DIR_TITLE: &str = "thresholds";
 
 #[tokio::test]
 async fn add_steam_game() {
-    let _tmp_env: tmp_setup::TempEnvironment = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, file_operations::load_steam_cache());
+    let _tmp_env: tmp_setup::TempEnvironment = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, Vec::new());
     let _ = properties::load_properties();
 
     // delete_thresholds();
@@ -33,7 +31,7 @@ async fn add_steam_game() {
 
 #[test]
 fn add_gog_game() {
-    let _tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, file_operations::load_steam_cache());
+    let _tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, Vec::new());
     let _ = properties::load_properties();
 
     let game = threshold_stubs::test_gog_game();
@@ -54,7 +52,7 @@ fn add_gog_game() {
 
 #[test]
 fn add_microsoft_store_game() {
-    let _tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, file_operations::load_steam_cache());
+    let _tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, Vec::new());
     let _ = properties::load_properties();
 
     let game = threshold_stubs::test_ms_game();
@@ -75,7 +73,7 @@ fn add_microsoft_store_game() {
 
 #[test]
 fn update_alias() {
-    let _tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, file_operations::load_steam_cache());
+    let _tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, Vec::new());
     let _ = properties::load_properties();
 
     let game_title = String::from("Random Game");
@@ -123,7 +121,7 @@ fn update_alias() {
 
 #[test]
 fn update_price() {
-    let _tmp_env: tmp_setup::TempEnvironment = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, file_operations::load_steam_cache());
+    let _tmp_env: tmp_setup::TempEnvironment = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, Vec::new());
     let _ = properties::load_properties();
 
     let first_game = String::from("Random Game");
@@ -159,7 +157,7 @@ fn update_price() {
 
 #[test]
 fn update_id(){
-    let _tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, file_operations::load_steam_cache());
+    let _tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, Vec::new());
     let _ = properties::load_properties();
 
     let game_title = String::from("Random Game");
@@ -185,7 +183,7 @@ fn update_id(){
 
 #[test]
 fn update_id_str(){
-    let _tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, file_operations::load_steam_cache());
+    let _tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, Vec::new());
     let _ = properties::load_properties();
 
     let game_title = String::from("Random Game");
@@ -208,7 +206,7 @@ fn update_id_str(){
 
 #[test]
 fn remove_game(){
-    let _tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, file_operations::load_steam_cache());
+    let _tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, Vec::new());
     let _ = properties::load_properties();
 
     let first_game = String::from("Random Game");
