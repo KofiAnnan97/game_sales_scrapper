@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug)]
+#[derive(Serialize, Deserialize,Debug)]
 pub struct SaleInfo{
     pub icon_link: String,
     pub title: String,

@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 use std::fs::{self, metadata, File};
 use std::path::{PathBuf};
-use dotenv::dotenv as dotenv_linux;
-use dotenvy::dotenv as dotenv_windows;
+use dotenv as env_linux;
+use dotenvy as env_windows;
 use rand::distr::{Alphanumeric, SampleString};
 
 use file_types::general;
@@ -35,10 +35,22 @@ pub fn get_decrypt_key(project_path: String) -> String{
     key_str
 }
 
-pub fn get_variables() -> HashMap<String, String> {
-    if cfg!(target_os = "windows") { dotenv_windows().ok(); }
-    else if cfg!(target_os = "linux") { dotenv_linux().ok(); }
+pub fn load_dotenv(file: Option<&str>) {
+    match file{
+        Some(filename) => {
+            if cfg!(target_os = "windows") { env_windows::from_filename_override(filename).ok(); }
+            else if cfg!(target_os = "linux") { env_linux::from_filename(filename).ok(); }
+        },
+        None => {
+            if cfg!(target_os = "windows") { env_windows::dotenv().ok(); }
+            else if cfg!(target_os = "linux") { env_linux::dotenv().ok(); }
+        }
+    };
+}
 
+
+pub fn get_variables() -> HashMap<String, String> {
+    load_dotenv(None);
     let mut vars: HashMap<String, String> = HashMap::new();
     let mut env_path = std::env::current_dir().unwrap();
     env_path.push(ENV_FILENAME);
@@ -74,15 +86,13 @@ pub fn get_variables() -> HashMap<String, String> {
 }
 
 pub(crate) fn get_project_path() -> String {
-    if cfg!(target_os = "windows") { dotenv_windows().ok(); }
-    else if cfg!(target_os = "linux") { dotenv_linux().ok(); }
+    load_dotenv(None);
     let project_path = std::env::var(PROJECT_PATH_ENV).unwrap_or_else(|_| String::new());
     project_path
 }
 
 pub(crate) fn get_test_path() -> String {
-    if cfg!(target_os = "windows") { dotenv_windows().ok(); }
-    else if cfg!(target_os = "linux") { dotenv_linux().ok(); }
+    load_dotenv(None);
     let test_path = std::env::var(TEST_PATH_ENV).unwrap_or_else(|_| String::new());
     test_path
 }

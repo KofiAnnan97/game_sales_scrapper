@@ -88,17 +88,16 @@ pub fn update_threshold_alias(game_title: String, new_alias: &str) {
         
         // Remove old alias for game in alias map
         let mut thresholds = load_thresholds().unwrap_or_default();
-        let idx = thresholds.iter().position(|threshold| *threshold.title == game_title);
         let mut old_alias: String = String::new();
-        if idx.is_some(){
-            let i = idx.unwrap();
+        if let Some(i) = thresholds.iter().position(|threshold| *threshold.title == game_title){
             old_alias = thresholds[i].alias.to_string();
             thresholds[i].alias = String::from(new_alias);
         }
         if alias_map.contains_key(&old_alias){
-            let mut alias_list = alias_map.get_mut(&old_alias).unwrap();
-            let val_idx = alias_list.iter().position(|threshold_title| *threshold_title == game_title);
-            if val_idx.is_some(){ alias_list.remove(val_idx.unwrap()); }
+            let alias_list = alias_map.get_mut(&old_alias).unwrap();
+            if let Some(j) = alias_list.iter().position(|threshold_title| *threshold_title == game_title){
+                alias_list.remove(j);
+            }
             if alias_list.is_empty(){ alias_map.remove(&old_alias); }
         }
 

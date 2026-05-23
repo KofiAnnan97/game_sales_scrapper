@@ -1,4 +1,4 @@
-use std::fs::{self, metadata, read_to_string};
+use std::fs::{metadata, read_to_string};
 use std::path::{Path, PathBuf};
 use serde_json::{json, Value, Result};
 
@@ -40,7 +40,7 @@ pub fn get_properties_path() -> String{
                     PROP_STEAM_API_KEY : if has_env { vars.get(STEAM_API_KEY_ENV).unwrap() } else { "" },
                     PROP_RECIPIENT_EMAIL: if has_env { vars.get(RECIPIENT_EMAIL_ENV).unwrap() } else { "" },
                     PROP_SMTP_HOST: if has_env { vars.get(SMTP_HOST_ENV).unwrap() } else { "" },
-                    PROP_SMTP_PORT: if has_env { vars.get(SMTP_PORT_ENV).unwrap().parse::<u16>().unwrap() } else { 0 },
+                    PROP_SMTP_PORT: if has_env { vars.get(SMTP_PORT_ENV).unwrap().parse::<u16>().unwrap_or_else(|_| 0) } else { 0 },
                     PROP_SMTP_EMAIL: if has_env { vars.get(SMTP_EMAIL_ENV).unwrap() } else { "" },
                     PROP_SMTP_USERNAME: if has_env { vars.get(SMTP_USERNAME_ENV).unwrap() } else { "" },
                     PROP_SMTP_PASSWORD: if has_env { vars.get(SMTP_PASSWORD_ENV).unwrap() } else { "" },

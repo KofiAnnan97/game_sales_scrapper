@@ -25,15 +25,15 @@ pub struct PriceOverview {
     #[serde(rename="discountPercentage")]
     pub discount_percentage: i32,
     #[serde(rename="discountDifference")]
-    discount_diff: String,
+    pub discount_diff: String,
     pub symbol: String,
     #[serde(rename="isFree")]
     pub is_free: bool,
     pub discount: i32,
     #[serde(rename="isBonusStoreCreditIncluded")]
-    is_bonus_credit_included: bool,
+    pub is_bonus_credit_included: bool,
     #[serde(rename="bonusStoreCreditAmount")]
-    bonus_credit_amount: String
+    pub bonus_credit_amount: String
 }
 
 /*-----------*

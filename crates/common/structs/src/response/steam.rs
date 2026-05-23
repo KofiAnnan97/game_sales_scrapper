@@ -9,6 +9,7 @@ pub struct App{
     pub price_change_number: i64,
 }
 
+#[derive(Deserialize, Serialize, Debug)]
 pub struct PriceOverview{
     pub currency: String,
     pub discount_percent: u32,

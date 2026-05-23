@@ -1,15 +1,17 @@
-use std::fs::{self, metadata, read_to_string};
+use std::fs::{metadata, read_to_string};
 use std::path::{Path, PathBuf};
 use serde_json::{json, Result, Value};
 use properties;
 use file_types::general;
-use structs::internal::data::GameThreshold;
+use structs::internal::data::{GameThreshold};
 use constants::operations::thresholds::{ALIAS_MAP, THRESHOLDS, THRESHOLD_FILENAME};
 use constants::operations::settings::{ALIASES_ENABLED, ALLOW_ALIAS_REUSE_AFTER_CREATION, 
                                       SELECTED_STORES, SETTINGS_FILENAME};
-use constants::operations::properties::{CONFIG_DIR, DATA_DIR};
+use constants::operations::properties::*;
+use constants::stores::steam::{CACHE_FILENAME};
+use structs::response::steam::App;
 
-pub(in crate::tests) fn get_data_path() -> String {
+pub fn get_data_path() -> String {
     if !properties::is_testing_enabled() { properties::set_test_mode(true); }
     let mut data_path = properties::get_test_path();
     let path_buf: PathBuf = [&data_path, DATA_DIR].iter().collect();
@@ -18,7 +20,7 @@ pub(in crate::tests) fn get_data_path() -> String {
     data_path
 }
 
-pub(in crate::tests) fn get_config_path() -> String {
+pub fn get_config_path() -> String {
     if !properties::is_testing_enabled() { properties::set_test_mode(true); }
     let mut config_path = properties::get_test_path();
     let path_buf: PathBuf = [&config_path, CONFIG_DIR].iter().collect();
@@ -27,7 +29,7 @@ pub(in crate::tests) fn get_config_path() -> String {
     config_path
 }
 
-pub(in crate::tests) fn get_threshold_path() -> String {
+pub fn get_threshold_path() -> String {
     let path_buf: PathBuf = [get_data_path(), THRESHOLD_FILENAME.to_string()].iter().collect();
     let threshold_path = path_buf.display().to_string();
     let path_str = general::get_path(&threshold_path);
@@ -47,21 +49,21 @@ pub(in crate::tests) fn get_threshold_path() -> String {
     path_str
 }
 
-pub(in crate::tests) fn get_settings_path() -> String {
+pub fn get_settings_path() -> String {
     let mut settings_path = get_config_path();
     let path_buf: PathBuf = [&settings_path, SETTINGS_FILENAME].iter().collect();
     settings_path = path_buf.display().to_string();
     general::get_path(&settings_path)
 }
 
-pub(in crate::tests) fn clear_settings() {
+pub fn clear_settings() {
     if !properties::is_testing_enabled() { properties::set_test_mode(true); }
     let settings = json!({SELECTED_STORES: [], ALIASES_ENABLED: 1, ALLOW_ALIAS_REUSE_AFTER_CREATION: 1});
     let settings_str = serde_json::to_string_pretty(&settings);
     general::write_to_file(get_settings_path(), settings_str.expect("Clear settings."));
 }
 
-pub(in crate::tests) fn clear_thresholds(){
+pub fn clear_thresholds(){
     if !properties::is_testing_enabled() { properties::set_test_mode(true); }
     let thresholds = json!({
         THRESHOLDS.to_string(): [],
@@ -71,13 +73,22 @@ pub(in crate::tests) fn clear_thresholds(){
     general::write_to_file(get_threshold_path(), thresholds_str.expect("Clear thresholds."));
 }
 
-pub(in crate::tests) fn load_threshold_data() -> Result<Value> {
+pub fn load_steam_cache() -> Vec<App> {
+    let path_buf: PathBuf = [get_data_path(), CACHE_FILENAME.to_string()].iter().collect();
+    let filepath = path_buf.display().to_string();
+    let data = read_to_string(filepath).unwrap();
+    let body: Value = serde_json::from_str(&data).expect("Cannot parse steam cache for testing");
+    let cache = serde_json::to_string(&body).unwrap();
+    serde_json::from_str::<Vec<App>>(&cache).unwrap_or_default()
+}
+
+pub fn load_threshold_data() -> Result<Value> {
     let filepath = get_threshold_path();
     let data = read_to_string(filepath).unwrap();
     serde_json::from_str(&data)
 }
 
-pub(in crate::tests) fn load_thresholds() -> Vec<GameThreshold> {
+pub fn load_thresholds() -> Vec<GameThreshold> {
     let filepath = get_threshold_path();
     let data = read_to_string(filepath).unwrap();
     let body: Value = serde_json::from_str(&data).expect("Cannot parse threshold for testing");
@@ -85,7 +96,7 @@ pub(in crate::tests) fn load_thresholds() -> Vec<GameThreshold> {
     serde_json::from_str::<Vec<GameThreshold>>(&thresholds).unwrap_or_default()
 }
 
-pub(in crate::tests) fn load_stores() -> Vec<String> {
+pub fn load_stores() -> Vec<String> {
     let filepath = get_settings_path();
     let data = read_to_string(filepath).unwrap();
     let body : Value = serde_json::from_str(&data).expect("Get selected stores - could not convert to JSON");
@@ -93,7 +104,7 @@ pub(in crate::tests) fn load_stores() -> Vec<String> {
     serde_json::from_str::<Vec<String>>(&selected).unwrap_or_default()
 }
 
-pub(in crate::tests) fn load_alias_state() -> bool{
+pub fn load_alias_state() -> bool{
     let filepath = get_settings_path();
     let data = read_to_string(filepath).unwrap();
     let body : Value = serde_json::from_str(&data).expect("Get alias state - could not convert to JSON");
@@ -101,6 +112,31 @@ pub(in crate::tests) fn load_alias_state() -> bool{
     serde_json::from_str::<bool>(&alias_enabled).unwrap_or_else(|_|false)
 }
 
-pub(in crate::tests) fn teardown(){
+pub fn create_env_str(steam_api_key_val: &str, recipient_email_val: &str, smtp_host_val: &str, smtp_port_val: &str, smtp_email_val: &str, 
+    smtp_username_val: &str, smtp_password_val: &str, dir_path: &Path)-> String {
+    format!(
+        "{steam_env}=\"{steam_api_key_val}\"\n{recipient_env}=\"{recipient_email_val}\"\n{host_env}=\"{smtp_host_val}\"\n{port_env}={smtp_port_val}\n{email_env}=\"{smtp_email_val}\"\n{user_env}=\"{smtp_username_val}\"\n{pwd_env}=\"{smtp_password_val}\"\n{project_env}=\"{project_path_val}\"\n{test_env}=\"{test_path_val}\"\n",
+        steam_env = STEAM_API_KEY_ENV,
+        recipient_env = RECIPIENT_EMAIL_ENV,
+        host_env = SMTP_HOST_ENV,
+        port_env = SMTP_PORT_ENV,
+        email_env = SMTP_EMAIL_ENV,
+        user_env = SMTP_USERNAME_ENV,
+        pwd_env = SMTP_PASSWORD_ENV,
+        project_env = PROJECT_PATH_ENV,
+        test_env = TEST_PATH_ENV,
+        steam_api_key_val = steam_api_key_val,
+        recipient_email_val = recipient_email_val,
+        smtp_host_val = smtp_host_val,
+        smtp_port_val = smtp_port_val,
+        smtp_email_val = smtp_email_val,
+        smtp_username_val = smtp_username_val,
+        smtp_password_val = smtp_password_val,
+        project_path_val = dir_path.display().to_string(),
+        test_path_val = dir_path.join(DEFAULT_TEST_DIR).display().to_string()
+    )
+}
+
+pub fn teardown(){
     properties::set_test_mode(false);
 }

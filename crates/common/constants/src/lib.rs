@@ -7,3 +7,9 @@ pub mod operations {
     pub mod settings;
     pub mod thresholds;
 }
+
+pub mod stores {
+    pub mod gog;
+    pub mod steam;
+    pub mod microsoft_store;
+}

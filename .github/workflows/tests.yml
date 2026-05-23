@@ -21,7 +21,7 @@ jobs:
   linux:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6
     - name: Create env file
       run: bash ./setup/actions/create_env_file.sh
     - name: Configure project
@@ -42,7 +42,7 @@ jobs:
     if: always()
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Configure toolchain
         run: |
           # Install toolchain

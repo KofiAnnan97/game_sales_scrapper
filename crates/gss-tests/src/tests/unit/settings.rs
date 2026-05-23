@@ -5,17 +5,15 @@ use constants::operations::settings::{STEAM_STORE_ID, STEAM_STORE_NAME,
                                       MICROSOFT_STORE_ID, MICROSOFT_STORE_NAME,
                                       ENABLED_STATE, DISABLED_STATE, DEFAULT_ALIAS_STATE};
 use properties;
-use crate::tests::helper;
+use crate::utils::{tmp_setup};
 
-fn default_settings() {
-    if !properties::is_testing_enabled() { properties::set_test_mode(true); }
-    settings::update_selected_stores(Vec::new());
-    settings::update_alias_state(ENABLED_STATE);
-}
+static TMP_DIR_TITLE : &str = "settings";
 
 #[test]
 fn get_available_stores() {
-    if !properties::is_testing_enabled() { properties::set_test_mode(true); }
+    let _tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, Vec::new());
+    let _ = properties::load_properties();
+
     let available_stores = settings::get_available_stores();
     let mut all_stores_valid = true;
     let mut invalid_store = "";
@@ -33,12 +31,15 @@ fn get_available_stores() {
     for store in available_stores {
         assert_ne!(store, invalid_store, "\'{}\' should not be a valid store", invalid_store);
     }
-    helper::teardown();
+
+     _tmp_env.tear_down();
 }
 
 #[test]
 fn get_proper_store_name() {
-    if !properties::is_testing_enabled() { properties::set_test_mode(true); }
+    let _tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, Vec::new());
+    let _ = properties::load_properties();
+
     // Test valid store ids
     let mut store_name = settings::get_proper_store_name(STEAM_STORE_ID).unwrap();
     assert_eq!(STEAM_STORE_NAME, store_name, "{} != {}", store_name, STEAM_STORE_NAME);
@@ -49,12 +50,15 @@ fn get_proper_store_name() {
     // Test invalid store id
     store_name = settings::get_proper_store_name("fake_store").unwrap_or_default();
     assert_eq!("", store_name, "\'{}\' is not a valid store id", store_name);
-    helper::teardown();
+
+    _tmp_env.tear_down();
 }
 
 #[test]
 fn get_selected_stores() {
-    default_settings();
+    let _tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, Vec::new());
+    let _ = properties::load_properties();
+    
     let stores = vec![String::from(STEAM_STORE_ID),
                                   String::from(GOG_STORE_ID)];
     settings::update_selected_stores(stores);
@@ -70,20 +74,26 @@ fn get_selected_stores() {
     assert_eq!(true, is_steam_selected, "{} should be selected", STEAM_STORE_ID);
     assert_eq!(true, is_gog_selected, "{} should be selected", GOG_STORE_ID);
     assert_eq!(false, is_ms_store_selected, "{} should not be selected", MICROSOFT_STORE_ID);
-    helper::teardown();
+    
+    _tmp_env.tear_down();
 }
 
 #[test]
 fn get_alias_state() {
-    default_settings();
+    let _test_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, Vec::new());    
+    let _ = properties::load_properties();
+    
     let are_aliases_enabled = settings::get_alias_state();
     assert_eq!(true, are_aliases_enabled, "Aliases should be enabled.");
-    helper::teardown();
+    
+    _test_env.tear_down();
 }
 
 #[test]
 fn update_selected_stores() {
-    default_settings();
+    let _tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, Vec::new());
+    let _ = properties::load_properties();
+    
     let mut selected_stores = settings::get_selected_stores();
     assert_eq!(0, selected_stores.len(), "No stores should be selected by default");
     // Check that stores are added to settings
@@ -111,12 +121,15 @@ fn update_selected_stores() {
         let count = &store.1;
         assert_eq!(store_limit, *count, "\'{}\' should not have more than 1 entry.", store.0);
     }
-    helper::teardown();
+
+    _tmp_env.tear_down();
 }
 
 #[test]
 fn update_alias_state(){
-    default_settings();
+    let _tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, Vec::new());
+    let _ = properties::load_properties();
+    
     let mut are_aliases_enabled = settings::get_alias_state();
     // Check default alias state is true
     assert_eq!(DEFAULT_ALIAS_STATE, are_aliases_enabled, "Aliases should be enabled by default.");
@@ -132,5 +145,6 @@ fn update_alias_state(){
             assert_eq!(false, are_aliases_enabled, "Aliases should not be enabled given input: {}.", i);
         }
     }
-    helper::teardown();
+    
+    _tmp_env.tear_down();
 }
