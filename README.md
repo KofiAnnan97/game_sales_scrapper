@@ -6,8 +6,7 @@
 
 Roadmap: [[link](./docs/Roadmap.md)]
 
-A script that checks multiple storefront to determine if a game has reached a user-defined price. Automation can be set up to send an email if any game is 
-at or falls below their respective price threshold.
+A tool that monitors multiple game storefronts and sends email alerts when a game reaches the user-defined price threshold.
 
 ### Supported Storefronts
 - **Steam**

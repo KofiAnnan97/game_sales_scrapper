@@ -3,7 +3,7 @@
 ### Release 0.3.0
 - Features/Updates
   - [ ] Implement script as a desktop app
-    - [ ]Features
+    - Features
       - [X] Configure settings and properties
       - [X] Add games 
       - [ ] Bulk insert games
@@ -14,24 +14,26 @@
       - [X] List thresholds
       - [X] Update cache
       - [X] Check prices
-      - [X] Send email 
-    - [ ] Fixes
-      - [ ] Give a warning when no stores are selected
-      - [ ] Remove/reduce duplicate code between the app and cli
-      - [ ] Selected stores do not impact what stores are queried in app (settings are properly updated)
-      - [ ] Updating the price of one threshold which shares a alias with another should update the price of that other threshold
-  - [ ] Update alias from command line
-  - [ ] Add fuzzy search to update and remove command for potential suggestions if the title or alias is not found
-  - [ ] Deteremine if defaulting the path should be in getters for project and test path if properties and dot env file have an invalid/empty path
+      - [X] Send email  
+  - CLI
+    - [ ] Update alias from command line
+    - [X] Add fuzzy search to update and remove command for potential suggestions if the title or alias is not found
+    - [X] Add fuzzy search for Steam game
 - Bugs/Fixes
-  - [X] Fix shortTilte field in Microsoft Store GameInfo struct 
-  - [ ] Configure Steam API call to not send steam key as plain text
-  - [ ] Pull currency type for Microsoft store games
-  - [ ] Update dependencies and resolve any potential issues
+  - Application
+    - [ ] Give a warning when no stores are selected
+    - [ ] Remove/reduce duplicate code between the app and cli
+    - [X] Selected stores do not impact what stores are queried in app (settings are properly updated)
+    - [] Updating the price of one threshold which shares a alias with another should update the price of that other threshold
+  - CLI
+    - [X] Fix shortTilte field in Microsoft Store GameInfo struct 
+    - [ ] Configure Steam API call to not send steam key as plain text
+    - [ ] Pull currency type for Microsoft store games
 - Testing:
   - [X] Update tests to use stubbing
   - [X] Implement temp directories (for all file based tests)
   - [ ] Mock api calls for user commands (check prices) -> may need to moved out to later
+  - [ ] Write tests for update_price_fuzzy() and remove_fuzzy() 
   - [X] Write tests for
     - [X] properties (creation, updating and retrieval)
     - [X] retrieving environment variables
@@ -42,7 +44,9 @@
   - Retrieve pricing data from Steam bundles 
   - Retrieve pricing data from game editions on GOG
   - Add the option to send emails through AWS SES
+  - Deteremine if defaulting the path should be in getters for project and test path if properties and dot env file have an invalid/empty path
 - Bugs/Fixes
+  - Update dependencies and resolve any potential issues
 - Testing
   - Scope of untested code
     - Needs implementation

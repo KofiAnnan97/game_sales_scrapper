@@ -99,7 +99,7 @@ pub fn search_tab(app: &crate::App) -> Element<'_, Message> {
                         .padding(4)
                 },
             ],
-            Scrollable::new(search_list).height(400),
+            Scrollable::new(search_list).height(400).width(Length::Fill),
             column![
                 // text(format!("Selected: {}", selected_text)).size(14),
                 add_threshold_button,

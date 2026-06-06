@@ -5,7 +5,7 @@ use constants::operations::settings::{GOG_STORE_ID, MICROSOFT_STORE_ID, STEAM_ST
 
 use crate::StoreSearchResult;
 
-static MAX_RESULTS: usize = 10;
+static MAX_RESULTS: usize = 20;
 
 pub async fn perform_store_search(query: String, store_id: String) -> Result<Vec<StoreSearchResult>, String> {
     if query.trim().is_empty() {

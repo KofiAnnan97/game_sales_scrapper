@@ -10,6 +10,7 @@ use constants::operations::settings::{STEAM_STORE_ID, GOG_STORE_ID, MICROSOFT_ST
 use constants::operations::thresholds::*;
 use crate::settings::{self, get_alias_reuse_state};
 use stores::pc::steam; //, gog, microsoft_store};
+use stores::algorithms::fuzzy;
 use structs::response::steam::App;
 use structs::response::gog::GameInfo as GOGGameInfo;
 use structs::response::microsoft_store::ProductInfo;
@@ -274,7 +275,7 @@ pub fn set_game_alias() -> String {
     alias
 }
 
-pub fn update_price(title: &str, price: f64) {
+pub fn update_price(title: &str, price: f64) -> bool {
     let mut thresholds = load_thresholds().unwrap_or_else(|_e|Vec::new());
     let mut price_updated = false;
     for threshold in thresholds.iter_mut(){
@@ -292,8 +293,76 @@ pub fn update_price(title: &str, price: f64) {
             }
         }
     }
-    if price_updated{ update_thresholds(thresholds); }
-    else{ println!("\"{}\" does not have a configured threshold.", title); }
+    if price_updated{ 
+        update_thresholds(thresholds); 
+        true
+    }
+    else{ 
+        println!("\"{}\" does not have a configured threshold.", title); 
+        false
+    }
+}
+
+pub fn update_price_fuzzy(title: &str, price: f64) {
+    //Try to run the normal update price runtine first
+    let price_updated = update_price(title, price);
+
+    if !price_updated {
+        // Find other potential games
+        let thresholds = load_thresholds().unwrap_or_else(|_e|Vec::new());
+        let mut fuzzy_threholds: Vec<String> = Vec::new();
+        let mut fuzzy_alias: Vec<String> = Vec::new();
+        for thresh in thresholds {
+            let mut dist = fuzzy::levenstein_dist(title, thresh.title.as_str());
+            if 1.0 - (dist/thresh.title.len() as f32) >= LEVENSTEIN_DIST_PERCENTAGE {
+                fuzzy_threholds.push(thresh.title);
+                fuzzy_alias.push(thresh.alias);
+            }
+            else if !thresh.alias.is_empty() {
+                dist = fuzzy::levenstein_dist(title, thresh.alias.as_str());
+                if 1.0 - (dist/thresh.alias.len() as f32) >= LEVENSTEIN_DIST_PERCENTAGE {
+                    fuzzy_threholds.push(thresh.title);
+                    fuzzy_alias.push(thresh.alias);
+                }
+            }
+        }
+
+        if fuzzy_threholds.is_empty() {
+            return;
+        }
+
+        println!("Did you mean one of the following?");
+        for (idx, game_title) in fuzzy_threholds.iter().enumerate() {
+            println!("  [{}] {}", idx, game_title);
+        }
+        println!("  [c] Cancel");
+        let mut input = String::new();
+        print!("Update price by index or type \'c\' to cancel: ");
+        let _ = io::stdout().flush();
+        io::stdin()
+            .read_line(&mut input)
+            .expect("Failed to read user input");
+        if input.trim() == "c" {
+            println!("Threshold removal of '{}' cancelled.", title);
+        } else {
+            match input.trim().parse::<usize>() {
+                Ok(idx) => {
+                    if idx < fuzzy_threholds.len(){
+                        let alias = fuzzy_alias[idx].as_str();
+                        if alias != "" {
+                            update_price(alias, price);
+                        } else {
+                            update_price(&fuzzy_threholds[idx], price);
+                        }
+                    }
+                    else if idx >= fuzzy_threholds.len(){
+                        eprintln!("Integer \"{}\" is invalid. Remove cancelled.", idx);
+                    }
+                },
+                Err(e) => println!("Invalid input: {}\nError: {}", input, e)
+            }
+        }
+    }
 }
 
 pub fn update_id(title: &str, store_type: &str, id: u32){
@@ -348,8 +417,7 @@ pub fn update_id_str(title: &str, store_type: &str, id: &str){
     }
 }
 
-
-pub fn remove(title: &str){
+pub fn remove(title: &str) -> bool {
     let mut alias_map: HashMap<String, Vec<String>> = load_alias_map().unwrap_or_default();
     let mut thresholds = load_thresholds().unwrap_or_else(|_e|Vec::new());
     let mut threshold_removed = false; 
@@ -387,8 +455,66 @@ pub fn remove(title: &str){
     if threshold_removed{ 
         update_alias_map(alias_map);
         update_thresholds(thresholds); 
+        true
     }
-    else { println!("Failed to remove game using title/alias: \"{}\".", title); }
+    else { 
+        println!("Failed to remove game using title/alias: \"{}\".", title); 
+        false
+    }
+}
+
+pub fn remove_fuzzy(title: &str) {
+    //Try to run the normal remove runtine first
+    let is_removed = remove(title);
+
+    if !is_removed {
+        // Find other potential games
+        let thresholds = load_thresholds().unwrap_or_else(|_e|Vec::new());
+        let mut fuzzy_threholds: Vec<String> = Vec::new();
+        for thresh in thresholds {
+            let mut dist = fuzzy::levenstein_dist(title, thresh.title.as_str());
+            if 1.0 - (dist/thresh.title.len() as f32) >= LEVENSTEIN_DIST_PERCENTAGE {
+                fuzzy_threholds.push(thresh.title);
+            }
+            else if !thresh.alias.is_empty() {
+                dist = fuzzy::levenstein_dist(title, thresh.alias.as_str());
+                if 1.0 - (dist/thresh.alias.len() as f32) >= LEVENSTEIN_DIST_PERCENTAGE {
+                    fuzzy_threholds.push(thresh.title);
+                }
+            }
+        }
+
+        if fuzzy_threholds.is_empty() {
+            return;
+        }
+
+        println!("Did you mean one of the following?");
+        for (idx, game_title) in fuzzy_threholds.iter().enumerate() {
+            println!("  [{}] {}", idx, game_title);
+        }
+        println!("  [c] Cancel");
+        let mut input = String::new();
+        print!("Remove game title by index or type \'c\' to cancel: ");
+        let _ = io::stdout().flush();
+        io::stdin()
+            .read_line(&mut input)
+            .expect("Failed to read user input");
+        if input.trim() == "c" {
+            println!("Threshold removal of '{}' cancelled.", title);
+        } else {
+            match input.trim().parse::<usize>() {
+                Ok(idx) => {
+                    if idx < fuzzy_threholds.len(){
+                        remove(&fuzzy_threholds[idx]);
+                    }
+                    else if idx >= fuzzy_threholds.len(){
+                        eprintln!("Integer \"{}\" is invalid. Remove cancelled.", idx);
+                    }
+                },
+                Err(e) => println!("Invalid input: {}\nError: {}", input, e)
+            }
+        }
+    }
 }
 
 pub fn list_games() {

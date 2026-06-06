@@ -562,7 +562,7 @@ impl App {
                         thresholds::update_threshold_alias(threshold.title.clone(), &alias);
                     }
                     if let Ok(price) = price_str.trim().parse::<f64>() {
-                        thresholds::update_price(&threshold.title, price);
+                        let _ = thresholds::update_price(&threshold.title, price);
                     }
                 }
                 self.thresholds = thresholds::load_thresholds().unwrap_or_default();
@@ -572,7 +572,7 @@ impl App {
             }
             Message::RemoveThresholdRow(idx) => {
                 if let Some(title) = self.thresholds.get(idx).map(|threshold| threshold.title.clone()) {
-                    thresholds::remove(&title);
+                    let _ = thresholds::remove(&title);
                     self.thresholds = thresholds::load_thresholds().unwrap_or_default();
                     self.sync_threshold_edits();
                     self.status_message = format!("Removed threshold {}.", title);
