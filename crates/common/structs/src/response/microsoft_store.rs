@@ -154,7 +154,7 @@ impl ProductInfoBuilder {
 #[derive(Deserialize, Serialize, Debug)]
 pub struct GameInfo{
     #[serde(rename = "shortTitle")]
-    short_title: String,
+    short_title: Option<String>,
     #[serde(rename = "shortDescription")]
     short_description: String,
     #[serde(rename = "categoryId")]

@@ -83,41 +83,41 @@ pub fn update_alias_map(alias_map: HashMap<String, Vec<String>>){
 }
 
 pub fn update_threshold_alias(game_title: String, new_alias: &str) {
-    if new_alias != "" {
-        let mut alias_map = load_alias_map().unwrap_or_default();
-        
-        // Remove old alias for game in alias map
-        let mut thresholds = load_thresholds().unwrap_or_default();
-        let mut old_alias: String = String::new();
-        if let Some(i) = thresholds.iter().position(|threshold| *threshold.title == game_title){
-            old_alias = thresholds[i].alias.to_string();
-            thresholds[i].alias = String::from(new_alias);
+    let mut alias_map = load_alias_map().unwrap_or_default();
+    
+    // Remove old alias for game in alias map
+    let mut thresholds = load_thresholds().unwrap_or_default();
+    let mut old_alias: String = String::new();
+    if let Some(i) = thresholds.iter().position(|threshold| *threshold.title == game_title){
+        old_alias = thresholds[i].alias.to_string();
+        thresholds[i].alias = String::from(new_alias);
+    }
+    if !old_alias.is_empty() && alias_map.contains_key(&old_alias){
+        let alias_list = alias_map.get_mut(&old_alias).unwrap();
+        if let Some(j) = alias_list.iter().position(|threshold_title| *threshold_title == game_title){
+            alias_list.remove(j);
         }
-        if alias_map.contains_key(&old_alias){
-            let alias_list = alias_map.get_mut(&old_alias).unwrap();
-            if let Some(j) = alias_list.iter().position(|threshold_title| *threshold_title == game_title){
-                alias_list.remove(j);
-            }
-            if alias_list.is_empty(){ alias_map.remove(&old_alias); }
-        }
+        if alias_list.is_empty(){ alias_map.remove(&old_alias); }
+    }
 
-        // Add new alias for game in alias map
+    // Add new alias for game in alias map
+    if !new_alias.is_empty() {
         if alias_map.contains_key(new_alias) {
             alias_map.get_mut(new_alias).unwrap().push(game_title);
         }
         else { alias_map.insert(new_alias.to_string(), vec![game_title]); }
+    }
 
-        // Saved new changes to thresholds file
-        match load_data() {
-            Ok(data) => {
-                let mut alias_data = data;
-                *alias_data.get_mut(ALIAS_MAP.to_string()).unwrap() = json!(alias_map);
-                *alias_data.get_mut(THRESHOLDS.to_string()).unwrap() = json!(thresholds);
-                let alias_map_str = serde_json::to_string_pretty(&alias_data);
-                general::write_to_file(get_path(), alias_map_str.expect("Cannot update alias map"));
-            },
-            Err(e) => eprintln!("Error: {}", e)
-        }
+    // Save changes to thresholds and alias map
+    match load_data() {
+        Ok(data) => {
+            let mut alias_data = data;
+            *alias_data.get_mut(ALIAS_MAP.to_string()).unwrap() = json!(alias_map);
+            *alias_data.get_mut(THRESHOLDS.to_string()).unwrap() = json!(thresholds);
+            let alias_map_str = serde_json::to_string_pretty(&alias_data);
+            general::write_to_file(get_path(), alias_map_str.expect("Cannot update alias map"));
+        },
+        Err(e) => eprintln!("Error: {}", e)
     }
 }
 

@@ -3,10 +3,28 @@
 ### Release 0.3.0
 - Features/Updates
   - [ ] Implement script as a desktop app
+    - [ ]Features
+      - [X] Configure settings and properties
+      - [X] Add games 
+      - [ ] Bulk insert games
+      - [X] Update price of threshold
+      - [X] Update alias of threshold
+      - [X] Remove game threshold
+      - [X] List selected stores
+      - [X] List thresholds
+      - [X] Update cache
+      - [X] Check prices
+      - [X] Send email 
+    - [ ] Fixes
+      - [ ] Give a warning when no stores are selected
+      - [ ] Remove/reduce duplicate code between the app and cli
+      - [ ] Selected stores do not impact what stores are queried in app (settings are properly updated)
+      - [ ] Updating the price of one threshold which shares a alias with another should update the price of that other threshold
   - [ ] Update alias from command line
   - [ ] Add fuzzy search to update and remove command for potential suggestions if the title or alias is not found
   - [ ] Deteremine if defaulting the path should be in getters for project and test path if properties and dot env file have an invalid/empty path
 - Bugs/Fixes
+  - [X] Fix shortTilte field in Microsoft Store GameInfo struct 
   - [ ] Configure Steam API call to not send steam key as plain text
   - [ ] Pull currency type for Microsoft store games
   - [ ] Update dependencies and resolve any potential issues
