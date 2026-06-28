@@ -298,7 +298,7 @@ pub fn update_price(title: &str, price: f64) -> bool {
         true
     }
     else{ 
-        println!("\"{}\" does not have a configured threshold.", title); 
+        // println!("\"{}\" does not have a configured threshold.", title); 
         false
     }
 }
@@ -313,13 +313,13 @@ pub fn update_price_fuzzy(title: &str, price: f64) {
         let mut fuzzy_threholds: Vec<String> = Vec::new();
         let mut fuzzy_alias: Vec<String> = Vec::new();
         for thresh in thresholds {
-            let mut dist = fuzzy::levenstein_dist(title, thresh.title.as_str());
+            let mut dist = fuzzy::levenshtein_distance(title, thresh.title.as_str());
             if 1.0 - (dist/thresh.title.len() as f32) >= LEVENSTEIN_DIST_PERCENTAGE {
                 fuzzy_threholds.push(thresh.title);
                 fuzzy_alias.push(thresh.alias);
             }
             else if !thresh.alias.is_empty() {
-                dist = fuzzy::levenstein_dist(title, thresh.alias.as_str());
+                dist = fuzzy::levenshtein_distance(title, thresh.alias.as_str());
                 if 1.0 - (dist/thresh.alias.len() as f32) >= LEVENSTEIN_DIST_PERCENTAGE {
                     fuzzy_threholds.push(thresh.title);
                     fuzzy_alias.push(thresh.alias);
@@ -458,7 +458,7 @@ pub fn remove(title: &str) -> bool {
         true
     }
     else { 
-        println!("Failed to remove game using title/alias: \"{}\".", title); 
+        // println!("Failed to remove game using title/alias: \"{}\".", title); 
         false
     }
 }
@@ -472,12 +472,12 @@ pub fn remove_fuzzy(title: &str) {
         let thresholds = load_thresholds().unwrap_or_else(|_e|Vec::new());
         let mut fuzzy_threholds: Vec<String> = Vec::new();
         for thresh in thresholds {
-            let mut dist = fuzzy::levenstein_dist(title, thresh.title.as_str());
+            let mut dist = fuzzy::levenshtein_distance(title, thresh.title.as_str());
             if 1.0 - (dist/thresh.title.len() as f32) >= LEVENSTEIN_DIST_PERCENTAGE {
                 fuzzy_threholds.push(thresh.title);
             }
             else if !thresh.alias.is_empty() {
-                dist = fuzzy::levenstein_dist(title, thresh.alias.as_str());
+                dist = fuzzy::levenshtein_distance(title, thresh.alias.as_str());
                 if 1.0 - (dist/thresh.alias.len() as f32) >= LEVENSTEIN_DIST_PERCENTAGE {
                     fuzzy_threholds.push(thresh.title);
                 }

@@ -13,8 +13,14 @@ use constants::operations::properties::PROP_STEAM_API_KEY;
 use structs::internal::data::SaleInfo;
 use structs::response::steam::{App, PriceOverview};
 use constants::stores::steam::*;
-use constants::operations::thresholds::LEVENSTEIN_DIST_PERCENTAGE;
+use constants::operations::thresholds::{LEVENSTEIN_DIST_PERCENTAGE, SMITH_WATERMAN_DIST_PERCENTAGE};
 use crate::algorithms::fuzzy;
+
+enum SearchPattern {
+    Simple,
+    FuzzyLevenshtein,
+    FuzzySmithWatrerman
+}
 
 #[automock]
 #[async_trait]
@@ -91,31 +97,51 @@ impl SteamApi for SteamClient {
             games_list = load_cached_games().unwrap_or_default();
         }
         let mut search_list : Vec<String> = Vec::new();
-        let search_type = DEFAULT_SEARCH_TYPE;
-        if search_type == SIMPLE_SEARCH {
-            let keyphrase_ignore_case = format!("(?i){}", keyphrase);
-            let re = Regex::new(&keyphrase_ignore_case).unwrap();
-            for game in games_list.iter(){
-                let caps = re.captures(&game.name);
-                if !caps.is_none() { search_list.push(game.name.clone()); }
-            }
-        }
-        else if search_type == FUZZY_SEARCH {
-            let mut fuzzy_thresholds: HashMap<String, f32> = HashMap::new();
-            for app in games_list {
-                let dist = fuzzy::levenstein_dist(keyphrase, &app.name);      
-                if 1.0 - (dist/keyphrase.len() as f32) >= LEVENSTEIN_DIST_PERCENTAGE {
-                    if fuzzy_thresholds.len() > SEARCH_SIZE_LIMIT {
-                        break;    
-                    }
-                    fuzzy_thresholds.insert(app.name, dist);
+        let search_type = SearchPattern::FuzzySmithWatrerman;
+        match search_type {
+            SearchPattern::Simple => {
+                let keyphrase_ignore_case = format!("(?i){}", keyphrase);
+                let re = Regex::new(&keyphrase_ignore_case).unwrap();
+                for game in games_list.iter(){
+                    let caps = re.captures(&game.name);
+                    if !caps.is_none() { search_list.push(game.name.clone()); }
                 }
+            },
+            SearchPattern::FuzzyLevenshtein => {
+                let mut fuzzy_thresholds: HashMap<String, f32> = HashMap::new();
+                for app in games_list {
+                    let dist = fuzzy::levenshtein_distance(keyphrase, &app.name);      
+                    if 1.0 - (dist/keyphrase.len() as f32) >= LEVENSTEIN_DIST_PERCENTAGE {
+                        if fuzzy_thresholds.len() > SEARCH_SIZE_LIMIT {
+                            break;    
+                        }
+                        fuzzy_thresholds.insert(app.name, dist);
+                    }
+                }
+                search_list = fuzzy_thresholds.iter()
+                    .map(|(key, _)| key.clone()) // Extract keys
+                    .collect();
+                search_list.sort_by(|a, b| fuzzy_thresholds[a].total_cmp(&fuzzy_thresholds[b])); 
+                fuzzy_thresholds.clear();
+            },
+            SearchPattern::FuzzySmithWatrerman => {
+                let mut fuzzy_thresholds: HashMap<String, f32> = HashMap::new();
+                for app in games_list {
+                    let score = fuzzy::smith_waterman(keyphrase, &app.name);
+                    let percentage = score/(2*keyphrase.len()) as f32;
+                    if percentage > SMITH_WATERMAN_DIST_PERCENTAGE {
+                        if fuzzy_thresholds.len() > SEARCH_SIZE_LIMIT {
+                            break;    
+                        }
+                        fuzzy_thresholds.insert(app.name, percentage);
+                    }
+                }
+                search_list = fuzzy_thresholds.iter()
+                    .map(|(key, _)| key.clone()) // Extract keys
+                    .collect();
+                search_list.sort_by(|a, b| fuzzy_thresholds[a].total_cmp(&fuzzy_thresholds[b])); 
+                fuzzy_thresholds.clear();
             }
-            search_list = fuzzy_thresholds.iter()
-                .map(|(key, _)| key.clone()) // Extract keys
-                .collect();
-            search_list.sort_by(|a, b| fuzzy_thresholds[a].total_cmp(&fuzzy_thresholds[b])); 
-            fuzzy_thresholds.clear();
         }
         Ok(search_list)
     }

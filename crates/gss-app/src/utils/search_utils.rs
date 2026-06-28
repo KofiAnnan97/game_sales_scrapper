@@ -19,7 +19,8 @@ pub async fn perform_store_search(query: String, store_id: String) -> Result<Vec
             Ok(list) => {
                 for title in list.into_iter().take(MAX_RESULTS) {
                     let steam_id = steam::check_game(&title).await.map(|app| app.app_id).unwrap_or(0);
-                    results.push(StoreSearchResult::Steam { title, steam_id });
+                    // println!("Added Steam game: {}, {}", &title, &steam_id);
+                    results.push(StoreSearchResult::Steam { title, steam_id });                    
                 }
             }
             Err(e) => return Err(format!("Steam search error: {}", e)),
@@ -30,6 +31,7 @@ pub async fn perform_store_search(query: String, store_id: String) -> Result<Vec
             Ok(list) => {
                 for g in list.into_iter().take(MAX_RESULTS) {
                     let gog_id = g.id.parse::<u32>().unwrap_or(0);
+                    // println!("Added GOG game: {}, {}", &g.title, &gog_id);
                     results.push(StoreSearchResult::Gog { title: g.title, gog_id });
                 }
             }
@@ -40,6 +42,7 @@ pub async fn perform_store_search(query: String, store_id: String) -> Result<Vec
         match microsoft_store::search_game_by_title(&query, &http_client).await {
             Ok(list) => {
                 for info in list.into_iter().take(MAX_RESULTS) {
+                    // println!("Added Microsoft game: {}, {}", &info.title, &info.product_id);
                     results.push(StoreSearchResult::Microsoft { title: info.title, ms_id: info.product_id.clone() });
                 }
             }
@@ -52,4 +55,8 @@ pub async fn perform_store_search(query: String, store_id: String) -> Result<Vec
     } else {
         Ok(results)
     }
+}
+
+pub async fn perform_bulk_search(){
+    
 }

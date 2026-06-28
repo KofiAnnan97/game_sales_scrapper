@@ -436,7 +436,7 @@ async fn main(){
             if properties::is_testing_enabled() { println!("------------------------\n* TEST MODE IS ENABLED *\n------------------------"); }
             let mut game_list: Vec<SimpleGameThreshold> = Vec::new();
             let file_path = bulk_args.get_one::<String>("file").unwrap().clone();
-            match csv::parse_game_prices(&file_path){
+            match csv::parse_game_prices_from_path(&file_path){
                 Ok(gl) => game_list = gl,
                 Err(e) => eprintln!("Could not parse file: {}\n{}", file_path, e),
             }

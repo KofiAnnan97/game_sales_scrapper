@@ -62,13 +62,13 @@ pub fn thresholds_tab(app: &crate::App) -> Element<'_, Message> {
         )
         .width(Length::Fixed(100.0)),
         container(
-            Button::new(text(format!("Microsoft {}", header_sort_indicator(app, SortColumn::MicrosoftId))))
+            Button::new(text(format!("Microsoft(PC) {}", header_sort_indicator(app, SortColumn::MicrosoftId))))
                 .on_press(Message::SortThresholds(SortColumn::MicrosoftId))
                 .style(button::text)
                 .width(Length::Fill)
                 .padding(8),
         )
-        .width(Length::Fixed(120.0)),
+        .width(Length::Fixed(140.0)),
         Button::new(text(format!("Price {}", header_sort_indicator(app, SortColumn::DesiredPrice))))
             .on_press(Message::SortThresholds(SortColumn::DesiredPrice))
             .style(button::text)
@@ -96,7 +96,7 @@ pub fn thresholds_tab(app: &crate::App) -> Element<'_, Message> {
                         .padding(5),
                     container(text(if threshold.steam_id != 0 { "✔" } else { "" })).center_x(Length::Fixed(100.0)).padding(8),
                     container(text(if threshold.gog_id != 0 { "✔" } else { "" })).center_x(Length::Fixed(100.0)).padding(8),
-                    container(text(if threshold.microsoft_store_id.is_empty() { "" } else { "✔" })).center_x(Length::Fixed(120.0)).padding(8),
+                    container(text(if threshold.microsoft_store_id.is_empty() { "" } else { "✔" })).center_x(Length::Fixed(140.0)).padding(8),
                     TextInput::new("price", &price_value)
                         .on_input(move |value| Message::ThresholdPriceChanged(index, value))
                         .width(Length::FillPortion(1))

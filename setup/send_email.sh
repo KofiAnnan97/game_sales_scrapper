@@ -12,7 +12,7 @@ done
 cd $SCRIPT_DIR || exit
 
 # Create log directory
-LOG_DIR="$SCRIPT_DIR/../log"
+LOG_DIR="$SCRIPT_DIR/../logs"
 if [ ! -d $LOG_DIR ]; then
     mkdir -p $LOG_DIR
 fi
@@ -24,7 +24,7 @@ fi
 
 # Run script to get game sales
 DATE_TIME=$(date +"%Y_%m_%d_%H_%M")
-LOG_NAME=$LOG_DIR/$DATE_TIME"_email.log"
+LOG_NAME=$LOG_DIR/$DATE_TIME"_email.html"
 cd ..
 ./target/release/gss-cli --send-email > $LOG_NAME
 if [ -f $LOG_NAME ]; then

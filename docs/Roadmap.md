@@ -2,8 +2,8 @@
 
 ### Release 0.3.0
 - Features/Updates
-  - [ ] Implement script as a desktop app
-    - Features
+  - Implement script as a desktop app
+    - [ ] Main Features
       - [X] Configure settings and properties
       - [X] Add games 
       - [ ] Bulk insert games
@@ -15,24 +15,25 @@
       - [X] Update cache
       - [X] Check prices
       - [X] Send email  
+    - [ ] Usability Features
+      - [X] Check prices button generates a table similar to email within the application (without html)
+      - [ ] Updating the price of one threshold which shares a alias with another should update the price of that other threshold
+      - [X] Give a warning when no stores are selected
+      - [ ] Remove/reduce duplicate code between the app and cli
+      - [X] Selected stores do not impact what stores are queried in app (settings are properly updated)
   - CLI
     - [ ] Update alias from command line
     - [X] Add fuzzy search to update and remove command for potential suggestions if the title or alias is not found
     - [X] Add fuzzy search for Steam game
 - Bugs/Fixes
-  - Application
-    - [ ] Give a warning when no stores are selected
-    - [ ] Remove/reduce duplicate code between the app and cli
-    - [X] Selected stores do not impact what stores are queried in app (settings are properly updated)
-    - [] Updating the price of one threshold which shares a alias with another should update the price of that other threshold
   - CLI
     - [X] Fix shortTilte field in Microsoft Store GameInfo struct 
     - [ ] Configure Steam API call to not send steam key as plain text
     - [ ] Pull currency type for Microsoft store games
+    - [ ] Add timeouts for storefront calls
 - Testing:
   - [X] Update tests to use stubbing
   - [X] Implement temp directories (for all file based tests)
-  - [ ] Mock api calls for user commands (check prices) -> may need to moved out to later
   - [ ] Write tests for update_price_fuzzy() and remove_fuzzy() 
   - [X] Write tests for
     - [X] properties (creation, updating and retrieval)
@@ -48,8 +49,9 @@
 - Bugs/Fixes
   - Update dependencies and resolve any potential issues
 - Testing
-  - Scope of untested code
-    - Needs implementation
-      - `add` and `bulk-insert` script cmds
-    - No plans for implementation
-      - `update-cache` and `send-email` script cmds
+  - To do
+    - Mock api calls for user commands (check prices) -> may need to moved out to later
+    - `add` and `bulk-insert` script cmds
+    - test user interactions in applicaon
+  - Out of Scope 
+    - `update-cache` and `send-email` script cmds

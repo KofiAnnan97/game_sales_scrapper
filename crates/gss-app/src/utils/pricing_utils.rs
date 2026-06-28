@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use reqwest::Client;
 
 use constants::operations::settings::{GOG_STORE_ID, MICROSOFT_STORE_ID, STEAM_STORE_ID};
@@ -19,6 +21,59 @@ pub fn get_simple_prices_str(store_name: &str, sales: Vec<SaleInfo>) -> String{
         prices_str = header_str + &prices_str;
     }
     prices_str
+}
+
+pub async fn check_prices_for_display() -> Result<HashMap<String, Vec<SaleInfo>>, String> {
+    let thresholds = thresholds::load_thresholds().unwrap_or_else(|_e|Vec::new());
+    let http_client = Client::new();
+    let mut sales_info_by_store: HashMap<String, Vec<SaleInfo>> = HashMap::new();
+    for store in settings::get_available_stores() {
+        sales_info_by_store.insert(store.clone(), Vec::new());
+    }
+    for elem in thresholds.iter(){
+        if elem.steam_id != 0 {
+            match steam::get_price_details(elem.steam_id, &http_client).await {
+                Ok(info) => {
+                    let current_price = info.current_price.parse::<f64>().unwrap();
+                    if elem.desired_price >= current_price {
+                        sales_info_by_store.get_mut(STEAM_STORE_ID).unwrap().push(info);
+                    }
+                },
+                Err(e) => println!("{}", e)
+            }
+        }
+        if elem.gog_id != 0 {
+            if GOG_VERSION == 2{
+                match gog::get_price_details_v2(&elem.title, &http_client).await {
+                    Some(info) => {
+                        let current_price = info.current_price.parse::<f64>().unwrap();
+                        if elem.desired_price >= current_price {
+                            sales_info_by_store.get_mut(GOG_STORE_ID).unwrap().push(info);
+                        }
+                    },
+                    None => ()
+                }
+            }
+        }
+        if !elem.microsoft_store_id.is_empty() {
+            match microsoft_store::get_price_details(&elem.microsoft_store_id, &http_client).await {
+                Some(info) => {
+                    let current_price = info.current_price.parse::<f64>().unwrap();
+                    if elem.desired_price >= current_price {
+                        sales_info_by_store.get_mut(MICROSOFT_STORE_ID).unwrap().push(info);
+                    }
+                },
+                None => ()
+            }
+        }
+    }
+    if sales_info_by_store.get_mut(STEAM_STORE_ID).unwrap().len() > 0 ||
+        sales_info_by_store.get_mut(GOG_STORE_ID).unwrap().len() > 0 ||
+        sales_info_by_store.get_mut(MICROSOFT_STORE_ID).unwrap().len() > 0 {
+        return Ok(sales_info_by_store);
+    }
+
+    Err(String::from("Failed to get prices"))
 }
 
 pub async fn check_prices(use_html: bool) -> Result<String, String> {

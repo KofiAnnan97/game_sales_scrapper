@@ -1,4 +1,4 @@
-use iced::widget::{Button, Radio, Scrollable, TextInput, column, container, row, text};
+use iced::widget::{Button, Radio, Scrollable, TextInput, button, column, container, row, text};
 use iced::{Element, Length};
 
 use crate::Message;
@@ -7,8 +7,12 @@ use file_ops::settings;
 pub const SKIP_STORE_SELECTION: usize = usize::MAX;
 
 pub fn search_tab(app: &crate::App) -> Element<'_, Message> {
-    let store_section = if app.search_results_by_store.is_empty() {
+    let store_section = if app.selected_stores.is_empty() {
+        column![text("No stores selected. Please go to 'Settings'.")]
+    } else if app.search_query.is_empty() {
         column![text("No search in progress. Enter a query and press Search.")]
+    } else if app.search_results_by_store.len() == 0 {
+        column![text("")]
     } else {
         let (current_store_id, current_results) = &app.search_results_by_store[app.current_store_search_idx];
         let store_name = settings::get_proper_store_name(current_store_id)
@@ -34,7 +38,7 @@ pub fn search_tab(app: &crate::App) -> Element<'_, Message> {
                     SKIP_STORE_SELECTION,
                     selected_index_opt,
                     Message::SearchResultSelected,
-                )
+                ).width(Length::Fill)
             ].spacing(5);
         } else {
             search_list = search_list.push(
@@ -44,6 +48,7 @@ pub fn search_tab(app: &crate::App) -> Element<'_, Message> {
                     selected_index_opt,
                     Message::SearchResultSelected,
                 )
+                .width(Length::Fill)
                 .spacing(5),
             );
             for (index, result) in current_results.iter().enumerate() {
@@ -54,16 +59,11 @@ pub fn search_tab(app: &crate::App) -> Element<'_, Message> {
                         selected_index_opt,
                         Message::SearchResultSelected,
                     )
+                    .width(Length::Fill)
                     .spacing(5),
                 );
             }
         }
-
-        // let selected_text = match app.selected_results_by_store.get(current_store_id) {
-        //     Some(Some(idx)) => current_results.get(*idx).map(|result| result.title().to_string()).unwrap_or_else(|| String::from("None")),
-        //     Some(None) => String::from("Skipped"),
-        //     None => String::from("None"),
-        // };
 
         let add_reqs_meet = app.search_results_by_store.iter().all(|(id, _)| app.selected_results_by_store.contains_key(id)) && !app.add_price.is_empty();
         let add_threshold_button = if add_reqs_meet {
@@ -77,36 +77,47 @@ pub fn search_tab(app: &crate::App) -> Element<'_, Message> {
 
         column![
             row![
-                text(progress).size(14),
+                text(progress).size(18),
                 if app.current_store_search_idx > 0 {
                     Button::new(text("←").center())
                         .on_press(Message::PreviousStore)
-                        .height(14)
+                        .height(18)
                         .padding(4)
                 } else {
                     Button::new(text("←").center())
-                        .height(14)
+                        .height(18)
                         .padding(4)
                 },
                 if app.current_store_search_idx < app.search_results_by_store.len() - 1 {
                     Button::new(text("→").center())
                         .on_press(Message::NextStore)
-                        .height(14)
+                        .height(18)
                         .padding(4)
                 } else {
                     Button::new(text("→").center())
-                        .height(14)
+                        .height(18)
                         .padding(4)
                 },
             ],
             Scrollable::new(search_list).height(400).width(Length::Fill),
             column![
-                // text(format!("Selected: {}", selected_text)).size(14),
                 add_threshold_button,
             ]
             .spacing(10),
         ]
     };
+
+    // let bulk_insert_button = if app.bulk_simple_threshs.is_empty() {
+    //     button("Load Multiple Searches")
+    //         .on_press(Message::OpenCsv)
+    //         .padding(6)
+    // } else {
+    //     button("Search All")
+    //         .on_press(Message::ExecuteBulkInsert)
+    //         .padding(6)
+    // };
+
+
 
     let search_controls = column![
         row![
@@ -114,7 +125,11 @@ pub fn search_tab(app: &crate::App) -> Element<'_, Message> {
                 .on_input(Message::SearchQueryChanged)
                 .padding(5)
                 .width(Length::Fill),
-            Button::new(text("Search")).on_press(Message::StartSearch).padding(6),
+            if app.bulk_search_used {
+                Button::new(text("Search")).padding(6)
+            } else { 
+                Button::new(text("Search")).on_press(Message::StartSearch).padding(6)
+            },
         ]
         .spacing(8),
         if settings::get_alias_state() {
@@ -127,14 +142,19 @@ pub fn search_tab(app: &crate::App) -> Element<'_, Message> {
                     .on_input(|value| Message::ThresholdPriceChanged(usize::MAX, value))
                     .padding(5)
                     .width(Length::Fixed(150.0)),
-            ]
+                // bulk_insert_button
+                // Button::new(text("Search Multiple")).on_press(Message::OpenCsv).padding(6),
+            ].width(Length::Fill)
+            .spacing(20)
         } else {
             row![
                 TextInput::new("Desired price", &app.add_price)
                     .on_input(|value| Message::ThresholdPriceChanged(usize::MAX, value))
                     .padding(5)
                     .width(Length::Fixed(150.0)),
-            ]
+                // bulk_insert_button
+                // Button::new(text("Search Multiple")).on_press(Message::OpenCsv).padding(6),
+            ].spacing(20)
         },
         store_section,
     ]

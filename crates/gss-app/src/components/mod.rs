@@ -1,1 +1,2 @@
-pub mod custom_buttons;
+pub mod custom_widgets;
+pub mod custom_styles;

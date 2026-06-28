@@ -7,3 +7,4 @@ pub static THRESHOLDS : &str = "thresholds";
 
 // Fuzzy Weights
 pub static LEVENSTEIN_DIST_PERCENTAGE : f32 = 0.5;
+pub static SMITH_WATERMAN_DIST_PERCENTAGE : f32 = 0.75;
