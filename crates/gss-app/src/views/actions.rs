@@ -1,10 +1,12 @@
 use file_ops::settings;
+use file_types::general;
 use iced::widget::{Button, Scrollable,scrollable, column, container, rich_text, row, span, table, text, center_x, center_y};
 use iced::{font, Element, Font, Length};
 
 use crate::components::{custom_widgets, custom_styles};
 
 use crate::Message;
+use crate::utils::log_utils;
 
 pub enum ActionDisplayed{
     NoAction,
@@ -37,7 +39,8 @@ pub fn view_actions(app: &crate::App) -> Element<'_, Message> {
     ])//sale_info_table)
     .width(Length::Fill);
 
-    let logs_display = Scrollable::new(text(&app.log))
+    let complete_logs = general::get_contents(&app.current_log_file) + &app.log_batch;
+    let logs_display = Scrollable::new(text(complete_logs))
         .width(Length::Fill)
         .height(Length::Fill);
 

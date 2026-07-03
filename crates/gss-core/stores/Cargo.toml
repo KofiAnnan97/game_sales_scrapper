@@ -16,6 +16,7 @@ properties = { path = "../properties" }
 constants = { path = "../constants" }
 
 # External crates
+tokio.workspace = true
 reqwest = { workspace = true, features = ["json", "cookies"] }
 serde_json.workspace = true
 regex.workspace = true

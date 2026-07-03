@@ -1,8 +1,8 @@
-use file_types::csv;
 use iced::widget::{
     Button, Checkbox, button, column, container, row, text
 };
-use iced::{Element, Length, Task, application, Padding, window, Window};
+use iced::{Element, Length, Padding, Subscription, Task, Window, application, window, exit};
+use iced::time::{self, Duration};
 use iced_aw::menu::{self, Menu};
 use iced_aw::{ICED_AW_FONT_BYTES, menu_bar, menu_items, TabLabel, tabs::{Tabs, TabBarPosition}};
 
@@ -14,6 +14,7 @@ use std::io;
 use std::collections::{HashMap, HashSet};
 
 // Common internal libraries
+use file_types::{csv, general};
 use file_ops::{settings, thresholds};
 use properties;
 use structs::internal::data::{GameThreshold, SimpleGameThreshold};
@@ -34,9 +35,19 @@ use utils::pricing_utils::{check_prices_for_display};
 use utils::file_utils::open_file;
 use utils::log_utils::{self, LogLevel};
 
+const LOADING_FRAMES_SIZE: usize = 4;
+
 fn main() -> iced::Result {
-    application(App::default, App::update, App::view)
+    let log_file = log_utils::new_log();  
+    let log_file_clone = log_file.clone();  
+    std::panic::set_hook(Box::new(move |panic_info| {
+        let panic_msg = log_utils::fatal_message_builder(panic_info);
+        general::append_to_file(&log_file_clone, &panic_msg);
+    }));
+
+    application(move || App::new(log_file.clone()), App::update, App::view)
         .title("Game Sales Scrapper")
+        .subscription(App::subscription)
         .font(ICED_AW_FONT_BYTES)
         .run()
 }
@@ -111,8 +122,9 @@ enum Message {
     SearchResultSelected(usize),
     OpenCsv,
     CsvOpened(Result<(PathBuf, Arc<String>), Error>),
-    // ExecuteBulkInsert,
+    ExecuteBulkInsert,
     StoreSearchCompleted(String, Result<Vec<StoreSearchResult>, String>),
+    SearchReset,
     NextStore,
     PreviousStore,
     AddThreshold,
@@ -128,7 +140,10 @@ enum Message {
     UpdateCache,
     UpdateCacheResult(Result<String, String>),
     LogsShown,
+    UpdateLogFile,
+    Tick,
     Refresh,
+    AppClosing,
 }
 
 impl StoreSearchResult {
@@ -183,9 +198,12 @@ struct App {
     search_results_by_store: Vec<(String, Vec<StoreSearchResult>)>,
     current_store_search_idx: usize,
     selected_results_by_store: HashMap<String, Option<usize>>,
-    is_loading: bool,
+    is_search_in_progress: bool,
+    pending_searches: usize,
+    loading_frame: usize,
     selected_file: Option<PathBuf>,
     bulk_simple_threshs: Vec<SimpleGameThreshold>,
+    bulk_search_index: usize,
     bulk_search_used: bool,
     thresholds: Vec<GameThreshold>,
     threshold_alias_edits: Vec<String>,
@@ -193,13 +211,14 @@ struct App {
     threshold_sort_column: Option<SortColumn>,
     threshold_sort_order: SortOrder,
     status_message: String,
-    log: String,
+    log_batch: String,
+    current_log_file: String,
     action_displayed: ActionDisplayed,
     sales_info_by_store: HashMap<String, Vec<SaleInfo>>,
 }
 
-impl Default for App {
-    fn default() -> Self {
+impl App {
+    fn new(log_file: String) -> Self {
         let mut app = Self {
             tab: Tab::Search,
             active_view: View::Base,
@@ -224,9 +243,12 @@ impl Default for App {
             search_results_by_store: Vec::new(),
             current_store_search_idx: 0,
             selected_results_by_store: HashMap::new(),
-            is_loading: false,
+            is_search_in_progress: false,
+            pending_searches: 0,
+            loading_frame: 0,
             selected_file: None,
             bulk_simple_threshs: Vec::new(),
+            bulk_search_index: 0,
             bulk_search_used: false,
             thresholds: thresholds::load_thresholds().unwrap_or_default(),
             threshold_alias_edits: Vec::new(),
@@ -234,7 +256,8 @@ impl Default for App {
             threshold_sort_column: None,
             threshold_sort_order: SortOrder::Original,
             status_message: String::from("Ready"),
-            log: String::new(),
+            log_batch: String::new(),
+            current_log_file: log_file,
             action_displayed: ActionDisplayed::NoAction,
             sales_info_by_store: {
                 let mut m = HashMap::new();
@@ -249,21 +272,32 @@ impl Default for App {
     }
 }
 
+impl Default for App {
+    fn default() -> Self {
+        Self::new(log_utils::new_log())
+    }
+}
+
 impl App {
+    fn subscription(&self) -> Subscription<Message> {
+        let log_subscription = time::every(Duration::from_secs(30)).map(|_| Message::UpdateLogFile);
+        let tick_subscription = time::every(Duration::from_millis(400)).map(|_| Message::Tick);
+        let app_close_subscription = window::close_events().map(|_| Message::AppClosing);     
+        Subscription::batch(vec![log_subscription, tick_subscription, app_close_subscription])
+    }
+    
     fn update(&mut self, message: Message) -> Task<Message> {
         match message {
             Message::TabSelected(tab) => {
                 self.tab = tab;
                 let status_str = format!("Showing {}", tab.label());
-                self.status_message = status_str.clone();
-                self.log.push_str(log_utils::message_builder(&status_str, LogLevel::DEBUG).as_str());
+                self.log_batch.push_str(log_utils::message_builder(&status_str, LogLevel::DEBUG).as_str());
                 Task::none()
             }
             Message::ViewSelected(view) => {
                 self.active_view = view;
                 let status_str = format!("Switched to {:?}", view);
-                self.status_message = status_str.clone();
-                self.log.push_str(log_utils::message_builder(&status_str, LogLevel::DEBUG).as_str());
+                self.log_batch.push_str(log_utils::message_builder(&status_str, LogLevel::DEBUG).as_str());
                 Task::none()
             }
             Message::ToggleStore(store, enabled) => {
@@ -276,40 +310,35 @@ impl App {
                 }
                 settings::update_selected_stores(self.selected_stores.clone());
                 let status_str = String::from("Updated selected stores");
-                self.status_message = status_str.clone();
-                self.log.push_str(&log_utils::message_builder(&status_str, LogLevel::INFO));
+                self.log_batch.push_str(&log_utils::message_builder(&status_str, LogLevel::INFO));
                 Task::none()
             }
             Message::ToggleAliasEnabled(enabled) => {
                 self.alias_enabled = enabled;
                 settings::update_alias_state(if enabled { 1 } else { 0 });
-                let status_str = String::from("Alias state updated");
-                self.status_message = status_str.clone();
-                self.log.push_str(&log_utils::message_builder(&status_str, LogLevel::INFO));
+                let status_str = format!("Alias enabled: {}", self.alias_enabled);
+                self.log_batch.push_str(&log_utils::message_builder(&status_str, LogLevel::INFO));
                 Task::none()
             }
             Message::ToggleAliasReuse(enabled) => {
                 self.alias_reuse_enabled = enabled;
                 settings::update_alias_reuse_state(if enabled { 1 } else { 0 });
-                let status_str = String::from("Alias reuse state updated");
-                self.status_message = status_str.clone();
-                self.log.push_str(&log_utils::message_builder(&status_str, LogLevel::INFO));
+                let status_str = format!("Alias reuse enabled: {}", self.alias_reuse_enabled);
+                self.log_batch.push_str(&log_utils::message_builder(&status_str, LogLevel::INFO));
                 Task::none()
             }
             Message::OpenMoreSettings => {
                 self.settings_view_open = true;
                 self.active_view = View::Settings;
                 let status_str = String::from("Opened more settings view");
-                self.status_message = status_str.clone();
-                self.log.push_str(&log_utils::message_builder(&status_str, LogLevel::INFO));
+                self.log_batch.push_str(&log_utils::message_builder(&status_str, LogLevel::INFO));
                 Task::none()
             }
             Message::CloseSettings => {
                 self.settings_view_open = false;
                 self.active_view = View::Base;
                 let status_str = String::from("Closed settings tab");
-                self.status_message = status_str.clone();
-                self.log.push_str(&log_utils::message_builder(&status_str, LogLevel::INFO));
+                self.log_batch.push_str(&log_utils::message_builder(&status_str, LogLevel::INFO));
                 Task::none()
             }
             Message::SortThresholds(column) => {
@@ -341,8 +370,7 @@ impl App {
                     SortOrder::Ascending => format!("Threshold column '{}' is in ascending order", col_name),
                     SortOrder::Descending => format!("Threshold column '{}' is in descending order", col_name),
                 };
-                self.status_message = status_str.clone();
-                self.log.push_str(&log_utils::message_builder(&status_str, LogLevel::INFO));
+                self.log_batch.push_str(&log_utils::message_builder(&status_str, LogLevel::INFO));
                 Task::none()
             }
             Message::ProjectPathChanged(value) => { self.project_path = value; Task::none() }
@@ -363,43 +391,8 @@ impl App {
                 Task::none()
             }
             Message::StartSearch => {
-                if self.search_query.trim().is_empty() {
-                    let status_str = String::from("Please enter a search query.");
-                    self.status_message = status_str.clone();
-                    self.log.push_str(&log_utils::message_builder(&status_str, LogLevel::INFO));
-                    return Task::none();
-                }
-
-                let stores_to_search = self.selected_stores.clone();
-                self.search_results_by_store.clear();
-                self.current_store_search_idx = 0;
-                
-                for store_id in stores_to_search.iter() {
-                    self.search_results_by_store.push((store_id.clone(), Vec::new()));
-                }
-                
-                if self.search_results_by_store.is_empty() {
-                    let status_str = String::from("No stores to search.");
-                    self.status_message = status_str.clone();
-                    self.log.push_str(&log_utils::message_builder(&status_str, LogLevel::INFO));
-                    return Task::none();
-                }
-                
-                let status_str = format!("Searching {} stores concurrently...", self.search_results_by_store.len());
-                self.status_message = status_str.clone();
-                self.log.push_str(&log_utils::message_builder(&status_str, LogLevel::INFO));
-                let query = self.search_query.clone();
-                
-                // Search all selected stores concurrently
-                let tasks: Vec<Task<Message>> = self.search_results_by_store.iter().map(|(store_id, _)| {
-                    let query = query.clone();
-                    let store_id = store_id.clone();
-                    Task::perform(perform_store_search(query, store_id.clone()), move |result| {
-                        Message::StoreSearchCompleted(store_id, result)
-                    })
-                }).collect();
-                
-                Task::batch(tasks)
+                self.bulk_search_used = false;
+                self.start_search_for_query(self.search_query.clone())
             }
             Message::SelectAllStores => {
                 self.selected_stores = self.available_stores.clone();
@@ -412,10 +405,10 @@ impl App {
                 Task::none()
             }
             Message::OpenCsv => {
-                if self.is_loading {
+                if self.is_search_in_progress {
                     Task::none()
                 } else {
-                    self.is_loading = true;
+                    self.is_search_in_progress = true;
                     window::oldest()
                         .and_then(|id| window::run(id, open_file))
                         .then(Task::future)
@@ -423,21 +416,27 @@ impl App {
                 }
             }
             Message::CsvOpened(result) => {
-                self.is_loading = false;
+                self.is_search_in_progress = false;
                 if let Ok((path, contents)) = result {
                     self.selected_file = Some(path);
                     match &self.selected_file {
                         Some(path) => {
                             let data = Arc::try_unwrap(contents).unwrap_or_default();
+                            let log_msg;
                             if !data.is_empty() {
                                 self.bulk_simple_threshs = csv::parse_game_prices_from_str(&data).unwrap_or_default();
+                                self.bulk_search_index = 0;
+                                self.bulk_search_used = !self.bulk_simple_threshs.is_empty();
                                 if self.bulk_simple_threshs.is_empty() {
-                                    println!("Could not convert {:?} to the Simple Game Threshold format. Check that csv file is properly formatted.", &path.display());
+                                    log_msg = format!("Could not convert {:?} to the Simple Game Threshold format. Check that csv file is properly formatted.", path.display().to_string());
+                                    self.log_batch.push_str(&log_utils::message_builder(&log_msg, LogLevel::ERROR));
                                 } else {
-                                    println!("{:?}", self.bulk_simple_threshs);
-                                }  
+                                    log_msg = format!("CSV data: {:?}", &self.bulk_simple_threshs);
+                                    self.log_batch.push_str(&log_utils::message_builder(&log_msg, LogLevel::INFO));
+                                }
                             } else {
-                                println!("File is empty");
+                                log_msg = format!("{} is empty", path.display().to_string());
+                                self.log_batch.push_str(&log_utils::message_builder(&log_msg, LogLevel::DEBUG));
                             }
                         }, 
                         None => ()
@@ -446,38 +445,32 @@ impl App {
                 // Task::chain(, Message::ExecuteBulkInsert)
                 Task::none()
             }
-            // Message::ExecuteBulkInsert => {
-            //     let stores_to_search = self.selected_stores.clone();
-            //     self.search_results_by_store.clear();
-            //     self.current_store_search_idx = 0;
-                
-            //     for store_id in stores_to_search.iter() {
-            //         self.search_results_by_store.push((store_id.clone(), Vec::new()));
-            //     }
-                
-            //     if self.search_results_by_store.is_empty() {
-            //         let status_str = String::from("No stores to search.");
-            //         self.status_message = status_str.clone();
-            //         self.log.push_str(&log_utils::message_builder(&status_str, LogLevel::INFO));
-            //         return Task::none();
-            //     }
+            Message::Tick => {
+                if self.is_search_in_progress {
+                    self.loading_frame = (self.loading_frame + 1) % LOADING_FRAMES_SIZE;
+                }
+                Task::none()
+            }
+            Message::ExecuteBulkInsert => {
+                self.bulk_search_used = true;
+                self.bulk_search_index = 0;
 
-            //     let games_list = &self.bulk_simple_threshs;
-            //     let mut tasks: Vec<Task<Message>> = Vec::new();
-            //     for game in games_list {
-            //         self.search_query = game.name.clone();
-            //         self.add_price = game.price.to_string();
-            //         let mut store_tasks: Vec<Task<Message>> = self.search_results_by_store.iter().map(|(store_id, _)| {
-            //             let query = self.search_query.clone();
-            //             let store_id = store_id.clone();
-            //             Task::perform(perform_store_search(query, store_id.clone()), move |result| {
-            //                 Message::StoreSearchCompleted(store_id, result)
-            //             })
-            //         }).collect(); 
-            //         tasks.append(&mut store_tasks);   
-            //     }
-            //     Task::batch(tasks)
-            // }
+                if self.bulk_simple_threshs.is_empty() {
+                    let status_str = String::from("No games loaded from CSV.");
+                    self.log_batch.push_str(&log_utils::message_builder(&status_str, LogLevel::INFO));
+                    return Task::none();
+                }
+
+                if let Some(game) = self.current_bulk_game() {
+                    self.search_query = game.name.clone();
+                    self.add_price = game.price.to_string();
+                    self.start_search_for_query(self.search_query.clone())
+                } else {
+                    let status_str = String::from("No games loaded from CSV.");
+                    self.log_batch.push_str(&log_utils::message_builder(&status_str, LogLevel::INFO));
+                    Task::none()
+                }
+            }
             Message::SearchResultSelected(selected) => {
                 if let Some((store_id, _)) = self.search_results_by_store.get(self.current_store_search_idx) {
                     if selected == SKIP_STORE_SELECTION {
@@ -485,7 +478,6 @@ impl App {
                     } else {
                         self.selected_results_by_store.insert(store_id.clone(), Some(selected));
                     }
-                    // self.status_message = String::from("Game selected.");
                 }
                 Task::none()
             }
@@ -495,16 +487,32 @@ impl App {
                         Ok(list) => {
                             entry.1 = list;
                             let status_str = format!("Search complete for {}", store_id);
-                            self.status_message = status_str.clone();
-                            self.log.push_str(&log_utils::message_builder(&status_str, LogLevel::INFO));
+                            self.log_batch.push_str(&log_utils::message_builder(&status_str, LogLevel::INFO));
                         }
                         Err(err) => {
                             let status_str = format!("Search failed for {}: {}", store_id, err);
-                            self.status_message = status_str.clone();
-                            self.log.push_str(log_utils::message_builder(&status_str, LogLevel::ERROR).as_str());
+                            self.log_batch.push_str(log_utils::message_builder(&status_str, LogLevel::ERROR).as_str());
                         }
                     }
                 }
+                if self.pending_searches > 0 {
+                    self.pending_searches -= 1;
+                }
+                if self.pending_searches == 0 {
+                    self.is_search_in_progress = false;
+                    self.loading_frame = 0;
+                }
+                Task::none()
+            }
+            Message::SearchReset => {
+                self.search_query.clear();
+                self.add_price.clear();
+                self.add_alias.clear();
+                self.search_results_by_store.clear();
+                self.bulk_search_used = false;
+                self.bulk_search_index = 0;
+                self.bulk_simple_threshs.clear();
+                self.log_batch.push_str(&log_utils::message_builder("Reset search results", LogLevel::INFO));
                 Task::none()
             }
             Message::NextStore => {
@@ -515,8 +523,7 @@ impl App {
                         let query = self.search_query.clone();
                         let store_id_clone = store_id.clone();
                         let status_str = format!("Searching {}...", store_id);
-                        self.status_message = status_str.clone();
-                        self.log.push_str(&log_utils::message_builder(&status_str, LogLevel::INFO));
+                        self.log_batch.push_str(&log_utils::message_builder(&status_str, LogLevel::INFO));
                         return Task::perform(perform_store_search(query, store_id_clone.clone()), move |result| {
                             Message::StoreSearchCompleted(store_id_clone, result)
                         });
@@ -524,7 +531,7 @@ impl App {
                 } else {
                     let status_str = String::from("Reached last store.");
                     self.status_message = status_str.clone();
-                    self.log.push_str(&log_utils::message_builder(&status_str, LogLevel::INFO));
+                    self.log_batch.push_str(&log_utils::message_builder(&status_str, LogLevel::INFO));
                 }
                 Task::none()
             }
@@ -533,8 +540,7 @@ impl App {
                     self.current_store_search_idx -= 1;
                     let (store_id, _) = &self.search_results_by_store[self.current_store_search_idx];
                     let status_str = format!("Viewing results from {}", store_id);
-                    self.status_message = status_str.clone();
-                    self.log.push_str(&log_utils::message_builder(&status_str, LogLevel::INFO));
+                    self.log_batch.push_str(&log_utils::message_builder(&status_str, LogLevel::INFO));
                 }
                 Task::none()
             }
@@ -543,8 +549,7 @@ impl App {
                     Ok(price) => price,
                     Err(_) => {
                         let status_str = String::from("Invalid desired price. Enter a decimal value.");
-                        self.status_message = status_str.clone();
-                        self.log.push_str(&log_utils::message_builder(&status_str, LogLevel::INFO));
+                        self.log_batch.push_str(&log_utils::message_builder(&status_str, LogLevel::INFO));
                         return Task::none();
                     }
                 };
@@ -590,20 +595,32 @@ impl App {
 
                 if added_count == 0 {
                     let status_str = String::from("No selected storefront titles were added. Choose a result before adding a threshold.");
-                    self.status_message = status_str.clone();
-                    self.log.push_str(&log_utils::message_builder(&status_str, LogLevel::INFO));
+                    self.log_batch.push_str(&log_utils::message_builder(&status_str, LogLevel::INFO));
                 } else {
                     thresholds::update_thresholds(thresholds_list);
                     for title in added_titles {
                         thresholds::update_threshold_alias(title, &alias);
-                    }         
+                    }
                     self.thresholds = thresholds::load_thresholds().unwrap_or_default();
                     self.sync_threshold_edits();
                     self.search_results_by_store.clear();
                     self.selected_results_by_store.clear();
                     self.current_store_search_idx = 0;
-                    //self.tab = Tab::Thresholds;
-                    //self.status_message = format!("Added {} threshold(s) from storefront results.", added_count);
+
+                    if self.bulk_search_used {
+                        if let Some(next_game) = self.next_bulk_game() {
+                            let status_str = format!("Added threshold for '{}'. Moving onto the next game {}.", &self.search_query, next_game.name);
+                            self.search_query = next_game.name.clone();
+                            self.add_price = next_game.price.to_string();
+                            
+                            self.log_batch.push_str(&log_utils::message_builder(&status_str, LogLevel::INFO));
+                            return self.start_search_for_query(self.search_query.clone());
+                        }
+
+                        self.bulk_search_used = false;
+                        let status_str = String::from("Finished processing games from CSV file.");
+                        self.log_batch.push_str(&log_utils::message_builder(&status_str, LogLevel::INFO));
+                    }
                 }
                 self.add_alias.clear();
                 self.add_price.clear();
@@ -634,31 +651,30 @@ impl App {
                 }
                 properties::set_test_mode(self.test_mode);
                 let status_str = String::from("Saved settings");
-                self.status_message = status_str.clone();
-                self.log.push_str(&log_utils::message_builder(&status_str, LogLevel::INFO));
+                self.log_batch.push_str(&log_utils::message_builder(&status_str, LogLevel::INFO));
                 Task::none()
             }
             Message::CheckPrices => {
                 self.search_results_by_store.clear();
                 self.action_displayed = ActionDisplayed::CheckPrices;
-                let status_str = String::from("Fetching price details for display...");
+                let status_str = String::from("Fetching sales info...");
                 self.status_message = status_str.clone();
-                self.log.push_str(&log_utils::message_builder(&status_str, LogLevel::INFO));
+                self.log_batch.push_str(&log_utils::message_builder(&status_str, LogLevel::INFO));
                 Task::perform(check_prices_for_display(), Message::CheckPricesResult)
             }
             Message::CheckPricesResult(result) => {
                 match result {
                     Ok(map) => {
                         self.sales_info_by_store = map;
-                        let status_str = String::from("Fetched display price info");
+                        let status_str = String::from("Price info fetched for sales.");
                         self.status_message = status_str.clone();
-                        self.log.push_str(&log_utils::message_builder(&status_str, LogLevel::INFO));
+                        self.log_batch.push_str(&log_utils::message_builder(&status_str, LogLevel::INFO));
                     }
                     Err(err) => {
-                        self.log = err.clone();
-                        let status_str = String::from("Failed to fetch display price info");
+                        self.log_batch= err.clone();
+                        let status_str = String::from("Failed to fetch sales info");
                         self.status_message = status_str.clone();
-                        self.log.push_str(&log_utils::message_builder(&status_str, LogLevel::INFO));
+                        self.log_batch.push_str(&log_utils::message_builder(&status_str, LogLevel::INFO));
                     }
                 }
                 Task::none()
@@ -667,22 +683,22 @@ impl App {
                 self.action_displayed = ActionDisplayed::TestEmail;
                 let status_str = String::from("Sending email...");
                 self.status_message = status_str.clone();
-                self.log.push_str(&log_utils::message_builder(&status_str, LogLevel::INFO));
+                self.log_batch.push_str(&log_utils::message_builder(&status_str, LogLevel::INFO));
                 Task::perform(send_sales_email(), Message::SendEmailResult)
             }
             Message::SendEmailResult(result) => {
                 match result {
                     Ok(output) => {
-                        self.log.push_str(&log_utils::message_builder(&output, LogLevel::INFO));
+                        self.log_batch.push_str(&log_utils::message_builder(&output, LogLevel::INFO));
                         let status_str = String::from("Email request complete");
                         self.status_message = status_str.clone();
-                        self.log.push_str(&log_utils::message_builder(&status_str, LogLevel::INFO));
+                        self.log_batch.push_str(&log_utils::message_builder(&status_str, LogLevel::INFO));
                     }
                     Err(err) => {
-                        self.log.push_str(&log_utils::message_builder(&err, LogLevel::ERROR));
+                        self.log_batch.push_str(&log_utils::message_builder(&err, LogLevel::ERROR));
                         let status_str = String::from("Email failed");
                         self.status_message = status_str.clone();
-                        self.log.push_str(&log_utils::message_builder(&status_str, LogLevel::ERROR));
+                        self.log_batch.push_str(&log_utils::message_builder(&status_str, LogLevel::ERROR));
                     }
                 }
                 Task::none()
@@ -691,22 +707,22 @@ impl App {
                 self.action_displayed = ActionDisplayed::UpdateCache;
                 let status_str = String::from("Updating cache...");
                 self.status_message = status_str.clone();
-                self.log.push_str(&log_utils::message_builder(&status_str, LogLevel::INFO));
+                self.log_batch.push_str(&log_utils::message_builder(&status_str, LogLevel::INFO));
                 Task::perform(update_cache(), Message::UpdateCacheResult)
             }
             Message::UpdateCacheResult(result) => {
                 match result {
                     Ok(output) => {
-                        self.log.push_str(&log_utils::message_builder(&output, LogLevel::INFO));
+                        self.log_batch.push_str(&log_utils::message_builder(&output, LogLevel::INFO));
                         let status_str = String::from("Cache update complete");
                         self.status_message = status_str.clone();
-                        self.log.push_str(&log_utils::message_builder(&status_str, LogLevel::INFO));
+                        self.log_batch.push_str(&log_utils::message_builder(&status_str, LogLevel::INFO));
                     }
                     Err(err) => {
-                        self.log.push_str(&log_utils::message_builder(&err, LogLevel::ERROR));
+                        self.log_batch.push_str(&log_utils::message_builder(&err, LogLevel::ERROR));
                         let status_str = String::from("Cache update failed");
                         self.status_message = status_str.clone();
-                        self.log.push_str(&log_utils::message_builder(&status_str, LogLevel::ERROR));
+                        self.log_batch.push_str(&log_utils::message_builder(&status_str, LogLevel::ERROR));
                     }
                 }
                 Task::none()
@@ -741,9 +757,8 @@ impl App {
                 }
                 self.thresholds = thresholds::load_thresholds().unwrap_or_default();
                 self.sync_threshold_edits();
-                let status_str = String::from("Threshold row updated.");
-                self.status_message = status_str.clone(); 
-                self.log.push_str(&log_utils::message_builder(&status_str, LogLevel::INFO));
+                let status_str = format!("Threshold row updated.");
+                self.log_batch.push_str(&log_utils::message_builder(&status_str, LogLevel::INFO));
                 Task::none()
             }
             Message::RemoveThresholdRow(idx) => {
@@ -752,21 +767,34 @@ impl App {
                     self.thresholds = thresholds::load_thresholds().unwrap_or_default();
                     self.sync_threshold_edits();
                     let status_str = format!("Removed threshold {}.", title);
-                    self.status_message = status_str.clone();
-                    self.log.push_str(&log_utils::message_builder(&status_str, LogLevel::INFO));
+                    self.log_batch.push_str(&log_utils::message_builder(&status_str, LogLevel::INFO));
                 }
                 Task::none()
             }
             Message::Refresh => {
                 self.refresh_state();
                 let status_str = String::from("Refreshed state");
-                self.status_message = status_str.clone();
-                self.log.push_str(&log_utils::message_builder(&status_str, LogLevel::INFO));
+                self.log_batch.push_str(&log_utils::message_builder(&status_str, LogLevel::DEBUG));
                 Task::none()
             }
             Message::LogsShown => {
                 self.action_displayed = ActionDisplayed::Logs;
                 Task::none()
+            }
+            Message::UpdateLogFile => {
+                if !self.log_batch.is_empty() {
+                    general::append_to_file(&self.current_log_file, &self.log_batch);
+                    self.log_batch.clear();
+                }   
+                Task::none()
+            }
+            Message::AppClosing => {
+                if !self.log_batch.is_empty() {
+                    self.log_batch.push_str(&log_utils::message_builder("Application successfully exited.", LogLevel::INFO));
+                    general::append_to_file(&self.current_log_file, &self.log_batch);
+                    self.log_batch.clear();
+                }
+                exit()
             }
         }
     }
@@ -964,5 +992,86 @@ impl App {
 
     fn view_thresholds(&self) -> Element<'_, Message> {
         thrshlds_view::thresholds_tab(self)
+    }
+
+    fn start_search_for_query(&mut self, query: String) -> Task<Message> {
+        if query.trim().is_empty() {
+            let status_str = String::from("Please enter a search query.");
+            self.log_batch.push_str(&log_utils::message_builder(&status_str, LogLevel::INFO));
+            return Task::none();
+        }
+
+        self.search_query = query;
+        self.search_results_by_store.clear();
+        self.current_store_search_idx = 0;
+
+        for store_id in self.selected_stores.iter() {
+            self.search_results_by_store.push((store_id.clone(), Vec::new()));
+        }
+
+        if self.search_results_by_store.is_empty() {
+            let status_str = String::from("No stores to search.");
+            self.log_batch.push_str(&log_utils::message_builder(&status_str, LogLevel::INFO));
+            return Task::none();
+        }
+
+        self.pending_searches = self.search_results_by_store.len();
+        self.is_search_in_progress = true;
+        self.loading_frame = 0;
+
+        let status_str = format!("Searching {} stores concurrently for '{}'...",self.search_results_by_store.len(),self.search_query);
+        self.log_batch.push_str(&log_utils::message_builder(&status_str, LogLevel::INFO));
+
+        let query = self.search_query.clone();
+        let tasks: Vec<Task<Message>> = self.search_results_by_store.iter().map(|(store_id, _)| {
+            let query = query.clone();
+            let store_id = store_id.clone();
+            Task::perform(perform_store_search(query, store_id.clone()), move |result| {
+                Message::StoreSearchCompleted(store_id, result)
+            })
+        }).collect();
+
+        Task::batch(tasks)
+    }
+
+    fn current_bulk_game(&self) -> Option<SimpleGameThreshold> {
+        self.bulk_simple_threshs.get(self.bulk_search_index).cloned()
+    }
+
+    fn next_bulk_game(&mut self) -> Option<SimpleGameThreshold> {
+        self.bulk_search_index += 1;
+        self.bulk_simple_threshs.get(self.bulk_search_index).cloned()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn bulk_search_advances_to_next_game() {
+        let mut app = App::default();
+        app.bulk_simple_threshs = vec![
+            SimpleGameThreshold { name: "Alpha".into(), price: 10.0 },
+            SimpleGameThreshold { name: "Beta".into(), price: 20.0 },
+        ];
+        app.bulk_search_index = 0;
+
+        let next_game = app.next_bulk_game();
+
+        assert_eq!(next_game.map(|game| game.name), Some("Beta".into()));
+    }
+
+    #[test]
+    fn bulk_search_return_none_when_done() {
+        let mut app = App::default();
+        app.bulk_simple_threshs = vec![
+            SimpleGameThreshold { name: "Alpha".into(), price: 10.0 },
+        ];
+        app.bulk_search_index = 1;
+
+        let next_game = app.next_bulk_game();
+
+        assert!(next_game.is_none());
     }
 }

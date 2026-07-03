@@ -6,6 +6,7 @@ use std::io::{self, Write};
 use std::path::PathBuf;
 use mockall::automock;
 use async_trait::async_trait;
+use tokio::time::{Duration};
 
 use file_types::general;
 use properties;
@@ -16,6 +17,7 @@ use constants::stores::steam::*;
 use constants::operations::thresholds::{LEVENSTEIN_DIST_PERCENTAGE, SMITH_WATERMAN_DIST_PERCENTAGE};
 use crate::algorithms::fuzzy;
 
+#[allow(dead_code)]
 enum SearchPattern {
     Simple,
     FuzzyLevenshtein,
@@ -38,7 +40,12 @@ pub struct SteamClient {
 
 impl SteamClient {
     pub fn new() -> Self {
-        Self { http_client: reqwest::Client::new() }
+        Self { 
+            http_client: reqwest::Client::builder()
+                            .timeout(Duration::from_secs(DEFAULT_TIMEOUT_IN_SECS))
+                            .build()
+                            .unwrap()                 
+        }
     }
 
     pub fn with_client(http_client: reqwest::Client) -> Self {

@@ -2,6 +2,7 @@ use serde_json::{Result, Value};
 use std::f64;
 use async_trait::async_trait;
 use mockall::automock;
+use tokio::time::{Duration};
 
 use structs::internal::data::{SaleInfo};
 use structs::response::gog::{Game, PriceOverview, GameInfo};
@@ -22,7 +23,12 @@ pub struct GogClient {
 
 impl GogClient {
     pub fn new() -> Self {
-        Self { http_client: reqwest::Client::new() }
+        Self { 
+            http_client: reqwest::Client::builder()
+                            .timeout(Duration::from_secs(DEFAULT_TIMEOUT_IN_SECS))
+                            .build()
+                            .unwrap() 
+        }
     }
     pub fn with_client(http_client: reqwest::Client) -> Self {
         Self { http_client }

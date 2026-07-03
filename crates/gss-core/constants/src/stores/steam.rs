@@ -18,3 +18,7 @@ pub static SLIDING_UPDATE_START_SIZE : usize = 100000;
 
 // Search settings
 pub static SEARCH_SIZE_LIMIT : usize = 100;
+
+// Timeouts
+pub static DEFAULT_TIMEOUT_IN_SECS : u64 = 30;
+pub static GAME_LIST_TIMEOUT_IN_SECS : u64 = 180;

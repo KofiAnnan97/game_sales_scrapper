@@ -1,5 +1,6 @@
-use std::fs::{self, File, write};
+use std::fs::{self, File, OpenOptions, write};
 use std::path::Path;
+use std::io::prelude::*;
 
 pub fn get_path(path_str: &str) -> String{
     let path = Path::new(path_str);
@@ -32,6 +33,27 @@ pub fn write_to_file(path: String, data: String){
 pub fn write_file(path: &Path, filename: &str, data: &str) {
     let file_path = path.join(filename).display().to_string();
     write_to_file(file_path, data.to_string());
+}
+
+pub fn append_to_file(path: &str, data: &str) {
+    let file = OpenOptions::new()
+        .create(true)
+        .write(true)
+        .append(true)
+        .open(path);
+    match file {
+        Ok(mut f) => {
+            match f.write_all(data.as_bytes()) {
+                Ok(_) => (),
+                Err(e) => eprintln!("Could not append to file, {}", e),
+            }
+        },
+        Err(e) => eprintln!("Could not open file. {}", e),
+    }
+}
+
+pub fn get_contents(path: &str) -> String{
+    fs::read_to_string(path).unwrap_or_default()
 }
 
 pub fn delete_file(file_path: String){

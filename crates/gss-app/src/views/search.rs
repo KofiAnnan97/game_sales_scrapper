@@ -7,7 +7,17 @@ use file_ops::settings;
 pub const SKIP_STORE_SELECTION: usize = usize::MAX;
 
 pub fn search_tab(app: &crate::App) -> Element<'_, Message> {
-    let store_section = if app.selected_stores.is_empty() {
+    let loading_indicator = column![
+        text(
+            format!("Searching Stores({}/{}){}", 
+                app.selected_stores.len()-app.pending_searches+1, 
+                app.selected_stores.len(),
+                ".".repeat((app.loading_frame % 4) + 1)
+            )
+        ).size(16)
+    ];
+
+    let store_selection = if app.selected_stores.is_empty() {
         column![text("No stores selected. Please go to 'Settings'.")]
     } else if app.search_query.is_empty() {
         column![text("No search in progress. Enter a query and press Search.")]
@@ -107,17 +117,38 @@ pub fn search_tab(app: &crate::App) -> Element<'_, Message> {
         ]
     };
 
-    // let bulk_insert_button = if app.bulk_simple_threshs.is_empty() {
-    //     button("Load Multiple Searches")
-    //         .on_press(Message::OpenCsv)
-    //         .padding(6)
-    // } else {
-    //     button("Search All")
-    //         .on_press(Message::ExecuteBulkInsert)
-    //         .padding(6)
-    // };
+    let bulk_insert_button = if app.bulk_simple_threshs.is_empty() {
+        let mut button = Button::new(text("Load Multiple Searches")).padding(6);
+        if !app.is_search_in_progress {
+            button = button.on_press(Message::OpenCsv);
+        }
+        button
+    } else {
+        let mut button = Button::new(text("Search All")).padding(6);
+        if !app.is_search_in_progress {
+            button = button.on_press(Message::ExecuteBulkInsert);
+        }
+        button
+    };
 
+    let search_button = if app.bulk_search_used {
+        Button::new(text("Search")).padding(6)
+    } else {
+        let mut button = Button::new(text("Search")).padding(6);
+        if !app.is_search_in_progress {
+            button = button.on_press(Message::StartSearch);
+        }
+        button
+    };
 
+    let reset_button = if !app.is_search_in_progress {
+        Button::new(text("Reset"))
+            .on_press(Message::SearchReset)
+            .padding(6)
+    } else {
+        Button::new(text("Reset"))
+            .padding(6)
+    };
 
     let search_controls = column![
         row![
@@ -125,11 +156,8 @@ pub fn search_tab(app: &crate::App) -> Element<'_, Message> {
                 .on_input(Message::SearchQueryChanged)
                 .padding(5)
                 .width(Length::Fill),
-            if app.bulk_search_used {
-                Button::new(text("Search")).padding(6)
-            } else { 
-                Button::new(text("Search")).on_press(Message::StartSearch).padding(6)
-            },
+            search_button,
+            reset_button
         ]
         .spacing(8),
         if settings::get_alias_state() {
@@ -142,8 +170,7 @@ pub fn search_tab(app: &crate::App) -> Element<'_, Message> {
                     .on_input(|value| Message::ThresholdPriceChanged(usize::MAX, value))
                     .padding(5)
                     .width(Length::Fixed(150.0)),
-                // bulk_insert_button
-                // Button::new(text("Search Multiple")).on_press(Message::OpenCsv).padding(6),
+                bulk_insert_button
             ].width(Length::Fill)
             .spacing(20)
         } else {
@@ -152,11 +179,14 @@ pub fn search_tab(app: &crate::App) -> Element<'_, Message> {
                     .on_input(|value| Message::ThresholdPriceChanged(usize::MAX, value))
                     .padding(5)
                     .width(Length::Fixed(150.0)),
-                // bulk_insert_button
-                // Button::new(text("Search Multiple")).on_press(Message::OpenCsv).padding(6),
+                bulk_insert_button
             ].spacing(20)
         },
-        store_section,
+        if app.is_search_in_progress {
+            loading_indicator
+        } else {
+            store_selection
+        }        
     ]
     .spacing(10)
     .padding(8);

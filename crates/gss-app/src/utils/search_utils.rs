@@ -1,4 +1,5 @@
 use reqwest::Client;
+use tokio::time::Duration;
 
 use stores::pc::{gog, microsoft_store, steam};
 use constants::operations::settings::{GOG_STORE_ID, MICROSOFT_STORE_ID, STEAM_STORE_ID};
@@ -11,7 +12,10 @@ pub async fn perform_store_search(query: String, store_id: String) -> Result<Vec
     if query.trim().is_empty() {
         return Err(String::from("Please enter a search query."));
     }
-    let http_client = Client::new();
+    let http_client = reqwest::Client::builder()
+                            .timeout(Duration::from_secs(120))
+                            .build()
+                            .unwrap();
     let mut results = Vec::new();
 
     if store_id == STEAM_STORE_ID {
@@ -55,8 +59,4 @@ pub async fn perform_store_search(query: String, store_id: String) -> Result<Vec
     } else {
         Ok(results)
     }
-}
-
-pub async fn perform_bulk_search(){
-    
 }

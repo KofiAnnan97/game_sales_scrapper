@@ -11,6 +11,7 @@ use constants::operations::properties::{DATA_DIR, CONFIG_DIR, DEFAULT_TEST_DIR, 
                                         SMTP_PASSWORD_ENV, PROP_STEAM_API_KEY, PROP_RECIPIENT_EMAIL, PROP_SMTP_HOST, 
                                         PROP_SMTP_PORT, PROP_SMTP_EMAIL, PROP_SMTP_USERNAME, PROP_SMTP_PASSWORD, 
                                         PROP_PROJECT_PATH, PROP_TEST_PATH, PROP_TEST_MODE, PROP_SLIDING_STEAM_APPID};
+use constants::operations::logging::LOG_DIR;
 use crate::env_vars::get_decrypt_key;
 
 // Retrieve paths
@@ -73,6 +74,13 @@ pub fn get_config_path() -> String {
     config_path = path.display().to_string();
     general::create_dir(&config_path);
     config_path
+}
+
+pub fn get_log_path() -> String {
+    let path: PathBuf = [&get_project_path(), LOG_DIR].iter().collect();
+    let log_path = path.display().to_string();
+    general::create_dir(&log_path);
+    log_path
 }
 
 // Properties Functions

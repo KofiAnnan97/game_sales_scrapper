@@ -6,6 +6,7 @@ pub mod operations {
     pub mod properties;
     pub mod settings;
     pub mod thresholds;
+    pub mod logging;
 }
 
 pub mod stores {

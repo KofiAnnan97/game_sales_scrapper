@@ -10,7 +10,7 @@ pub struct SaleInfo{
     pub store_page_link: String,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct SimpleGameThreshold {
     pub name: String,
     pub price: f64,
