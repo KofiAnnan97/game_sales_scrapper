@@ -61,5 +61,5 @@ pub fn fatal_message_builder(panic_info: &PanicHookInfo<'_>) -> String {
         .map(|loc| format!("{}:{}:{}", loc.file(), loc.line(), loc.column()))
         .unwrap_or_else(|| String::from("Unknown location"));
 
-    format!("{{timestamp: \"{} UTC\", level: \"{}\", message: \"Application panicked with \'{}\'\", location:\"{}\"}}\n", dt, FATAL, msg, location)
+    format!("{{timestamp: \"{}\", level: \"{}\", message: \"Application panicked with \'{}\'\", location:\"{}\"}}\n", dt, FATAL, msg, location)
 }

@@ -1,12 +1,12 @@
 use file_ops::settings;
 use file_types::general;
-use iced::widget::{Button, Scrollable,scrollable, column, container, rich_text, row, span, table, text, center_x, center_y};
+use iced::widget::{Button, Scrollable, column, container, row, text};
 use iced::{font, Element, Font, Length};
 
-use crate::components::{custom_widgets, custom_styles};
+use crate::components::{custom_widgets};
 
-use crate::Message;
-use crate::utils::log_utils;
+use crate::{LOADING_FRAMES_SIZE, Message};
+// use crate::utils::log_utils;
 
 pub enum ActionDisplayed{
     NoAction,
@@ -17,6 +17,9 @@ pub enum ActionDisplayed{
 }
 
 pub fn view_actions(app: &crate::App) -> Element<'_, Message> {
+    let cache_loading = custom_widgets::text_loading_indicator("Retrieve games to cache", app.caching_loading_frame, LOADING_FRAMES_SIZE);
+    let price_check_loading = custom_widgets::text_loading_indicator("Checking prices", app.price_check_loading_frame, LOADING_FRAMES_SIZE);
+
     let mut sales_by_store = column![];
     for (store, games) in app.sales_info_by_store.iter() {
         if games.is_empty() { continue; }
@@ -33,11 +36,13 @@ pub fn view_actions(app: &crate::App) -> Element<'_, Message> {
         sales_by_store = sales_by_store.push(container(custom_widgets::create_sales_table( &games)).center_x(Length::Fill));
     }
 
-    let sale_info_table_scrollable = Scrollable::new(column![
-        text(format!("Status: {}", app.status_message)),
-        sales_by_store
-    ])//sale_info_table)
-    .width(Length::Fill);
+    let price_check_scrollable = Scrollable::new(
+        if app.is_price_check_in_progress {
+            column![price_check_loading]
+        } else {
+            column![sales_by_store]
+        }
+    ).width(Length::Fill);
 
     let complete_logs = general::get_contents(&app.current_log_file) + &app.log_batch;
     let logs_display = Scrollable::new(text(complete_logs))
@@ -46,11 +51,19 @@ pub fn view_actions(app: &crate::App) -> Element<'_, Message> {
 
     let status_display = Scrollable::new(text(&app.status_message));
 
+    let caching_display = Scrollable::new(
+        if app.is_caching_in_progress {
+            cache_loading
+        } else {
+            text(&app.status_message)
+        }
+    );
+
     let display_results = match app.action_displayed {
-        ActionDisplayed::CheckPrices => sale_info_table_scrollable,
+        ActionDisplayed::CheckPrices => price_check_scrollable,
         ActionDisplayed::Logs => logs_display,
         ActionDisplayed::TestEmail => status_display,
-        ActionDisplayed::UpdateCache => status_display,
+        ActionDisplayed::UpdateCache => caching_display,
         ActionDisplayed::NoAction => Scrollable::new(text(""))
     };
 

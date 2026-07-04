@@ -12,7 +12,7 @@ pub async fn perform_store_search(query: String, store_id: String) -> Result<Vec
     if query.trim().is_empty() {
         return Err(String::from("Please enter a search query."));
     }
-    let http_client = reqwest::Client::builder()
+    let http_client = Client::builder()
                             .timeout(Duration::from_secs(120))
                             .build()
                             .unwrap();

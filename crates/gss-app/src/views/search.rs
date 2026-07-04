@@ -1,26 +1,32 @@
-use iced::widget::{Button, Radio, Scrollable, TextInput, button, column, container, row, text};
+use iced::widget::{Button, Radio, Scrollable, TextInput, column, container, row, text};
 use iced::{Element, Length};
 
-use crate::Message;
-use file_ops::settings;
+use file_ops::{settings, thresholds};
+
+use crate::{LOADING_FRAMES_SIZE, Message};
+use crate::components::custom_widgets;
 
 pub const SKIP_STORE_SELECTION: usize = usize::MAX;
 
 pub fn search_tab(app: &crate::App) -> Element<'_, Message> {
-    let loading_indicator = column![
-        text(
-            format!("Searching Stores({}/{}){}", 
-                app.selected_stores.len()-app.pending_searches+1, 
-                app.selected_stores.len(),
-                ".".repeat((app.loading_frame % 4) + 1)
-            )
-        ).size(16)
-    ];
+    let current_store_idx: usize = if app.pending_searches > 0 {
+        app.selected_stores.len()-app.pending_searches+1
+    } else { 0 };
+
+    let search_index = format!("Searching Stores({}/{})", 
+        current_store_idx, 
+        app.selected_stores.len()
+    );
+
+    let search_loading = custom_widgets::text_loading_indicator(&search_index, app.search_loading_frame, LOADING_FRAMES_SIZE);
 
     let store_selection = if app.selected_stores.is_empty() {
         column![text("No stores selected. Please go to 'Settings'.")]
-    } else if app.search_query.is_empty() {
+    } else if app.search_query.is_empty() && app.search_results_by_store.is_empty() {
         column![text("No search in progress. Enter a query and press Search.")]
+    } else if !app.alias_reuse_enabled && thresholds::does_alias_exist(&app.add_alias) {
+        //app.log_batch.push_str(&log_utils::message_builder("L", log_utils::LogLevel::WARN));
+        column![text(format!("The alias \'{}\' is already is use. Please enable alias reuse in Settings to use this alias again.", &app.add_alias))]
     } else if app.search_results_by_store.len() == 0 {
         column![text("")]
     } else {
@@ -113,10 +119,11 @@ pub fn search_tab(app: &crate::App) -> Element<'_, Message> {
             column![
                 add_threshold_button,
             ]
+            .padding(8)
             .spacing(10),
         ]
     };
-
+    
     let bulk_insert_button = if app.bulk_simple_threshs.is_empty() {
         let mut button = Button::new(text("Load Multiple Searches")).padding(6);
         if !app.is_search_in_progress {
@@ -183,7 +190,7 @@ pub fn search_tab(app: &crate::App) -> Element<'_, Message> {
             ].spacing(20)
         },
         if app.is_search_in_progress {
-            loading_indicator
+            column![search_loading]
         } else {
             store_selection
         }        

@@ -1,12 +1,11 @@
 use iced::widget::{
-    Button, Checkbox, button, column, container, row, text
+    Button, Checkbox, column, container, row, text
 };
-use iced::{Element, Length, Padding, Subscription, Task, Window, application, window, exit};
+use iced::{Element, Length, Padding, Subscription, Task, application, window, exit};
 use iced::time::{self, Duration};
 use iced_aw::menu::{self, Menu};
 use iced_aw::{ICED_AW_FONT_BYTES, menu_bar, menu_items, TabLabel, tabs::{Tabs, TabBarPosition}};
 
-use reqwest::Client;
 use std::path::PathBuf;
 use std::path::Path;
 use std::sync::Arc;
@@ -199,8 +198,12 @@ struct App {
     current_store_search_idx: usize,
     selected_results_by_store: HashMap<String, Option<usize>>,
     is_search_in_progress: bool,
+    is_caching_in_progress: bool,
+    is_price_check_in_progress: bool,
     pending_searches: usize,
-    loading_frame: usize,
+    search_loading_frame: usize,
+    caching_loading_frame: usize,
+    price_check_loading_frame: usize,
     selected_file: Option<PathBuf>,
     bulk_simple_threshs: Vec<SimpleGameThreshold>,
     bulk_search_index: usize,
@@ -244,8 +247,12 @@ impl App {
             current_store_search_idx: 0,
             selected_results_by_store: HashMap::new(),
             is_search_in_progress: false,
+            is_caching_in_progress: false,
+            is_price_check_in_progress: false,
             pending_searches: 0,
-            loading_frame: 0,
+            search_loading_frame: 0,
+            caching_loading_frame: 0,
+            price_check_loading_frame: 0,
             selected_file: None,
             bulk_simple_threshs: Vec::new(),
             bulk_search_index: 0,
@@ -260,11 +267,11 @@ impl App {
             current_log_file: log_file,
             action_displayed: ActionDisplayed::NoAction,
             sales_info_by_store: {
-                let mut m = HashMap::new();
+                let mut si = HashMap::new();
                 for store in settings::get_available_stores() {
-                    m.insert(store.clone(), Vec::new());
+                    si.insert(store.clone(), Vec::new());
                 }
-                m
+                si
             },
         };
         app.sync_threshold_edits();
@@ -382,17 +389,11 @@ impl App {
             Message::SmtpEmailChanged(value) => { self.smtp_email = value; Task::none() }
             Message::SmtpUserChanged(value) => { self.smtp_user = value; Task::none() }
             Message::SmtpPasswordChanged(value) => { self.smtp_password = value; Task::none() }
-            Message::ToggleTestMode(enabled) => {
-                self.test_mode = enabled;
-                Task::none()
-            }
-            Message::SearchQueryChanged(value) => {
-                self.search_query = value;
-                Task::none()
-            }
+            Message::ToggleTestMode(enabled) => { self.test_mode = enabled; Task::none() }
+            Message::SearchQueryChanged(value) => { self.search_query = value; Task::none() }
             Message::StartSearch => {
                 self.bulk_search_used = false;
-                self.start_search_for_query(self.search_query.clone())
+                self.start_game_search(self.search_query.clone())
             }
             Message::SelectAllStores => {
                 self.selected_stores = self.available_stores.clone();
@@ -442,12 +443,17 @@ impl App {
                         None => ()
                     };
                 }
-                // Task::chain(, Message::ExecuteBulkInsert)
                 Task::none()
             }
             Message::Tick => {
                 if self.is_search_in_progress {
-                    self.loading_frame = (self.loading_frame + 1) % LOADING_FRAMES_SIZE;
+                    self.search_loading_frame = (self.search_loading_frame + 1) % LOADING_FRAMES_SIZE;
+                }
+                if self.is_caching_in_progress {
+                    self.caching_loading_frame = (self.search_loading_frame + 1) % LOADING_FRAMES_SIZE;
+                }
+                if self.is_price_check_in_progress {
+                    self.price_check_loading_frame = (self.price_check_loading_frame + 1) % LOADING_FRAMES_SIZE;
                 }
                 Task::none()
             }
@@ -464,7 +470,7 @@ impl App {
                 if let Some(game) = self.current_bulk_game() {
                     self.search_query = game.name.clone();
                     self.add_price = game.price.to_string();
-                    self.start_search_for_query(self.search_query.clone())
+                    self.start_game_search(self.search_query.clone())
                 } else {
                     let status_str = String::from("No games loaded from CSV.");
                     self.log_batch.push_str(&log_utils::message_builder(&status_str, LogLevel::INFO));
@@ -500,7 +506,7 @@ impl App {
                 }
                 if self.pending_searches == 0 {
                     self.is_search_in_progress = false;
-                    self.loading_frame = 0;
+                    self.search_loading_frame = 0;
                 }
                 Task::none()
             }
@@ -614,7 +620,7 @@ impl App {
                             self.add_price = next_game.price.to_string();
                             
                             self.log_batch.push_str(&log_utils::message_builder(&status_str, LogLevel::INFO));
-                            return self.start_search_for_query(self.search_query.clone());
+                            return self.start_game_search(self.search_query.clone());
                         }
 
                         self.bulk_search_used = false;
@@ -624,6 +630,7 @@ impl App {
                 }
                 self.add_alias.clear();
                 self.add_price.clear();
+
                 Task::none()
             }
             Message::SaveSettings => {
@@ -657,12 +664,15 @@ impl App {
             Message::CheckPrices => {
                 self.search_results_by_store.clear();
                 self.action_displayed = ActionDisplayed::CheckPrices;
+                self.is_price_check_in_progress = true;
+                self.price_check_loading_frame = 0;
                 let status_str = String::from("Fetching sales info...");
                 self.status_message = status_str.clone();
                 self.log_batch.push_str(&log_utils::message_builder(&status_str, LogLevel::INFO));
                 Task::perform(check_prices_for_display(), Message::CheckPricesResult)
             }
             Message::CheckPricesResult(result) => {
+                self.is_price_check_in_progress = false;
                 match result {
                     Ok(map) => {
                         self.sales_info_by_store = map;
@@ -705,12 +715,15 @@ impl App {
             }
             Message::UpdateCache => {
                 self.action_displayed = ActionDisplayed::UpdateCache;
+                self.is_caching_in_progress = true;
+                self.price_check_loading_frame = 0;
                 let status_str = String::from("Updating cache...");
                 self.status_message = status_str.clone();
                 self.log_batch.push_str(&log_utils::message_builder(&status_str, LogLevel::INFO));
                 Task::perform(update_cache(), Message::UpdateCacheResult)
             }
             Message::UpdateCacheResult(result) => {
+                self.is_caching_in_progress = false;
                 match result {
                     Ok(output) => {
                         self.log_batch.push_str(&log_utils::message_builder(&output, LogLevel::INFO));
@@ -729,7 +742,6 @@ impl App {
             }
             Message::ThresholdAliasChanged(idx, value) => {
                 if idx == usize::MAX {
-                    // alias input from the Add Threshold search form
                     self.add_alias = value;
                 } else if let Some(slot) = self.threshold_alias_edits.get_mut(idx) {
                     *slot = value;
@@ -752,7 +764,11 @@ impl App {
                         thresholds::update_threshold_alias(threshold.title.clone(), &alias);
                     }
                     if let Ok(price) = price_str.trim().parse::<f64>() {
-                        let _ = thresholds::update_price(&threshold.title, price);
+                        if threshold.alias.is_empty() {
+                            let _ = thresholds::update_price(&threshold.title, price);
+                        } else {
+                            let _ = thresholds::update_price(&threshold.alias, price);
+                        } 
                     }
                 }
                 self.thresholds = thresholds::load_thresholds().unwrap_or_default();
@@ -782,7 +798,7 @@ impl App {
                 Task::none()
             }
             Message::UpdateLogFile => {
-                if !self.log_batch.is_empty() {
+                if !self.log_batch.is_empty() && !self.current_log_file.is_empty() {
                     general::append_to_file(&self.current_log_file, &self.log_batch);
                     self.log_batch.clear();
                 }   
@@ -847,20 +863,25 @@ impl App {
         ))
         .width(320.0);
 
-        let help_menu = Menu::new(menu_items!(
-            (custom_widgets::menu_text_button("About", Message::OpenMoreSettings)),
-        ))
-        .width(Length::Fill);
+        // let customize_menu = Menu::new(menu_items!(
+        //     (text("Font size")),
+        //     (text("Themes..."))
+        // )).width(320.0);
+        // let actions_menu = Menu::new(menu_items!(
+        //     (text("Schedule sub menu")),
+        //     (text("SMTP Email (in sub menu)")),
+        //     (text("Update cache")),
+        //     (text("Check Logs"))
+        // )).width(320.0);
 
         let menu_bar = menu_bar!(
+            // (container(text("Customize")), customize_menu),
             (container(text("Settings")), settings_menu),
-            // (container(text("Help")), help_menu),
+            // (container(text("Actions")), actions_menu)
         )
-        // .width(Length::Fill)
         .spacing(5.0)
         .padding(Padding::new(4.0))
         .draw_path(menu::DrawPath::Backdrop)
-        // .close_on_item_click_global(true)
         .close_on_background_click_global(true);
 
         let base_view = Tabs::new(Message::TabSelected)
@@ -883,7 +904,6 @@ impl App {
             .tab_bar_position(TabBarPosition::Top)
             .width(Length::Fill);
 
-        // Top-left menu bar that sits at the very top of the application window
         let top_row = row![
             menu_bar,
         ]
@@ -994,7 +1014,7 @@ impl App {
         thrshlds_view::thresholds_tab(self)
     }
 
-    fn start_search_for_query(&mut self, query: String) -> Task<Message> {
+    fn start_game_search(&mut self, query: String) -> Task<Message> {
         if query.trim().is_empty() {
             let status_str = String::from("Please enter a search query.");
             self.log_batch.push_str(&log_utils::message_builder(&status_str, LogLevel::INFO));
@@ -1017,7 +1037,7 @@ impl App {
 
         self.pending_searches = self.search_results_by_store.len();
         self.is_search_in_progress = true;
-        self.loading_frame = 0;
+        self.search_loading_frame = 0;
 
         let status_str = format!("Searching {} stores concurrently for '{}'...",self.search_results_by_store.len(),self.search_query);
         self.log_batch.push_str(&log_utils::message_builder(&status_str, LogLevel::INFO));
@@ -1048,30 +1068,175 @@ impl App {
 mod tests {
     use super::*;
 
-    #[test]
-    fn bulk_search_advances_to_next_game() {
-        let mut app = App::default();
-        app.bulk_simple_threshs = vec![
-            SimpleGameThreshold { name: "Alpha".into(), price: 10.0 },
-            SimpleGameThreshold { name: "Beta".into(), price: 20.0 },
-        ];
-        app.bulk_search_index = 0;
+    mod app {
+        use super::*;
 
-        let next_game = app.next_bulk_game();
+        #[test]
+        fn bulk_search_advances_to_next_game() {
+            let mut app = App::new(String::new());
+            app.bulk_simple_threshs = vec![
+                SimpleGameThreshold { name: "Alpha".into(), price: 10.0 },
+                SimpleGameThreshold { name: "Beta".into(), price: 20.0 },
+            ];
+            app.bulk_search_index = 0;
 
-        assert_eq!(next_game.map(|game| game.name), Some("Beta".into()));
-    }
+            let next_game = app.next_bulk_game();
 
-    #[test]
-    fn bulk_search_return_none_when_done() {
-        let mut app = App::default();
-        app.bulk_simple_threshs = vec![
-            SimpleGameThreshold { name: "Alpha".into(), price: 10.0 },
-        ];
-        app.bulk_search_index = 1;
+            assert_eq!(next_game.map(|game| game.name), Some("Beta".into()));
+        }
 
-        let next_game = app.next_bulk_game();
+        #[test]
+        fn bulk_search_return_none_when_done() {
+            let mut app = App::new(String::new());
+            app.bulk_simple_threshs = vec![
+                SimpleGameThreshold { name: "Alpha".into(), price: 10.0 },
+            ];
+            app.bulk_search_index = 1;
 
-        assert!(next_game.is_none());
+            let next_game = app.next_bulk_game();
+
+            assert!(next_game.is_none());
+        }
+
+        #[test]
+        fn bulk_search_returns_current_game() {
+            let mut app = App::new(String::new());
+            app.bulk_simple_threshs = vec![
+                SimpleGameThreshold { name: String::from("Alpha"), price: 10.0 },
+                SimpleGameThreshold { name: String::from("Beta"), price: 20.0 },
+            ];
+            app.bulk_search_index = 1;
+
+            let current_game = app.current_bulk_game();
+
+            assert_eq!(current_game.map(|game| game.name), Some("Beta".to_string()));
+        }
+
+        #[test]
+        fn insert_threshold() {
+            let mut thresholds_list = Vec::new();
+
+            let threshold_added = App::insert_threshold(
+                &mut thresholds_list,
+                "Example Game",
+                "Example Alias",
+                9.99,
+                12345,
+                0,
+                "".to_string(),
+            );
+
+            assert!(threshold_added);
+            assert_eq!(thresholds_list.len(), 1);
+            assert_eq!(thresholds_list[0].title, "Example Game");
+            assert_eq!(thresholds_list[0].alias, "Example Alias");
+            assert_eq!(thresholds_list[0].desired_price, 9.99);
+            assert_eq!(thresholds_list[0].steam_id, 12345);
+        }
+
+        #[test]
+        fn update_existing_threshold() {
+            let mut thresholds_list = vec![
+                GameThreshold {
+                    title: "Example Game".into(),
+                    alias: "Old Alias".into(),
+                    steam_id: 100,
+                    gog_id: 0,
+                    microsoft_store_id: String::new(),
+                    currency: String::from("USD"),
+                    desired_price: 19.99,
+                }
+            ];
+
+            let threshold_added = App::insert_threshold(
+                &mut thresholds_list,
+                "Example Game",
+                "New Alias",
+                8.99,
+                200,
+                10,
+                "MS123".to_string(),
+            );
+
+            assert!(!threshold_added);
+            assert_eq!(thresholds_list.len(), 1);
+            assert_eq!(thresholds_list[0].alias, "New Alias");
+            assert_eq!(thresholds_list[0].desired_price, 8.99);
+            assert_eq!(thresholds_list[0].steam_id, 200);
+            assert_eq!(thresholds_list[0].gog_id, 10);
+            assert_eq!(thresholds_list[0].microsoft_store_id, "MS123");
+        }
+
+        #[test]
+        fn thresholds_sync_to_alias_and_price_edits() {
+            let mut app = App::new(String::new());
+            app.thresholds = vec![
+                GameThreshold {
+                    title: "Example Game".into(),
+                    alias: "Alias1".into(),
+                    steam_id: 0,
+                    gog_id: 0,
+                    microsoft_store_id: String::new(),
+                    currency: String::from("USD"),
+                    desired_price: 5.5,
+                },
+                GameThreshold {
+                    title: "Example 2".into(),
+                    alias: String::new(),
+                    steam_id: 0,
+                    gog_id: 0,
+                    microsoft_store_id: String::new(),
+                    currency: String::from("USD"),
+                    desired_price: 12.0,
+                },
+            ];
+
+            app.sync_threshold_edits();
+
+            assert_eq!(app.threshold_alias_edits, vec!["Alias1", ""]);
+            assert_eq!(app.threshold_price_edits, vec!["5.5", "12"]);
+        }
+
+        #[test]
+        fn sort_thresholds_column_order_cycle() {
+            let mut app = App::new(String::new());
+            app.threshold_sort_column = None;
+            app.threshold_sort_order = SortOrder::Original;
+
+            let _ = app.update(Message::SortThresholds(SortColumn::Title));
+            assert_eq!(app.threshold_sort_column, Some(SortColumn::Title));
+            assert_eq!(app.threshold_sort_order, SortOrder::Ascending);
+
+            let _ = app.update(Message::SortThresholds(SortColumn::Title));
+            assert_eq!(app.threshold_sort_order, SortOrder::Descending);
+
+            let _ = app.update(Message::SortThresholds(SortColumn::Title));
+            assert_eq!(app.threshold_sort_column, None);
+            assert_eq!(app.threshold_sort_order, SortOrder::Original);
+        }
+
+        #[test]
+        fn log_start_search_with_no_sores() {
+            let mut app = App::new(String::new());
+            app.selected_stores.clear();
+            app.search_query = "Example".into();
+
+            let _ = app.update(Message::StartSearch);
+
+            assert!(!app.is_search_in_progress);
+            assert!(app.log_batch.contains("No stores to search."));
+            assert!(app.search_results_by_store.is_empty());
+        }
+
+        #[test]
+        fn logs_start_search_with_no_query() {
+            let mut app = App::new(String::new());
+            app.search_query.clear();
+
+            let _ = app.update(Message::StartSearch);
+
+            assert!(!app.is_search_in_progress);
+            assert!(app.log_batch.contains("Please enter a search query."));
+        }
     }
 }

@@ -22,7 +22,7 @@ function create-task($taskName) {
     }
     else{
         $trigger = New-ScheduledTaskTrigger `
-            -Weekly -DaysOfWeek Tuesday,Thursday -At 1pm
+            -Weekly -DaysOfWeek Tuesday,Thursday,Saturday -At 1pm
         $action = New-ScheduledTaskAction `
             -Execute "Powershell.exe" `
             -Argument "-NoProfile -ExecutionPolicy Bypass -File $PSScriptRoot\send_email.ps1"

@@ -42,14 +42,24 @@ if [[ $CMD == $CREATE_STATE ]]; then
       touch "$CRON_DIR/$CRON_FILE"
   fi
 
-  # Run every Tuesday and Thursday at 1 pm
-  SCHEDULE="0 13 * * 2,4"
+  # Find script directory
   SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+
+  # Create logs/jobs is it doesn't exit
+  LOG_DIR="$SCRIPT_DIR/../logs"
+  JOBS_SUBDIR="$LOG_DIR/jobs"
+  if [ ! -d $JOBS_SUBDIR ]; then
+      mkdir -p $JOBS_SUBDIR
+      chmod 775 $JOBS_SUBDIR
+  fi
+
+  # Run every Tuesday, Thursday, and Saturday at 1 pm
+  SCHEDULE="0 13 * * 2,4,6"
 
   # Configure as a system wide cron job
   chmod +x "$SCRIPT_DIR/send_email.sh"
-  echo "$SCHEDULE root $SCRIPT_DIR/send_email.sh -p $SCRIPT_DIR >> $SCRIPT_DIR/../log/email_history.log 2>&1" > "$CRON_DIR/$CRON_FILE"
-  chmod 600 "$CRON_DIR/$CRON_FILE"
+  echo "$SCHEDULE root $SCRIPT_DIR/send_email.sh -p $SCRIPT_DIR >> $JOBS_SUBDIR/email_history.log 2>&1" > "$CRON_DIR/$CRON_FILE"
+  chmod 644 "$CRON_DIR/$CRON_FILE"
 
   if [[ $cron_exists == "0" ]]; then
     echo "'$CRON_DIR/$CRON_FILE' was successfully created."
@@ -60,7 +70,7 @@ if [[ $CMD == $CREATE_STATE ]]; then
 elif [[ $CMD == $DELETE_STATE ]]; then
   if [[ $(cron_file_exists) == "1" ]]; then
     cd $CRON_DIR
-    rm -rf $CRON_DIR/$CRON_FILE
+    rm -f $CRON_DIR/$CRON_FILE
     echo "'$CRON_DIR/$CRON_FILE' was successfully deleted."
   else
     echo "'$CRON_DIR/$CRON_FILE' does not exist."

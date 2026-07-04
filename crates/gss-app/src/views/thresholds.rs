@@ -79,7 +79,8 @@ pub fn thresholds_tab(app: &crate::App) -> Element<'_, Message> {
     .spacing(4);
 
     let header_row_seperator = container(iced::widget::rule::horizontal(2)).padding(4);
-    let mut threshold_rows = column![header_row, header_row_seperator];
+    let threshold_header = column![header_row, header_row_seperator];
+    let mut threshold_rows = column![];
     let thresholds_empty: bool = thresholds_to_show.is_empty();
     for &index in thresholds_to_show.iter() {
         let threshold = &app.thresholds[index];
@@ -127,13 +128,19 @@ pub fn thresholds_tab(app: &crate::App) -> Element<'_, Message> {
     .spacing(10)
     .padding(10);
 
-    let thresholds_list = if thresholds_empty {
-        Scrollable::new(column![text("No thresholds found.")]).height(Length::Fill)
-    } else {
-        Scrollable::new(threshold_rows).height(Length::Fill)
-    };
-
-    column![threshold_controls, thresholds_list].spacing(12).into()
+    column![
+        threshold_controls, 
+        if thresholds_empty {
+            column![
+                Scrollable::new(column![text("No thresholds found.")]).height(Length::Fill)
+            ]
+        } else {
+            column![
+                threshold_header,
+                Scrollable::new(threshold_rows).height(Length::Fill)
+            ]
+        }
+    ].spacing(12).into()
 }
 
 fn header_sort_indicator(app: &crate::App, column: SortColumn) -> &'static str {
@@ -143,7 +150,5 @@ fn header_sort_indicator(app: &crate::App, column: SortColumn) -> &'static str {
             SortOrder::Descending => "▼",
             SortOrder::Original => "",
         }
-    } else {
-        ""
-    }
+    } else { "" }
 }

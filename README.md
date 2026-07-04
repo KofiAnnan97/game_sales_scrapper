@@ -38,8 +38,8 @@ A tool that monitors multiple game storefronts and sends email alerts when a gam
 4. Initialize settings and properties (refer to [CLI](#cli))
 5. Add games and their respective price threshold using the [CLI](#cli) or [app](#application) 
 6. You can run either the application or cli using `cargo run -p <crate>`
-7. [Optional] Automate emails (in `setup/` folder)
-    - **For Unix-based systems:** Update *SCHEDULE* variable to desired execution frequency and run `set_cron.sh -c "create"` with root privileges.
+7. [Optional] Automate emails (in `scripts/` folder)
+    - **For Unix-based systems:** Update *SCHEDULE* variable to desired execution frequency and run `set_cron.sh -c create` with root privileges.
     - **For Windows systems:** Update *$trigger* variable to desired execution frequency and run `set_task_scheduler.ps1 -Cmd "create"`. 
     
         If PowerShell scripts execution is not enabled run the following with administrative privileges: 

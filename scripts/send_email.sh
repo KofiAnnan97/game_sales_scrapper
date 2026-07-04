@@ -11,11 +11,14 @@ done
 # Go to script directory
 cd $SCRIPT_DIR || exit
 
-# Create log directory
+# Get logs/jobs directory
 LOG_DIR="$SCRIPT_DIR/../logs"
-if [ ! -d $LOG_DIR ]; then
-    mkdir -p $LOG_DIR
+JOBS_SUBDIR="$LOG_DIR/jobs"
+if [ ! -d $JOBS_SUBDIR ]; then
+  mkdir -p $JOBS_SUBDIR
+  chmod 775 $JOBS_SUBDIR
 fi
+
 
 # Check if target directory created
 if [ ! -d "$SCRIPT_DIR/../target/release" ]; then
@@ -24,7 +27,7 @@ fi
 
 # Run script to get game sales
 DATE_TIME=$(date +"%Y_%m_%d_%H_%M")
-LOG_NAME=$LOG_DIR/$DATE_TIME"_email.html"
+LOG_NAME=$JOBS_SUBDIR/$DATE_TIME"_email.html"
 cd ..
 ./target/release/gss-cli --send-email > $LOG_NAME
 if [ -f $LOG_NAME ]; then

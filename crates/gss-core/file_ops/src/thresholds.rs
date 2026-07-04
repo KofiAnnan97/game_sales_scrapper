@@ -122,7 +122,7 @@ pub fn update_threshold_alias(game_title: String, new_alias: &str) {
     }
 }
 
-fn does_alias_exist(alias_name: &str) -> bool {
+pub fn does_alias_exist(alias_name: &str) -> bool {
     let alias_map = load_alias_map().unwrap_or_default();
     alias_map.contains_key(alias_name)
 }

@@ -1,5 +1,6 @@
+use iced::Theme;
 use iced::widget::{
-    button, container, row, text, table
+    Text, button, container, row, table, text
 };
 use iced::widget::table::Table;
 use iced::{Element, Length, alignment, Alignment::Center};
@@ -57,4 +58,13 @@ pub fn create_sales_table<'a>(sales_info: &'a Vec<SaleInfo>) -> Table<'a, Messag
         .separator_y(1.0)
         .padding_x(10.0)
         .padding_y(10.0)
+}
+
+// Simple Animations
+pub fn text_loading_indicator<'a>(description: &str, current_frame: usize, frame_size: usize) -> Text<'a, Theme> {
+    text(
+        format!("{}{}", 
+        description,
+        ".".repeat((current_frame % frame_size) + 1)
+    )).size(16)
 }
