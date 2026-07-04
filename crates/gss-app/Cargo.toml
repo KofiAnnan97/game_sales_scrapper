@@ -1,5 +1,5 @@
 [package]
-name = "gss-tests"
+name = "gss-app"
 version.workspace = true
 authors.workspace = true
 edition.workspace = true
@@ -15,11 +15,10 @@ properties = { path = "../gss-core/properties" }
 constants = { path = "../gss-core/constants" }
 
 # External crates
-reqwest = { workspace = true, features = ["json", "blocking"] }
+iced.workspace = true
+iced.features = ["canvas", "tokio", "debug"]
+iced_aw.workspace = true
 tokio = { workspace = true, features = ["full"] }
-clap = { workspace = true, features = ["derive", "cargo"] }
-dotenv.workspace = true
-dotenvy.workspace = true
-serde_json.workspace = true
-regex.workspace = true
-rand.workspace = true
+reqwest = { workspace = true, features = ["json"] }
+chrono.workspace = true
+rfd.workspace = true

@@ -5,8 +5,8 @@ use clap::parser::ValueSource;
 use serde_json::Value;
 
 // Internal libraries
-use constants::operations::properties::{PROP_PROJECT_PATH, PROP_RECIPIENT_EMAIL, PROP_SMTP_EMAIL, PROP_SMTP_HOST, 
-                                        PROP_SMTP_PORT, PROP_SMTP_USERNAME, PROP_TEST_MODE};
+use constants::operations::properties::{PROP_PROJECT_PATH, PROP_TEST_PATH, PROP_RECIPIENT_EMAIL, PROP_SMTP_EMAIL, 
+                                        PROP_SMTP_HOST, PROP_SMTP_PORT, PROP_SMTP_USERNAME, PROP_TEST_MODE};
 use constants::operations::settings::{GOG_STORE_ID, MICROSOFT_STORE_ID, STEAM_STORE_ID};
 use constants::cli::args::*;
 use stores::pc::{steam};
@@ -383,7 +383,13 @@ async fn main(){
                                 let properties_str = serde_json::to_string(&properties).unwrap();
                                 let lookup: HashMap<String, Value> = serde_json::from_str(&properties_str).unwrap();
                                 println!("PROPERTIES:\n-----------");
-                                println!("Project Path: {}", lookup.get(PROP_PROJECT_PATH).unwrap_or_default());
+                                let test_mode = lookup.get(PROP_TEST_MODE).unwrap_or_default();
+                                match test_mode.as_i64() {
+                                    Some(1) => println!("Test Path: {}", lookup.get(PROP_TEST_PATH).unwrap_or_default()),
+                                    Some(0) => println!("Project Path: {}", lookup.get(PROP_PROJECT_PATH).unwrap_or_default()),
+                                    None => (),
+                                    _ => println!("Cannot show path given test_mode '{}'", &test_mode)
+                                }
                                 println!("Recipient Email: {}", lookup.get(PROP_RECIPIENT_EMAIL).unwrap_or_default());
                                 println!("Steam API Key: {}", properties::get_steam_api_key());
                                 println!("SMTP Host: {}", lookup.get(PROP_SMTP_HOST).unwrap_or_default());
@@ -391,7 +397,7 @@ async fn main(){
                                 println!("SMTP Email: {}", lookup.get(PROP_SMTP_EMAIL).unwrap_or_default());
                                 println!("SMTP User: {}", lookup.get(PROP_SMTP_USERNAME).unwrap_or_default());
                                 println!("SMTP Password: {}", properties::get_smtp_pwd());
-                                println!("Test Mode: {}", lookup.get(PROP_TEST_MODE).unwrap_or_default());
+                                println!("Test Mode: {}", test_mode);
                             },
                             Err(e) => eprintln!("Failed to list properties.\n{}", e)
                         }
@@ -430,7 +436,7 @@ async fn main(){
             if properties::is_testing_enabled() { println!("------------------------\n* TEST MODE IS ENABLED *\n------------------------"); }
             let mut game_list: Vec<SimpleGameThreshold> = Vec::new();
             let file_path = bulk_args.get_one::<String>("file").unwrap().clone();
-            match csv::parse_game_prices(&file_path){
+            match csv::parse_game_prices_from_path(&file_path){
                 Ok(gl) => game_list = gl,
                 Err(e) => eprintln!("Could not parse file: {}\n{}", file_path, e),
             }
@@ -457,12 +463,12 @@ async fn main(){
             if properties::is_testing_enabled() { println!("------------------------\n* TEST MODE IS ENABLED *\n------------------------"); }
             let title = update_args.get_one::<String>("title").unwrap().clone();
             let price = update_args.get_one::<f64>("price").unwrap().clone();
-            thresholds::update_price(&title, price);
+            thresholds::update_price_fuzzy(&title, price);
         },
         Some(("remove", remove_args)) => {
             if properties::is_testing_enabled() { println!("------------------------\n* TEST MODE IS ENABLED *\n------------------------"); }
             let title = remove_args.get_one::<String>("title").unwrap().clone();
-            thresholds::remove(&title);
+            thresholds::remove_fuzzy(&title);
         },
         _ => {
             if properties::is_testing_enabled() { println!("------------------------\n* TEST MODE IS ENABLED *\n------------------------"); }

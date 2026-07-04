@@ -4,10 +4,9 @@
 ![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/KofiAnnan97/game_sales_scrapper/build.yml?label=Builds) 
 ![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/KofiAnnan97/game_sales_scrapper/tests.yml?label=Tests) 
 
-Roadmap: [[link](./Roadmap.md)]
+Roadmap: [[link](./docs/Roadmap.md)]
 
-A script that checks multiple storefront to determine if a game has reached a user-defined price. Automation can be set up to send an email if any game is 
-at or falls below their respective price threshold.
+A tool that monitors multiple game storefronts and sends email alerts when a game reaches the user-defined price threshold.
 
 ### Supported Storefronts
 - **Steam**
@@ -36,19 +35,20 @@ at or falls below their respective price threshold.
     TEST_PATH={/path/to/test_directory}
     ```
     - For Windows use `\\` when defining the path.
-4. Initialize settings and properties (refer to [supported commands](#supported-commands))
-5. Add games and their respective price threshold using the [support commands](#supported-commands) below (supports commands from cargo).
-6. [Optional] Automate emails (in `setup/` folder)
-    - **For Unix-based systems:** Update *SCHEDULE* variable to desired execution frequency and run `set_cron.sh -c "create"` with root privileges.
+4. Initialize settings and properties (refer to [CLI](#cli))
+5. Add games and their respective price threshold using the [CLI](#cli) or [app](#application) 
+6. You can run either the application or cli using `cargo run -p <crate>`
+7. [Optional] Automate emails (in `scripts/` folder)
+    - **For Unix-based systems:** Update *SCHEDULE* variable to desired execution frequency and run `set_cron.sh -c create` with root privileges.
     - **For Windows systems:** Update *$trigger* variable to desired execution frequency and run `set_task_scheduler.ps1 -Cmd "create"`. 
     
         If PowerShell scripts execution is not enabled run the following with administrative privileges: 
         ```
         Set-ExecutionPolicy RemoteSigned
         ```
-7. [Optional] Run tests locally `cargo test -- --test-threads=1`
+8. [Optional] Run tests locally `cargo test -- --test-threads=1`
 
-## Supported Commands
+## CLI
 Use the`--help` flag in command line to get more information on the supported commands. Here's a brief description and example of each command.
 - `config` := sets what storefronts are used to search for games and enable aliases for game titles (enabled by default). 
     - `settings` := determine which storefront to search, whether aliases are enabled for games, and whether an alias can be reused (useful for different editions of the same product)
@@ -104,3 +104,11 @@ Use the`--help` flag in command line to get more information on the supported co
     ```commandline 
     gss-cli --send-email
     ```
+
+## Application
+
+Run the following command to open the application.
+```
+gss-app
+```
+![](./docs/images/app_interface.png)

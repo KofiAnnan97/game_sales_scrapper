@@ -17,6 +17,7 @@ pub mod tests {
         pub mod passwords;
         pub mod properties;
         pub mod env_vars;
+        pub mod algorithms;
     }
     // Integration Testing
     pub mod api{

@@ -6,13 +6,13 @@ edition.workspace = true
 
 [dependencies]
 # Internal crates
-alerting = { path = "../common/alerting" }
-file_ops = { path = "../common/file_ops" }
-file_types = { path = "../common/file_types" }
-stores = { path = "../common/stores" }
-structs = { path = "../common/structs" }
-properties = { path = "../common/properties" }
-constants = { path = "../common/constants" }
+alerting = { path = "../gss-core/alerting" }
+file_ops = { path = "../gss-core/file_ops" }
+file_types = { path = "../gss-core/file_types" }
+stores = { path = "../gss-core/stores" }
+structs = { path = "../gss-core/structs" }
+properties = { path = "../gss-core/properties" }
+constants = { path = "../gss-core/constants" }
 
 # External crates
 reqwest = { workspace = true, features = ["json", "blocking"] }

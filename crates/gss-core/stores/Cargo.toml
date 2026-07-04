@@ -1,0 +1,27 @@
+[package]
+name = "stores"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+
+[lib]  
+doctest = false 
+test = false
+
+[dependencies]
+#Internal crates
+structs = { path = "../structs" }
+file_types = { path = "../file_types" }
+properties = { path = "../properties" }
+constants = { path = "../constants" }
+
+# External crates
+tokio.workspace = true
+reqwest = { workspace = true, features = ["json", "cookies"] }
+serde_json.workspace = true
+regex.workspace = true
+exitcode.workspace = true
+rand.workspace = true
+chrono.workspace = true
+mockall.workspace = true
+async-trait.workspace = true

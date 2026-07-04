@@ -1,0 +1,69 @@
+# Roadmap
+
+### Release 0.3.0
+- Features/Updates
+  - Implement script as a desktop app
+    - [X] Main Features
+      - [X] Configure settings and properties
+      - [X] Add games 
+      - [X] Bulk insert games
+      - [X] Update price of threshold
+      - [X] Update alias of threshold
+      - [X] Remove game threshold
+      - [X] List selected stores
+      - [X] List thresholds
+      - [X] Update cache
+      - [X] Check prices
+      - [X] Send email  
+    - [X] Usability Features
+      - [X] Check prices button generates a table similar to email within the application (without html)
+      - [X] Updating the price of one threshold which shares a alias with another should update the price of that other threshold
+      - [X] Give a warning when no stores are selected
+      - [X] Selected stores do not impact what stores are queried in app (settings are properly updated)
+      - [X] When alias reuse is not enable check that alias before insert and add a warning when present.
+      - [X] Added loading animation before search results complete
+  - CLI
+    - [ ] Update alias from command line
+    - [X] Add fuzzy search to update and remove command for potential suggestions if the title or alias is not found
+    - [X] Add fuzzy search for Steam game
+- Bugs/Fixes
+  - CLI
+    - [X] Fix shortTilte field in Microsoft Store GameInfo struct 
+    ~~- [ ] Pull currency type for Microsoft store games~~
+    - [ ] Add timeouts for storefront calls
+    - [X] Rework cron jobs for new log structure
+- Testing:
+  - [X] Update tests to use stubbing
+  - [X] Implement temp directories (for all file based tests)
+  - [ ] Write tests for update_price_fuzzy() and remove_fuzzy() 
+  - [X] Write tests for
+    - [X] properties (creation, updating and retrieval)
+    - [X] retrieving environment variables
+  - [X] Add some basic tests for application
+
+### Backlog
+- Features/Updates
+  - General
+    - Set up Humble Bundle Storefront & test
+    - Retrieve pricing data from Steam bundles 
+    - Retrieve pricing data from game editions on GOG
+    - Configure Steam API call to not send steam key as plain text
+    - Add the option to send emails through AWS SES
+    - Deteremine if defaulting the path should be in getters for project and test path if properties and dot env file have an invalid/empty path
+    - Remove/reduce duplicate code between the app and cli
+  - Application
+    - Fix logic to support updating log file when application is prompted to close
+    - Add custom theme setup for user customization
+    - Add interface from custom email cron jobs (Windows and Linux). Might need to rework the current setup.
+    - Log filtering by all, lowest severity, and exact match when displayed (move to separate window)
+      - include the ability to prune logs
+    - Update check price table to show game image from url and hyperlink store page to title
+- Bugs/Fixes
+  - Update dependencies and resolve any potential issues
+- Testing
+  - To do
+    - Mock api calls for user commands (check prices) -> may need to moved out to later
+    - `add` and `bulk-insert` script cmds
+    - Figure out if comprehensive testing is viable for application
+  - Out of Scope 
+    - `update-cache` and `send-email` script cmds
