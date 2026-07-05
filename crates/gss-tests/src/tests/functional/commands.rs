@@ -1,10 +1,7 @@
 use std::collections::HashMap;
-// use std::{env, fs};
-// use std::fs::read_to_string;
-// use std::io::{Read, Write};
-use std::process::{Command}; //, Stdio};
+use std::io::Write;
+use std::process::{Command, Stdio};
 use regex::Regex;
-//use serde_json::{Value};
 
 use file_ops::settings;
 use constants::operations::settings::{GOG_STORE_ID, MICROSOFT_STORE_ID, STEAM_STORE_ID};
@@ -57,7 +54,7 @@ fn config_cmd() {
 }
 
 #[tokio::test]
-#[ignore = "Not fully implemented"]
+#[ignore = "Not yet implemented"]
 async fn add_cmd() {
     setup();
     // Check that add fails without config setup
@@ -97,7 +94,7 @@ async fn add_cmd() {
 }
 
 #[tokio::test]
-#[ignore = "Not fully implemented"]
+#[ignore = "Not yet implemented"]
 async fn bulk_insert_cmd() {
     setup();
     let filename = "bulk-insert-test.csv";
@@ -137,25 +134,84 @@ fn update_price_cmd() {
     // update threshold using game title
     let mut new_price = "19.99";
     let _ = Command::new("cargo")
-        .args(["run","--release","-p","gss-cli","--","update","-t",title,"-p",new_price])
+        .args(["run","--release","-p","gss-cli","--","update","price","-t",title,"-p",new_price])
         .output()
         .expect("failed to execute process");
     let mut thresholds = file_operations::load_thresholds();
     assert_eq!(1, thresholds.len(), "There should only be 1 threshold");
     assert_eq!(title, thresholds[0].title, "The game title should be {title} not {}", thresholds[0].title);
     assert_eq!(new_price.parse::<f64>().unwrap(), thresholds[0].desired_price, "The desired price should be {} not {}", new_price, thresholds[0].desired_price);
-    
+
+    // update price using fuzzy matching
+    new_price = "24.99";
+    let mut fuzzy_output = Command::new("cargo")
+        .args(["run","--release","-p","gss-cli","--","update","price","-t",&title[0..title.len()-2],"-p",new_price])
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .expect("Failed to execute process");
+    if fuzzy_output.stdout.is_some() {
+        let stdin = fuzzy_output.stdin.as_mut().expect("Failed to open stdin.");
+        stdin.write_all(b"0\n").expect("failed to send input");
+    }
+    let choice_output = fuzzy_output.wait_with_output().expect("Failed to wait for process to complete.");
+    println!("STDOUT: {}", String::from_utf8_lossy(&choice_output.stdout));
+    eprintln!("STDERR: {}", String::from_utf8_lossy(&choice_output.stderr));
+    thresholds = file_operations::load_thresholds();
+    assert_eq!(title, thresholds[0].title, "The game title should be {title} not {}", thresholds[0].title);
+    assert_eq!(new_price.parse::<f64>().unwrap(), thresholds[0].desired_price, "The desired price should be {} not {}", new_price, thresholds[0].desired_price);
+
     // update price using alias
     new_price = "34.99";
     let _ = Command::new("cargo")
-        .args(["run","--release","-p","gss-cli","--","update","-t",alias,"-p",new_price])
+        .args(["run","--release","-p","gss-cli","--","update","price","-t",alias,"-p",new_price])
         .output()
         .expect("failed to execute process");
     thresholds = file_operations::load_thresholds();
-    assert_eq!(1, thresholds.len(), "There should only be 1 threshold");
     assert_eq!(alias, thresholds[0].alias, "The game alias should be {alias} not {}", thresholds[0].alias);
     assert_eq!(new_price.parse::<f64>().unwrap(), thresholds[0].desired_price, "The desired price should be {} not {}", new_price, thresholds[0].desired_price);
     file_operations::teardown();
+}
+
+#[test]
+fn update_alias_cmd() {
+    setup();
+    let title = "A single game";
+    let alias = "ASG";
+    let price = 69.99;
+    let mut new_alias = "New ASG";
+    command_stubs::add_fake_threshold(alias, title, price);
+    
+    // update threshold alias using game title
+    let _ = Command::new("cargo")
+        .args(["run","--release","-p","gss-cli","--","update","alias","-t",title,"-a",new_alias])
+        .output()
+        .expect("failed to execute process");
+    let mut thresholds = file_operations::load_thresholds();
+    assert_eq!(1, thresholds.len(), "There should only be 1 threshold");
+    assert_eq!(title, thresholds[0].title, "The game title should be {title} not {}", thresholds[0].title);
+    assert_eq!(new_alias, thresholds[0].alias, "The game alias should be {} not {}", new_alias, thresholds[0].alias);
+
+    // update threshold alias using fuzzy matching
+    new_alias = "New New Alias";
+    let mut fuzzy_output = Command::new("cargo")
+        .args(["run","--release","-p","gss-cli","--","update","alias","-t",&title[0..title.len()-2],"-a",new_alias])
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .expect("Failed to execute process");
+    if fuzzy_output.stdout.is_some() {
+        let stdin = fuzzy_output.stdin.as_mut().expect("Failed to open stdin.");
+        stdin.write_all(b"0\n").expect("failed to send input");
+    }
+    let choice_output = fuzzy_output.wait_with_output().expect("Failed to wait for process to complete.");
+    println!("STDOUT: {}", String::from_utf8_lossy(&choice_output.stdout));
+    eprintln!("STDERR: {}", String::from_utf8_lossy(&choice_output.stderr));
+    thresholds = file_operations::load_thresholds();
+    assert_eq!(title, thresholds[0].title, "The game title should be {title} not {}", thresholds[0].title);
+    assert_eq!(new_alias, thresholds[0].alias, "The game alias should be {} not {}", new_alias, thresholds[0].alias);
 }
 
 #[test]
@@ -172,6 +228,25 @@ fn remove_cmd() {
         .output()
         .expect("failed to execute process");
     let mut thresholds = file_operations::load_thresholds();
+    assert_eq!(0, thresholds.len(), "There should not be any thresholds present");
+
+    // Remove threshold using fuzzy matching
+    command_stubs::add_fake_threshold(alias, title, price);
+    let mut fuzzy_output = Command::new("cargo")
+        .args(["run","--release","-p","gss-cli","--","remove","-t", &title[0..title.len()-2]])
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .expect("Failed to execute process");
+    if fuzzy_output.stdout.is_some() {
+        let stdin = fuzzy_output.stdin.as_mut().expect("Failed to open stdin.");
+        stdin.write_all(b"0\n").expect("failed to send input");
+    }
+    let choice_output = fuzzy_output.wait_with_output().expect("Failed to wait for process to complete.");
+    println!("STDOUT: {}", String::from_utf8_lossy(&choice_output.stdout));
+    eprintln!("STDERR: {}", String::from_utf8_lossy(&choice_output.stderr));
+    thresholds = file_operations::load_thresholds();
     assert_eq!(0, thresholds.len(), "There should not be any thresholds present");
 
     // Remove threshold by alias

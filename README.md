@@ -111,4 +111,4 @@ Run the following command to open the application.
 ```
 gss-app
 ```
-![](./docs/images/app_interface.png)
+![](./docs/graphics/search_demo.gif)

@@ -23,7 +23,7 @@
       - [X] When alias reuse is not enable check that alias before insert and add a warning when present.
       - [X] Added loading animation before search results complete
   - CLI
-    - [ ] Update alias from command line
+    - [X] Update alias from command line
     - [X] Add fuzzy search to update and remove command for potential suggestions if the title or alias is not found
     - [X] Add fuzzy search for Steam game
 - Bugs/Fixes
@@ -35,7 +35,7 @@
 - Testing:
   - [X] Update tests to use stubbing
   - [X] Implement temp directories (for all file based tests)
-  - [ ] Write tests for update_price_fuzzy() and remove_fuzzy() 
+  - [X] Update commands tests to include cases for fuzzy matching game titles (update price, update alias, remove) 
   - [X] Write tests for
     - [X] properties (creation, updating and retrieval)
     - [X] retrieving environment variables

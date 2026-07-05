@@ -169,8 +169,17 @@ async fn main(){
         )
         .subcommand(
             Command::new("update")
-                .about("Update price threshold for game")
-                .args([&title_arg, &price_arg])
+                .about("Update game thresholds")
+                .subcommand(
+                    Command::new("price")
+                        .about("Update the price of a game")
+                        .args([&title_arg, &price_arg])
+                )
+                .subcommand(
+                    Command::new("alias")
+                        .about("Update the alias of a game")
+                        .args([&title_arg, &alias_arg])
+                )
         )
         .subcommand(
             Command::new("remove")
@@ -460,10 +469,21 @@ async fn main(){
             }
         },
         Some(("update", update_args)) => {
-            if properties::is_testing_enabled() { println!("------------------------\n* TEST MODE IS ENABLED *\n------------------------"); }
-            let title = update_args.get_one::<String>("title").unwrap().clone();
-            let price = update_args.get_one::<f64>("price").unwrap().clone();
-            thresholds::update_price_fuzzy(&title, price);
+            match update_args.subcommand(){
+                Some(("price", price_args)) => {
+                    if properties::is_testing_enabled() { println!("------------------------\n* TEST MODE IS ENABLED *\n------------------------"); }
+                    let title = price_args.get_one::<String>("title").unwrap().clone();
+                    let price = price_args.get_one::<f64>("price").unwrap().clone();
+                    thresholds::update_price_fuzzy(&title, price);
+                },
+                Some(("alias", alias_args)) => {
+                    if properties::is_testing_enabled() { println!("------------------------\n* TEST MODE IS ENABLED *\n------------------------"); }
+                    let title = alias_args.get_one::<String>("title").unwrap().clone();
+                    let alias = alias_args.get_one::<String>("alias").unwrap().clone();
+                    thresholds::update_threshold_alias_fuzzy(title, &alias);
+                },
+                _ => (),
+            }  
         },
         Some(("remove", remove_args)) => {
             if properties::is_testing_enabled() { println!("------------------------\n* TEST MODE IS ENABLED *\n------------------------"); }
