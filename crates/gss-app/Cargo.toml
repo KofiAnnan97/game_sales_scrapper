@@ -1,0 +1,24 @@
+[package]
+name = "gss-app"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+
+[dependencies]
+# Internal crates
+alerting = { path = "../gss-core/alerting" }
+file_ops = { path = "../gss-core/file_ops" }
+file_types = { path = "../gss-core/file_types" }
+stores = { path = "../gss-core/stores" }
+structs = { path = "../gss-core/structs" }
+properties = { path = "../gss-core/properties" }
+constants = { path = "../gss-core/constants" }
+
+# External crates
+iced.workspace = true
+iced.features = ["canvas", "tokio", "debug"]
+iced_aw.workspace = true
+tokio = { workspace = true, features = ["full"] }
+reqwest = { workspace = true, features = ["json"] }
+chrono.workspace = true
+rfd.workspace = true

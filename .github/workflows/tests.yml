@@ -21,9 +21,9 @@ jobs:
   linux:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6
     - name: Create env file
-      run: bash ./setup/actions/create_env_file.sh
+      run: bash ./scripts/actions/create_env_file.sh
     - name: Configure project
       run: |
         # Set properties
@@ -42,7 +42,7 @@ jobs:
     if: always()
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Configure toolchain
         run: |
           # Install toolchain
@@ -54,7 +54,7 @@ jobs:
           rustup toolchain list
         shell: pwsh
       - name: Create env file
-        run: .\setup\actions\create_env_file.ps1
+        run: .\scripts\actions\create_env_file.ps1
       - name: Configure project
         run: |
           # Set properties

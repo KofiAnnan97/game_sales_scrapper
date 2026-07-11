@@ -1,12 +1,23 @@
+pub mod stubs{
+    pub mod threshold_stubs;
+    pub mod command_stubs;
+}
+
+pub mod utils{
+    pub mod file_operations;
+    pub mod tmp_setup;
+}
+
 #[cfg(test)]
 pub mod tests {
-    pub mod helper;
-
     // Unit Testing
     pub mod unit{
         pub mod settings;
         pub mod thresholds;
         pub mod passwords;
+        pub mod properties;
+        pub mod env_vars;
+        pub mod algorithms;
     }
     // Integration Testing
     pub mod api{
@@ -16,6 +27,6 @@ pub mod tests {
     }
     // Functional Testing
     pub mod functional{
-         pub mod commands;
+        pub mod commands;
     }
 }

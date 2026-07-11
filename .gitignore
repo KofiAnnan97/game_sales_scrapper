@@ -15,7 +15,7 @@ target/
 # Ignore generated data and logs
 data/
 config/
-log/
+logs/
 *.json
 *.csv
 
