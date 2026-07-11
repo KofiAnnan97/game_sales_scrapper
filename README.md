@@ -35,9 +35,9 @@ A tool that monitors multiple game storefronts and sends email alerts when a gam
     TEST_PATH={/path/to/test_directory}
     ```
     - For Windows use `\\` when defining the path.
-4. Initialize settings and properties (refer to [CLI](#cli))
-5. Add games and their respective price threshold using the [CLI](#cli) or [app](#application) 
-6. You can run either the application or cli using `cargo run -p <crate>`
+4. Initialize settings and properties (refer to [CLI](#cli) or go to Settings -> More Settings in [App](#application))
+5. Add games and their respective price threshold using the [CLI](#cli) or [App](#application) 
+6. You can run either the application or cli using `cargo run -p <crate_name>`
 7. [Optional] Automate emails (in `scripts/` folder)
     - **For Unix-based systems:** Update *SCHEDULE* variable to desired execution frequency and run `set_cron.sh -c create` with root privileges.
     - **For Windows systems:** Update *$trigger* variable to desired execution frequency and run `set_task_scheduler.ps1 -Cmd "create"`. 
@@ -76,9 +76,14 @@ Use the`--help` flag in command line to get more information on the supported co
     Hades, 9.99
     Stardew Valley, 7.99
     ```
-- `update` := update price threshold for a specified game.
+- `update` := update threshold data for a specified game.
+    - `price` := update the price of a game threshold
+    - `alias` := update the alias of a game threshold
     ```commandline
-    gss-cli update --title <title> --price <price>
+    #Update price
+    gss-cli update price --title <title> --price <price>
+    # Update alias
+    gss-cli update alias --title <title> --alias <alias>
     ```
 - `remove` := remove a specified game.
     ```commandline
@@ -111,4 +116,4 @@ Run the following command to open the application.
 ```
 gss-app
 ```
-![](./docs/graphics/search_demo.gif)
+![](./docs/resources/search_demo.gif)

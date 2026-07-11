@@ -36,6 +36,15 @@ pub fn view_actions(app: &crate::App) -> Element<'_, Message> {
         sales_by_store = sales_by_store.push(container(custom_widgets::create_sales_table( &games)).center_x(Length::Fill));
     }
 
+    let stores_with_sales: Vec<_> = app.sales_info_by_store
+        .iter()
+        .filter(|(_, sales)| sales.len() > 0)
+        .map(|(store_front,_)| store_front)
+        .collect();
+    if stores_with_sales.is_empty() {
+        sales_by_store = sales_by_store.push(text("No games are on sale for your desired prices."));
+    }
+
     let price_check_scrollable = Scrollable::new(
         if app.is_price_check_in_progress {
             column![price_check_loading]

@@ -29,8 +29,8 @@
 - Bugs/Fixes
   - CLI
     - [X] Fix shortTilte field in Microsoft Store GameInfo struct 
-    ~~- [ ] Pull currency type for Microsoft store games~~
-    - [ ] Add timeouts for storefront calls
+    - [ ] ~~ Pull currency type for Microsoft store games ~~
+    - [X] Add timeouts for storefront calls
     - [X] Rework cron jobs for new log structure
 - Testing:
   - [X] Update tests to use stubbing
@@ -52,14 +52,19 @@
     - Deteremine if defaulting the path should be in getters for project and test path if properties and dot env file have an invalid/empty path
     - Remove/reduce duplicate code between the app and cli
   - Application
-    - Fix logic to support updating log file when application is prompted to close
     - Add custom theme setup for user customization
     - Add interface from custom email cron jobs (Windows and Linux). Might need to rework the current setup.
     - Log filtering by all, lowest severity, and exact match when displayed (move to separate window)
       - include the ability to prune logs
     - Update check price table to show game image from url and hyperlink store page to title
+    - Print out "Saved settings successfully"  or close Settings when Save Settings button is pressed
+    - Add auto advance to the next store as a toggable option when a radial button is selected
 - Bugs/Fixes
-  - Update dependencies and resolve any potential issues
+  - General
+    - Update dependencies and resolve any potential issues
+    - Handle games thresholds with corrupted or incorrect data (try run search on fake query with incorret store ids)
+  - Application
+    - Fix logic to support updating log file when application is prompted to close
 - Testing
   - To do
     - Mock api calls for user commands (check prices) -> may need to moved out to later
