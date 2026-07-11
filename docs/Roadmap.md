@@ -23,19 +23,19 @@
       - [X] When alias reuse is not enable check that alias before insert and add a warning when present.
       - [X] Added loading animation before search results complete
   - CLI
-    - [ ] Update alias from command line
+    - [X] Update alias from command line
     - [X] Add fuzzy search to update and remove command for potential suggestions if the title or alias is not found
     - [X] Add fuzzy search for Steam game
 - Bugs/Fixes
   - CLI
     - [X] Fix shortTilte field in Microsoft Store GameInfo struct 
-    ~~- [ ] Pull currency type for Microsoft store games~~
-    - [ ] Add timeouts for storefront calls
+    - [ ] ~~ Pull currency type for Microsoft store games ~~
+    - [X] Add timeouts for storefront calls
     - [X] Rework cron jobs for new log structure
 - Testing:
   - [X] Update tests to use stubbing
   - [X] Implement temp directories (for all file based tests)
-  - [ ] Write tests for update_price_fuzzy() and remove_fuzzy() 
+  - [X] Update commands tests to include cases for fuzzy matching game titles (update price, update alias, remove) 
   - [X] Write tests for
     - [X] properties (creation, updating and retrieval)
     - [X] retrieving environment variables
@@ -52,14 +52,19 @@
     - Deteremine if defaulting the path should be in getters for project and test path if properties and dot env file have an invalid/empty path
     - Remove/reduce duplicate code between the app and cli
   - Application
-    - Fix logic to support updating log file when application is prompted to close
     - Add custom theme setup for user customization
     - Add interface from custom email cron jobs (Windows and Linux). Might need to rework the current setup.
     - Log filtering by all, lowest severity, and exact match when displayed (move to separate window)
       - include the ability to prune logs
     - Update check price table to show game image from url and hyperlink store page to title
+    - Print out "Saved settings successfully"  or close Settings when Save Settings button is pressed
+    - Add auto advance to the next store as a toggable option when a radial button is selected
 - Bugs/Fixes
-  - Update dependencies and resolve any potential issues
+  - General
+    - Update dependencies and resolve any potential issues
+    - Handle games thresholds with corrupted or incorrect data (try run search on fake query with incorret store ids)
+  - Application
+    - Fix logic to support updating log file when application is prompted to close
 - Testing
   - To do
     - Mock api calls for user commands (check prices) -> may need to moved out to later

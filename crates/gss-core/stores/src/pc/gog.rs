@@ -23,12 +23,7 @@ pub struct GogClient {
 
 impl GogClient {
     pub fn new() -> Self {
-        Self { 
-            http_client: reqwest::Client::builder()
-                            .timeout(Duration::from_secs(DEFAULT_TIMEOUT_IN_SECS))
-                            .build()
-                            .unwrap() 
-        }
+        Self { http_client: reqwest::Client::new() }
     }
     pub fn with_client(http_client: reqwest::Client) -> Self {
         Self { http_client }
@@ -42,6 +37,7 @@ impl GogApi for GogClient {
         let limit :i32 = 30;
         let url = format!("{}{}?mediaType={}&search={}&limit={}", BASE_URL_V1, MEDIA_ENDPOINT_V1, media_type, title, limit);
         let resp = self.http_client.get(url)
+            .timeout(Duration::from_secs(DEFAULT_TIMEOUT_IN_SECS))
             .send()
             .await
             .expect("Failed to get response")
@@ -61,6 +57,7 @@ impl GogApi for GogClient {
         let limit_num : i32 = 30;
         let url = format!("{}{}?mediaType={}&search={}&limit={}", BASE_URL_V1, MEDIA_ENDPOINT_V1, media_type, title, limit_num);
         let resp = http_client.get(url)
+            .timeout(Duration::from_secs(DEFAULT_TIMEOUT_IN_SECS))
             .send()
             .await
             .expect("Failed to get response")
@@ -97,6 +94,7 @@ impl GogApi for GogClient {
         ];
         let url = format!("{}{}", BASE_URL_V2, CATALOG_ENDPOINT_V2);
         let resp = self.http_client.get(url)
+            .timeout(Duration::from_secs(DEFAULT_TIMEOUT_IN_SECS))
             .query(&query_string)
             .send()
             .await
@@ -126,6 +124,7 @@ impl GogApi for GogClient {
         ];
         let url = format!("{}{}", BASE_URL_V2, CATALOG_ENDPOINT_V2);
         let resp = self.http_client.get(url)
+            .timeout(Duration::from_secs(DEFAULT_TIMEOUT_IN_SECS))
             .query(&query_string)
             .send()
             .await

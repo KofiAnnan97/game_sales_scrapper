@@ -16,6 +16,13 @@ pub struct SimpleGameThreshold {
     pub price: f64,
 }
 
+#[derive(Debug, Clone)]
+pub struct SimpleAliasedGameThreshold {
+    pub name: String,
+    pub alias: String,
+    pub price: f64
+}
+
 #[derive(Deserialize, Serialize, Debug)]
 pub struct GameThreshold{
     pub title: String,

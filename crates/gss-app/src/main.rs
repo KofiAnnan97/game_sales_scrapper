@@ -267,11 +267,11 @@ impl App {
             current_log_file: log_file,
             action_displayed: ActionDisplayed::NoAction,
             sales_info_by_store: {
-                let mut si = HashMap::new();
-                for store in settings::get_available_stores() {
-                    si.insert(store.clone(), Vec::new());
-                }
-                si
+                let sibs: HashMap<String, Vec<SaleInfo>> = settings::get_available_stores()
+                .iter()
+                    .map(|store_name| (store_name.clone(), Vec::new()))
+                    .collect();
+                sibs
             },
         };
         app.sync_threshold_edits();
@@ -604,9 +604,8 @@ impl App {
                     self.log_batch.push_str(&log_utils::message_builder(&status_str, LogLevel::INFO));
                 } else {
                     thresholds::update_thresholds(thresholds_list);
-                    for title in added_titles {
-                        thresholds::update_threshold_alias(title, &alias);
-                    }
+                    added_titles.iter()
+                        .for_each(|title| { thresholds::update_threshold_alias(title.to_owned(), &alias); });
                     self.thresholds = thresholds::load_thresholds().unwrap_or_default();
                     self.sync_threshold_edits();
                     self.search_results_by_store.clear();
@@ -618,6 +617,7 @@ impl App {
                             let status_str = format!("Added threshold for '{}'. Moving onto the next game {}.", &self.search_query, next_game.name);
                             self.search_query = next_game.name.clone();
                             self.add_price = next_game.price.to_string();
+                            self.add_alias.clear();
                             
                             self.log_batch.push_str(&log_utils::message_builder(&status_str, LogLevel::INFO));
                             return self.start_game_search(self.search_query.clone());

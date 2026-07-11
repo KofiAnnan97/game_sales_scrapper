@@ -40,12 +40,7 @@ pub struct SteamClient {
 
 impl SteamClient {
     pub fn new() -> Self {
-        Self { 
-            http_client: reqwest::Client::builder()
-                            .timeout(Duration::from_secs(DEFAULT_TIMEOUT_IN_SECS))
-                            .build()
-                            .unwrap()                 
-        }
+        Self { http_client: reqwest::Client::new() }
     }
 
     pub fn with_client(http_client: reqwest::Client) -> Self {
@@ -338,6 +333,7 @@ async fn get_games(client: &reqwest::Client, max_results: u32, last_appid: u32) 
     ];
     let url = format!("{}{}", API_BASE_URL, APP_LIST_ENDPOINT);
     let resp = client.get(url)
+        .timeout(Duration::from_secs(GAME_LIST_TIMEOUT_IN_SECS))
         .query(&query_string)
         .send()
         .await
@@ -360,6 +356,7 @@ async fn get_game_data(app_id : u32, client: &reqwest::Client) -> Result<String>
     ];
     let url = format!("{}{}", STORE_BASE_URL, DETAILS_ENDPOINT);
     let resp = client.get(url)
+        .timeout(Duration::from_secs(DEFAULT_TIMEOUT_IN_SECS))
         .query(&query_string)
         .send()
         .await

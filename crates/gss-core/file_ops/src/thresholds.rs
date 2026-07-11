@@ -83,7 +83,7 @@ pub fn update_alias_map(alias_map: HashMap<String, Vec<String>>){
     }
 }
 
-pub fn update_threshold_alias(game_title: String, new_alias: &str) {
+pub fn update_threshold_alias(game_title: String, new_alias: &str) -> bool {
     let mut alias_map = load_alias_map().unwrap_or_default();
     
     // Remove old alias for game in alias map
@@ -92,7 +92,10 @@ pub fn update_threshold_alias(game_title: String, new_alias: &str) {
     if let Some(i) = thresholds.iter().position(|threshold| *threshold.title == game_title){
         old_alias = thresholds[i].alias.to_string();
         thresholds[i].alias = String::from(new_alias);
+    } else {
+        return false;
     }
+
     if !old_alias.is_empty() && alias_map.contains_key(&old_alias){
         let alias_list = alias_map.get_mut(&old_alias).unwrap();
         if let Some(j) = alias_list.iter().position(|threshold_title| *threshold_title == game_title){
@@ -104,9 +107,9 @@ pub fn update_threshold_alias(game_title: String, new_alias: &str) {
     // Add new alias for game in alias map
     if !new_alias.is_empty() {
         if alias_map.contains_key(new_alias) {
-            alias_map.get_mut(new_alias).unwrap().push(game_title);
+            alias_map.get_mut(new_alias).unwrap().push(game_title.clone());
         }
-        else { alias_map.insert(new_alias.to_string(), vec![game_title]); }
+        else { alias_map.insert(new_alias.to_string(), vec![game_title.clone()]); }
     }
 
     // Save changes to thresholds and alias map
@@ -117,8 +120,68 @@ pub fn update_threshold_alias(game_title: String, new_alias: &str) {
             *alias_data.get_mut(THRESHOLDS.to_string()).unwrap() = json!(thresholds);
             let alias_map_str = serde_json::to_string_pretty(&alias_data);
             general::write_to_file(get_path(), alias_map_str.expect("Cannot update alias map"));
+            println!("{} threshold alias set to \'{}\'", &game_title, &new_alias);
+            true
         },
-        Err(e) => eprintln!("Error: {}", e)
+        Err(e) => {
+            eprintln!("Error: {}", e);
+            false
+        }
+    }
+}
+
+pub fn update_threshold_alias_fuzzy(game_title: String, new_alias: &str) {
+    // Try to run normal update alias first
+    let alias_updated = update_threshold_alias(game_title.clone(), new_alias);
+
+    let mut fuzzy_thresholds: Vec<String> = Vec::new();
+    if !alias_updated {
+        // Find other potential game thresholds
+        let thresholds = load_thresholds().unwrap_or_default();
+        for thresh in thresholds {
+            let mut dist = fuzzy::levenshtein_distance(&game_title, thresh.title.as_str());
+            if 1.0 - (dist/thresh.title.len() as f32) >= LEVENSTEIN_DIST_PERCENTAGE {
+                fuzzy_thresholds.push(thresh.title);
+            }
+            else if !thresh.alias.is_empty() {
+                dist = fuzzy::levenshtein_distance(&game_title, thresh.alias.as_str());
+                if 1.0 - (dist/thresh.alias.len() as f32) >= LEVENSTEIN_DIST_PERCENTAGE {
+                    fuzzy_thresholds.push(thresh.title);
+                }
+            }
+        }
+        
+        if fuzzy_thresholds.is_empty() {
+            return;
+        }
+
+        println!("Did you mean one of the following?");
+        for (idx, game_title) in fuzzy_thresholds.iter().enumerate() {
+            println!("  [{}] {}", idx, game_title);
+        }
+        println!("  [c] Cancel");
+        let mut input = String::new();
+        print!("Update alias by index or type \'c\' to cancel: ");
+        let _ = io::stdout().flush();
+        io::stdin()
+            .read_line(&mut input)
+            .expect("Failed to read user input");
+        if input.trim() == "c" {
+            println!("Threshold alias update of '{}' cancelled.", &game_title);
+        } else {
+            match input.trim().parse::<usize>() {
+                Ok(idx) => {
+                    if idx < fuzzy_thresholds.len(){
+                        let fuzzy_title = fuzzy_thresholds[idx].clone();
+                        update_threshold_alias(fuzzy_title, new_alias);
+                    }
+                    else if idx >= fuzzy_thresholds.len(){
+                        eprintln!("Integer \"{}\" is invalid. Remove cancelled.", idx);
+                    }
+                },
+                Err(e) => println!("Invalid input: {}\nError: {}", input, e)
+            }
+        }
     }
 }
 
@@ -304,35 +367,35 @@ pub fn update_price(title: &str, price: f64) -> bool {
 }
 
 pub fn update_price_fuzzy(title: &str, price: f64) {
-    //Try to run the normal update price runtine first
+    //Try to run the normal update price first
     let price_updated = update_price(title, price);
 
     if !price_updated {
-        // Find other potential games
+        // Find other potential game thresholds
         let thresholds = load_thresholds().unwrap_or_else(|_e|Vec::new());
-        let mut fuzzy_threholds: Vec<String> = Vec::new();
+        let mut fuzzy_thresholds: Vec<String> = Vec::new();
         let mut fuzzy_alias: Vec<String> = Vec::new();
         for thresh in thresholds {
             let mut dist = fuzzy::levenshtein_distance(title, thresh.title.as_str());
             if 1.0 - (dist/thresh.title.len() as f32) >= LEVENSTEIN_DIST_PERCENTAGE {
-                fuzzy_threholds.push(thresh.title);
+                fuzzy_thresholds.push(thresh.title);
                 fuzzy_alias.push(thresh.alias);
             }
             else if !thresh.alias.is_empty() {
                 dist = fuzzy::levenshtein_distance(title, thresh.alias.as_str());
                 if 1.0 - (dist/thresh.alias.len() as f32) >= LEVENSTEIN_DIST_PERCENTAGE {
-                    fuzzy_threholds.push(thresh.title);
+                    fuzzy_thresholds.push(thresh.title);
                     fuzzy_alias.push(thresh.alias);
                 }
             }
         }
 
-        if fuzzy_threholds.is_empty() {
+        if fuzzy_thresholds.is_empty() {
             return;
         }
 
         println!("Did you mean one of the following?");
-        for (idx, game_title) in fuzzy_threholds.iter().enumerate() {
+        for (idx, game_title) in fuzzy_thresholds.iter().enumerate() {
             println!("  [{}] {}", idx, game_title);
         }
         println!("  [c] Cancel");
@@ -343,19 +406,19 @@ pub fn update_price_fuzzy(title: &str, price: f64) {
             .read_line(&mut input)
             .expect("Failed to read user input");
         if input.trim() == "c" {
-            println!("Threshold removal of '{}' cancelled.", title);
+            println!("Threshold price update of '{}' cancelled.", title);
         } else {
             match input.trim().parse::<usize>() {
                 Ok(idx) => {
-                    if idx < fuzzy_threholds.len(){
+                    if idx < fuzzy_thresholds.len(){
                         let alias = fuzzy_alias[idx].as_str();
                         if alias != "" {
                             update_price(alias, price);
                         } else {
-                            update_price(&fuzzy_threholds[idx], price);
+                            update_price(&fuzzy_thresholds[idx], price);
                         }
                     }
-                    else if idx >= fuzzy_threholds.len(){
+                    else if idx >= fuzzy_thresholds.len(){
                         eprintln!("Integer \"{}\" is invalid. Remove cancelled.", idx);
                     }
                 },
@@ -464,32 +527,32 @@ pub fn remove(title: &str) -> bool {
 }
 
 pub fn remove_fuzzy(title: &str) {
-    //Try to run the normal remove runtine first
+    //Try to run the normal remove first
     let is_removed = remove(title);
 
     if !is_removed {
-        // Find other potential games
+        // Find other potential game thresholds
         let thresholds = load_thresholds().unwrap_or_else(|_e|Vec::new());
-        let mut fuzzy_threholds: Vec<String> = Vec::new();
+        let mut fuzzy_thresholds: Vec<String> = Vec::new();
         for thresh in thresholds {
             let mut dist = fuzzy::levenshtein_distance(title, thresh.title.as_str());
             if 1.0 - (dist/thresh.title.len() as f32) >= LEVENSTEIN_DIST_PERCENTAGE {
-                fuzzy_threholds.push(thresh.title);
+                fuzzy_thresholds.push(thresh.title);
             }
             else if !thresh.alias.is_empty() {
                 dist = fuzzy::levenshtein_distance(title, thresh.alias.as_str());
                 if 1.0 - (dist/thresh.alias.len() as f32) >= LEVENSTEIN_DIST_PERCENTAGE {
-                    fuzzy_threholds.push(thresh.title);
+                    fuzzy_thresholds.push(thresh.title);
                 }
             }
         }
 
-        if fuzzy_threholds.is_empty() {
+        if fuzzy_thresholds.is_empty() {
             return;
         }
 
         println!("Did you mean one of the following?");
-        for (idx, game_title) in fuzzy_threholds.iter().enumerate() {
+        for (idx, game_title) in fuzzy_thresholds.iter().enumerate() {
             println!("  [{}] {}", idx, game_title);
         }
         println!("  [c] Cancel");
@@ -504,10 +567,10 @@ pub fn remove_fuzzy(title: &str) {
         } else {
             match input.trim().parse::<usize>() {
                 Ok(idx) => {
-                    if idx < fuzzy_threholds.len(){
-                        remove(&fuzzy_threholds[idx]);
+                    if idx < fuzzy_thresholds.len(){
+                        remove(&fuzzy_thresholds[idx]);
                     }
-                    else if idx >= fuzzy_threholds.len(){
+                    else if idx >= fuzzy_thresholds.len(){
                         eprintln!("Integer \"{}\" is invalid. Remove cancelled.", idx);
                     }
                 },

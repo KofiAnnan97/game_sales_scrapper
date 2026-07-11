@@ -11,11 +11,11 @@ use constants::stores::gog::VERSION as GOG_VERSION;
 
 pub fn get_simple_prices_str(store_name: &str, sales: Vec<SaleInfo>) -> String{
     let mut prices_str = String::new();
-    for game in sales.iter(){
+    sales.iter().for_each(| game | {
         prices_str.push_str(&format!("\n\t- {} : {} -> {} ({}% off)",
                                      game.title, game.original_price, game.current_price,
                                      game.discount_percentage));
-    }
+    });
     if !prices_str.is_empty() {
         let header_str = format!("\n{} game(s) that met your desired price:", store_name);
         prices_str = header_str + &prices_str;

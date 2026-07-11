@@ -21,12 +21,7 @@ pub struct MSClient {
 
 impl MSClient {
     pub fn new() -> Self {
-        Self {
-            http_client: reqwest::Client::builder()
-                            .timeout(Duration::from_secs(DEFAULT_TIMEOUT_IN_SECS))
-                            .build()
-                            .unwrap()
-        }
+        Self { http_client: reqwest::Client::new() }
     }
 
     pub fn with_client(http_client: reqwest::Client) -> Self {
@@ -49,6 +44,7 @@ impl MicrosoftStoreApi for MSClient{
         ];
         let url = format!("{}{}", BASE_URL, SEARCH_ENDPOINT);
         let resp = self.http_client.get(url)
+            .timeout(Duration::from_secs(DEFAULT_TIMEOUT_IN_SECS))
             .query(&query_string)
             .send()
             .await
@@ -94,6 +90,7 @@ impl MicrosoftStoreApi for MSClient{
             ];
             let url = format!("{}{}", BASE_URL, PDP_ENDPOINT);
             let resp = self.http_client.get(url)
+                .timeout(Duration::from_secs(DEFAULT_TIMEOUT_IN_SECS))
                 .query(&query_string)
                 .send()
                 .await
