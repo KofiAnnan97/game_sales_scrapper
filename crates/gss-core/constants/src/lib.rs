@@ -14,3 +14,7 @@ pub mod stores {
     pub mod steam;
     pub mod microsoft_store;
 }
+
+pub mod alerting {
+    pub mod email;
+}

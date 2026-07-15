@@ -1,8 +1,8 @@
 use reqwest::Client;
-use tokio::time::Duration;
 
 use stores::pc::{gog, microsoft_store, steam};
-use constants::operations::settings::{GOG_STORE_ID, MICROSOFT_STORE_ID, STEAM_STORE_ID};
+use constants::operations::{settings::{GOG_STORE_ID, MICROSOFT_STORE_ID, STEAM_STORE_ID}, thresholds};
+use structs::response::microsoft_store::ProductInfo;
 
 use crate::StoreSearchResult;
 
@@ -20,7 +20,6 @@ pub async fn perform_store_search(query: String, store_id: String) -> Result<Vec
             Ok(list) => {
                 for title in list.into_iter().take(MAX_RESULTS) {
                     let steam_id = steam::check_game(&title).await.map(|app| app.app_id).unwrap_or(0);
-                    // println!("Added Steam game: {}, {}", &title, &steam_id);
                     results.push(StoreSearchResult::Steam { title, steam_id });                    
                 }
             }
@@ -30,11 +29,12 @@ pub async fn perform_store_search(query: String, store_id: String) -> Result<Vec
     else if store_id == GOG_STORE_ID {
         match gog::search_game_by_title_v2(&query, &http_client).await {
             Ok(list) => {
-                for g in list.into_iter().take(MAX_RESULTS) {
-                    let gog_id = g.id.parse::<u32>().unwrap_or(0);
-                    // println!("Added GOG game: {}, {}", &g.title, &gog_id);
-                    results.push(StoreSearchResult::Gog { title: g.title, gog_id });
-                }
+                for game_info in list.into_iter().take(MAX_RESULTS) {
+                    if game_info.price.is_some() && game_info.price.unwrap().final_price.parse::<f64>().unwrap_or(0.) > 0.0{
+                        let gog_id = game_info.id.parse::<u32>().unwrap_or(0);
+                        results.push(StoreSearchResult::Gog { title: game_info.title, gog_id });
+                    }
+                }     
             }
             Err(e) => return Err(format!("GOG search error: {}", e)),
         }
@@ -43,8 +43,9 @@ pub async fn perform_store_search(query: String, store_id: String) -> Result<Vec
         match microsoft_store::search_game_by_title(&query, &http_client).await {
             Ok(list) => {
                 for info in list.into_iter().take(MAX_RESULTS) {
-                    // println!("Added Microsoft game: {}, {}", &info.title, &info.product_id);
-                    results.push(StoreSearchResult::Microsoft { title: info.title, ms_id: info.product_id.clone() });
+                    if info.price_info.price.is_some() && info.price_info.price.unwrap() > 0. {
+                        results.push(StoreSearchResult::Microsoft { title: info.title, ms_id: info.product_id.clone() });
+                    }
                 }
             }
             Err(e) => return Err(format!("Microsoft Store search error: {}", e)),

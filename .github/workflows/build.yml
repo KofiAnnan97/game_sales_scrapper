@@ -6,7 +6,6 @@ on:
     - cron: "0 0 1 */4 *"
   push:
     branches: 
-      - "master"
       - "release/**"
   pull_request:
     branches: 

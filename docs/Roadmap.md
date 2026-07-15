@@ -1,45 +1,27 @@
 # Roadmap
 
-### Release 0.3.0
+### Release 0.3.1
 - Features/Updates
-  - Implement script as a desktop app
-    - [X] Main Features
-      - [X] Configure settings and properties
-      - [X] Add games 
-      - [X] Bulk insert games
-      - [X] Update price of threshold
-      - [X] Update alias of threshold
-      - [X] Remove game threshold
-      - [X] List selected stores
-      - [X] List thresholds
-      - [X] Update cache
-      - [X] Check prices
-      - [X] Send email  
-    - [X] Usability Features
-      - [X] Check prices button generates a table similar to email within the application (without html)
-      - [X] Updating the price of one threshold which shares a alias with another should update the price of that other threshold
-      - [X] Give a warning when no stores are selected
-      - [X] Selected stores do not impact what stores are queried in app (settings are properly updated)
-      - [X] When alias reuse is not enable check that alias before insert and add a warning when present.
-      - [X] Added loading animation before search results complete
-  - CLI
-    - [X] Update alias from command line
-    - [X] Add fuzzy search to update and remove command for potential suggestions if the title or alias is not found
-    - [X] Add fuzzy search for Steam game
+  - General
+    - [ ] Configure Steam API call to not send steam key as plain text
+    - [X] Modernize email html
+    - [ ] Deteremine if defaulting the path should be in getters for project and test path if properties and dot env file have an invalid/empty path
+  - Application
+    - [ ] Add custom theme setup for user customization
+    - [ ] Add interface from custom email cron jobs (Windows and Linux). Might need to rework the current setup.
+    - [ ] Log filtering by all, lowest severity, and exact match when displayed (move to separate window)
+      - [ ] include the ability to prune logs
+    - [ ] Update check price table to show game image from url and hyperlink store page to title
+    - [ ] Print out "Saved settings successfully"  or close Settings when Save Settings button is pressed
+    - [ ] Add auto advance to the next store as a toggable option when a radial button is selected
 - Bugs/Fixes
-  - CLI
-    - [X] Fix shortTilte field in Microsoft Store GameInfo struct 
-    - [ ] ~~ Pull currency type for Microsoft store games ~~
-    - [X] Add timeouts for storefront calls
-    - [X] Rework cron jobs for new log structure
+  - General
+    - [ ] Handle games thresholds with corrupted or incorrect data (try run search on fake query with incorret store ids)
+  - Application
+    - [ ] Fix logic to support updating log file when application is prompted to close
+    - [ ] Fix store search to filter out any game with no price
 - Testing:
-  - [X] Update tests to use stubbing
-  - [X] Implement temp directories (for all file based tests)
-  - [X] Update commands tests to include cases for fuzzy matching game titles (update price, update alias, remove) 
-  - [X] Write tests for
-    - [X] properties (creation, updating and retrieval)
-    - [X] retrieving environment variables
-  - [X] Add some basic tests for application
+  - [ ] Add caching to Github actions
 
 ### Backlog
 - Features/Updates
@@ -47,24 +29,11 @@
     - Set up Humble Bundle Storefront & test
     - Retrieve pricing data from Steam bundles 
     - Retrieve pricing data from game editions on GOG
-    - Configure Steam API call to not send steam key as plain text
     - Add the option to send emails through AWS SES
-    - Deteremine if defaulting the path should be in getters for project and test path if properties and dot env file have an invalid/empty path
     - Remove/reduce duplicate code between the app and cli
-  - Application
-    - Add custom theme setup for user customization
-    - Add interface from custom email cron jobs (Windows and Linux). Might need to rework the current setup.
-    - Log filtering by all, lowest severity, and exact match when displayed (move to separate window)
-      - include the ability to prune logs
-    - Update check price table to show game image from url and hyperlink store page to title
-    - Print out "Saved settings successfully"  or close Settings when Save Settings button is pressed
-    - Add auto advance to the next store as a toggable option when a radial button is selected
 - Bugs/Fixes
   - General
     - Update dependencies and resolve any potential issues
-    - Handle games thresholds with corrupted or incorrect data (try run search on fake query with incorret store ids)
-  - Application
-    - Fix logic to support updating log file when application is prompted to close
 - Testing
   - To do
     - Mock api calls for user commands (check prices) -> may need to moved out to later

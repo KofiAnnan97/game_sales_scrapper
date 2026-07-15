@@ -4,8 +4,10 @@ use lettre::transport::smtp::authentication::{Credentials, Mechanism};
 
 use structs::internal::data::SaleInfo;
 use properties;
+use constants::operations::settings::{STEAM_STORE_NAME, GOG_STORE_NAME, MICROSOFT_STORE_NAME}; 
 use constants::operations::properties::{PROP_RECIPIENT_EMAIL, PROP_SMTP_HOST, PROP_SMTP_PORT, 
                                         PROP_SMTP_EMAIL, PROP_SMTP_USERNAME, PROP_SMTP_PASSWORD};
+use constants::alerting::email::{EMAIL_STYLESHEET, HTML_BODY_HEADER};
 
 pub fn params_check(){
     // Get email parameters
@@ -58,89 +60,90 @@ pub fn send_plain_text_msg(recipient: &str, subject: &str, body: &str) {
     }
 }
 
-pub fn get_stylesheet() -> String {
-    return String::from(r#"
-        <style>
-            img {
-                max-width: auto;
-                max-height: 100px;
-                display: block;
-                margin: auto;
-            }
-            table {
-                border-collapse: collapse;
-                width: 100%;
-            }
-            th, td {
-                text-align: right;
-                padding: 8px;
-                border-bottom: 1px solid #01250a;
-            }
-            tr {
-                color:rgb(255, 255, 255);
-                background-color: #abceac;
-            }
-            tr:hover {background-color: #499862;}
-            body{
-                background-color: rgb(225, 215, 215);
-                padding: 25px;
-            }
-            .title {
-                color: #5C6AC4;
-            }
-            .storefront{
-                color: #053e00;
-            }
-        </style>
-    "#);
+pub fn create_game_card(info: SaleInfo, store_name: &str) -> String { 
+    let icon_link = info.icon_link;
+    let game_title = info.title;
+    let old_price = info.original_price;
+    let new_price = info.current_price;
+    let discount = info.discount_percentage;
+    let store_page_link = info.store_page_link;
+
+    format!(
+    r#"
+    <div class="game-card">
+
+    <a href="{5}">
+    <img src="{0}"
+    alt="{1}">
+    </a>
+
+    <div class="game-info">
+
+    <a class="game-title"
+    href="{5}">
+    {1}
+    </a>
+
+    <div class="price-row">
+    <span class="old-price">${2}</span>
+    <span class="new-price">${3}</span>
+    <span class="discount">{4}% OFF</span>
+    </div>
+
+    <a class="store-link"
+    href="{5}">
+    View on {6} →
+    </a>
+
+    </div>
+
+    </div>
+    "#,
+    icon_link, game_title, old_price, new_price, discount, store_page_link, store_name)
 }
 
-pub fn create_storefront_table_html(store_name: &str, sales: Vec<SaleInfo>) -> String{
-    let mut rows = String::new(); 
-    for s_info in sales{
-        rows += &format!("<tr>
-                <td>
-                    <a href=\"{store_page}\">
-                        <img src=\"{icon}\" alt=\"{title}\">
-                    </a>
-                </td>
-                <td style=\"text-align: left;\">
-                    <a href=\"{store_page}\">{title}</a>
-                </td>
-                <td><del>${old_price}</del> ${new_price}</td>
-                <td style=\"text-align: center;\">({price_off}% off)</td>
-            </tr>", 
-        icon=s_info.icon_link, title=s_info.title,
-        old_price=s_info.original_price, new_price=s_info.current_price, 
-        price_off=s_info.discount_percentage, store_page=s_info.store_page_link);
+pub fn create_store_cards(store_name: &str, sales: Vec<SaleInfo>) -> String {
+    let simple_name = match store_name {
+        STEAM_STORE_NAME => "Steam",
+        GOG_STORE_NAME  => "GOG",
+        MICROSOFT_STORE_NAME => "Microsoft Store",
+        _ => ""
+    };
+    
+    let mut store_cards = format!(r#"
+    <!-- {0} -->
+    <div class="store">
+    <h2 class="storefront">{0}</h2>
+    "#, store_name);
+    for game in sales {
+        store_cards.push_str(&create_game_card(game, simple_name));
     }
-    let data = format!(r#"
-        <h2 class="storefront">{}</h2>
-        <table>
-            {}
-        </table>
-    "#, store_name, rows);
-    return data;
+    store_cards.push_str("</div>");
+    store_cards
 }
 
-pub fn create_html_body(sales_info_html: &str) -> String{
-    let stylesheet = get_stylesheet();
-    return format!(r#"
-        <!DOCTYPE html>
-        <html>
-        <head>
-            {}
-            <title>Game Sales Scrapper</title>
-        </head>
-        <body>
-            <p>
-                One or more games is less than or equal to the respective price threshold you set. 
-                A game may appear multiple times if the product is on sale on multiple storefronts.
-            </p>
-            {}
-        </body>
-        </html>
-    "#, stylesheet, sales_info_html);
+pub fn create_html_body(sales_info_html: &str) -> String {
+    format!(r#"
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Game Sale Alerts</title>
+    {}
+    </head>
+    
+    <body>
+    <div class="container">
+    
+    {}
+
+    {}
+
+    </div>
+    </body>
+    </html>
+    "#, EMAIL_STYLESHEET, HTML_BODY_HEADER, sales_info_html)
 }
 
 pub fn send_html_msg(recipient: &str, subject: &str, body: &str) {
