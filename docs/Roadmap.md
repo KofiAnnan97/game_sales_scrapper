@@ -14,8 +14,10 @@
     - [ ] Update check price table to show game image from url and hyperlink store page to title
     - [ ] Print out "Saved settings successfully"  or close Settings when Save Settings button is pressed
     - [ ] Add auto advance to the next store as a toggable option when a radial button is selected
+    - [ ] Only show sensitive passwords when user request connection is unavailable.
 - Bugs/Fixes
   - General
+    - [X] Added custom error handling for api calls
     - [ ] Handle games thresholds with corrupted or incorrect data (try run search on fake query with incorret store ids)
   - Application
     - [ ] Fix logic to support updating log file when application is prompted to close

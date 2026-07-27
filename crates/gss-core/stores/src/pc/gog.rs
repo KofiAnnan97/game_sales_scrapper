@@ -1,5 +1,6 @@
-use serde_json::{Result, Value};
-use std::f64;
+use serde_json::{Value};
+use serde::Deserialize;
+use std::{f64, format};
 use async_trait::async_trait;
 use mockall::automock;
 use tokio::time::{Duration};
@@ -7,13 +8,15 @@ use tokio::time::{Duration};
 use structs::internal::data::{SaleInfo};
 use structs::response::gog::{Game, PriceOverview, GameInfo};
 use constants::stores::gog::*;
+use errors::api::ApiError;
 
-#[automock]
+// #[automock]
 #[async_trait]
 pub trait GogApi {
-    async fn search_game_by_title(&self, title: &str) -> Result<Vec<Game>>;
+    async fn search_game_by_title(&self, title: &str) -> serde_json::Result<Vec<Game>>;
     async fn get_price_details(&self, title: &str) -> Option<PriceOverview>;
-    async fn search_game_by_title_v2(&self, title: &str) -> Result<Vec<GameInfo>>;
+    async fn search_game_by_title_v2(&self, title: &str, limit: u32) -> Result<Vec<GameInfo>, ApiError>;
+    async fn get_game_data(&self, title: &str) -> Result<GameInfo, ApiError>;
     async fn get_price_details_v2(&self, title: &str) -> Option<SaleInfo>;
 }
 
@@ -32,7 +35,7 @@ impl GogClient {
 
 #[async_trait]
 impl GogApi for GogClient {
-    async fn search_game_by_title(&self, title: &str) -> Result<Vec<Game>> {
+    async fn search_game_by_title(&self, title: &str) -> serde_json::Result<Vec<Game>> {
         let media_type = "game";
         let limit :i32 = 30;
         let url = format!("{}{}?mediaType={}&search={}&limit={}", BASE_URL_V1, MEDIA_ENDPOINT_V1, media_type, title, limit);
@@ -79,12 +82,11 @@ impl GogApi for GogClient {
         None
     }
 
-    async fn search_game_by_title_v2(&self, title: &str) -> Result<Vec<GameInfo>> {
-        let mut like_title = String::from("like:");
-        like_title.push_str(title);
+    async fn search_game_by_title_v2(&self, title: &str, limit: u32) -> Result<Vec<GameInfo>, ApiError> {
+        let like_title = format!("like:{}", title);
         let query_string = [
             ("query", like_title.as_str()),
-            ("limit", "48"),
+            ("limit", &limit.to_string()),
             ("order", "desc:score"),
             ("productType", "in:game"),
             ("page", "1"),
@@ -97,54 +99,40 @@ impl GogApi for GogClient {
             .timeout(Duration::from_secs(DEFAULT_TIMEOUT_IN_SECS))
             .query(&query_string)
             .send()
-            .await
-            .expect("Failed to get response")
+            .await?
             .text()
-            .await
-            .expect("Failed to get data");
-        let body : Value = serde_json::from_str(&resp).expect("Could not convert  search to JSON");
-        //println!("{:?}", body);
-        let products = serde_json::to_string(&body["products"]).unwrap();
-        let games_list : Vec<GameInfo> = serde_json::from_str::<Vec<GameInfo>>(&products)?;
-        Ok(games_list)
+            .await?;
+
+        let body: serde_json::Value = serde_json::from_str(&resp)?;
+        let products = body.get("products").ok_or(ApiError::Message(format!("{}", MISSING_PRODUCTS_MSG)))?;
+        let games: Vec<GameInfo> = Vec::deserialize(products)?;
+        Ok(games)        
+    }
+
+    async fn get_game_data(&self, title: &str) -> Result<GameInfo, ApiError>{
+        match self.search_game_by_title_v2(title, SINGLE_SEARCH).await {
+            Ok(products) => {
+                if products.len() == 1 {
+                    Ok(products[0].clone())
+                } else {
+                    Err(ApiError::Message(String::from("Search results did not return 1 game entry")))
+                }
+            },
+            Err(e) => Err(e)
+        }
     }
 
     async fn get_price_details_v2(&self, title: &str) -> Option<SaleInfo> {
-        let mut like_title = String::from("like:");
-        like_title.push_str(title);
-        let query_string = [
-            ("query", like_title.as_str()),
-            ("limit", "1"),
-            ("order", "desc:score"),
-            ("productType", "in:game"),
-            ("page", "1"),
-            ("countryCode", "US"),
-            ("locale", "en-US"),
-            ("currencyCode", "USD"),
-        ];
-        let url = format!("{}{}", BASE_URL_V2, CATALOG_ENDPOINT_V2);
-        let resp = self.http_client.get(url)
-            .timeout(Duration::from_secs(DEFAULT_TIMEOUT_IN_SECS))
-            .query(&query_string)
-            .send()
-            .await
-            .expect("Failed to get response")
-            .text()
-            .await
-            .expect("Failed to get data");
-        let body: Value = serde_json::from_str(&resp).expect("Could not convert to JSON");
-        if let Some(products) = body["products"].as_array() {
-            let first_product = serde_json::to_string(&products[0]).unwrap();
-            let data = serde_json::from_str::<GameInfo>(&first_product).unwrap();
-            match data.price {
+        match self.get_game_data(title).await {
+            Ok(data) => match data.price {
                 Some(po) => {
-                    let discount_str = match po.discount{
-                        Some(discount) => discount[1..discount.len()-1].to_string(),
-                        None => {
-                            let base_amount = po.base_money.amount.parse::<f64>().unwrap();
-                            let final_amount = po.final_money.amount.parse::<f64>().unwrap();
-                            format!("{}", (100.0*(1.0-final_amount/base_amount)).round() as i64)
-                        }
+                    let discount_str;
+                    if let Some(discount) = po.discount {
+                       discount_str = discount[1..discount.len()-1].to_string()
+                    } else { 
+                        let base_amount = po.base_money.amount.parse::<f64>().unwrap();
+                        let final_amount = po.final_money.amount.parse::<f64>().unwrap();
+                        discount_str = format!("{}", (100.0*(1.0-final_amount/base_amount)).round() as i64)
                     };
                     return Some(SaleInfo{
                         title: data.title,
@@ -155,10 +143,10 @@ impl GogApi for GogClient {
                         store_page_link: data.store_link,
                     });
                 },
-                None => (),
-            }
+                None => None,
+            },
+            Err(_) => None
         }
-        None 
     }
 }
 
@@ -173,7 +161,7 @@ pub fn get_price_from_list(title:&str, games_list: Vec<Game>) -> Option<f64> {
 }
 
 // Version 1
-pub async fn search_game_by_title(title: &str) -> Result<Vec<Game>> {
+pub async fn search_game_by_title(title: &str) -> serde_json::Result<Vec<Game>> {
    GogClient::new().search_game_by_title(title).await
 }
 
@@ -182,8 +170,8 @@ pub async fn get_price_details(title: &str) -> Option<PriceOverview> {
 }
 
 // Version 2
-pub async fn search_game_by_title_v2(title: &str, http_client: &reqwest::Client) -> Result<Vec<GameInfo>>{
-    GogClient::with_client(http_client.clone()).search_game_by_title_v2(title).await
+pub async fn search_game_by_title_v2(title: &str, http_client: &reqwest::Client) -> std::result::Result<Vec<GameInfo>, ApiError>{
+    GogClient::with_client(http_client.clone()).search_game_by_title_v2(title, SEARCH_LIMIT).await
 }
 
 pub async fn get_price_details_v2(title: &str, http_client: &reqwest::Client) -> Option<SaleInfo> {

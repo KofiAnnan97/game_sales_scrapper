@@ -30,6 +30,7 @@ DATE_TIME=$(date +"%Y_%m_%d_%H_%M")
 LOG_NAME=$JOBS_SUBDIR/$DATE_TIME"_email.html"
 cd ..
 ./target/release/gss-cli --send-email > $LOG_NAME
+chmod 766 $LOG_NAME
 if [ -f $LOG_NAME ]; then
     echo "$LOG_NAME created"
 fi

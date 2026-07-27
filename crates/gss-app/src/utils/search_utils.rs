@@ -1,8 +1,7 @@
 use reqwest::Client;
 
 use stores::pc::{gog, microsoft_store, steam};
-use constants::operations::{settings::{GOG_STORE_ID, MICROSOFT_STORE_ID, STEAM_STORE_ID}, thresholds};
-use structs::response::microsoft_store::ProductInfo;
+use constants::operations::{settings::{GOG_STORE_ID, MICROSOFT_STORE_ID, STEAM_STORE_ID}};
 
 use crate::StoreSearchResult;
 
@@ -30,13 +29,14 @@ pub async fn perform_store_search(query: String, store_id: String) -> Result<Vec
         match gog::search_game_by_title_v2(&query, &http_client).await {
             Ok(list) => {
                 for game_info in list.into_iter().take(MAX_RESULTS) {
-                    if game_info.price.is_some() && game_info.price.unwrap().final_price.parse::<f64>().unwrap_or(0.) > 0.0{
-                        let gog_id = game_info.id.parse::<u32>().unwrap_or(0);
-                        results.push(StoreSearchResult::Gog { title: game_info.title, gog_id });
+                    if game_info.price.is_some() 
+                        && game_info.price.unwrap().final_money.amount.parse::<f64>().unwrap_or(0.) > 0. {
+                            let gog_id = game_info.id.parse::<u32>().unwrap_or(0);
+                            results.push(StoreSearchResult::Gog { title: game_info.title, gog_id });
                     }
                 }     
             }
-            Err(e) => return Err(format!("GOG search error: {}", e)),
+            Err(e) => return Err(format!("GOG search error: {}", e))
         }
     }
     else if store_id == MICROSOFT_STORE_ID {
