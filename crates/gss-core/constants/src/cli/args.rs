@@ -4,6 +4,7 @@ pub static LIST_THRESHOLDS : &str = "list-thresholds";
 pub static UPDATE_CACHE : &str = "update-cache";
 pub static CHECK_PRICES : &str = "check-prices";
 pub static SEND_EMAIL : &str = "send-email";
+pub static REVEAL_SECRETS: &str = "reveal-secrets";
 
 // Subcommand Arguments
 pub static FROM_ENV : &str = "from-env";

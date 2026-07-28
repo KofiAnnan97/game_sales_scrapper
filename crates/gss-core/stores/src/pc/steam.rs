@@ -299,7 +299,7 @@ pub async fn update_cached_games(){
 
 // API Functions 
 async fn get_games(client: &reqwest::Client, max_results: u32, last_appid: u32) -> Result<Vec<App>, ApiError> {
-    let steam_api_key = properties::get_steam_api_key();
+    let steam_api_key = properties::get_steam_api_key(false);
     if steam_api_key.is_empty() { panic!("Missing '{}' property.", PROP_STEAM_API_KEY) }
     let query_string = [
         ("key", steam_api_key.as_str()),

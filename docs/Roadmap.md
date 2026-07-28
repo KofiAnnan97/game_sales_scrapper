@@ -5,6 +5,7 @@
   - General
     - [ ] Configure Steam API call to not send steam key as plain text
     - [X] Modernize email html
+    - [X] Only show sensitive passwords when requested by user.
     - [ ] Deteremine if defaulting the path should be in getters for project and test path if properties and dot env file have an invalid/empty path
   - Application
     - [ ] Add custom theme setup for user customization
@@ -14,14 +15,13 @@
     - [ ] Update check price table to show game image from url and hyperlink store page to title
     - [ ] Print out "Saved settings successfully"  or close Settings when Save Settings button is pressed
     - [ ] Add auto advance to the next store as a toggable option when a radial button is selected
-    - [ ] Only show sensitive passwords when user request connection is unavailable.
 - Bugs/Fixes
   - General
     - [X] Added custom error handling for api calls
     - [ ] Handle games thresholds with corrupted or incorrect data (try run search on fake query with incorret store ids)
   - Application
     - [ ] Fix logic to support updating log file when application is prompted to close
-    - [ ] Fix store search to filter out any game with no price
+    - [X] Fix store search to filter out any game with no price
 - Testing:
   - [ ] Add caching to Github actions
 
