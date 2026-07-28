@@ -16,7 +16,7 @@ pub fn params_check(){
     let smtp_port : u16 = properties::get_smtp_port(); 
     let smtp_email = properties::get_smtp_email();
     let smtp_user = properties::get_smtp_user();
-    let smtp_pwd = properties::get_smtp_pwd();
+    let smtp_pwd = properties::get_smtp_pwd(false);
 
     // Create error message
     let mut err_msg = String::new();
@@ -36,7 +36,7 @@ pub fn send_plain_text_msg(recipient: &str, subject: &str, body: &str) {
     let smtp_port : u16 = properties::get_smtp_port(); 
     let smtp_email = properties::get_smtp_email();
     let smtp_user = properties::get_smtp_user();
-    let smtp_pwd = properties::get_smtp_pwd();
+    let smtp_pwd = properties::get_smtp_pwd(false);
 
     let email = Message::builder()
         .from(smtp_email.parse().unwrap())
@@ -68,7 +68,7 @@ pub fn create_game_card(info: SaleInfo, store_name: &str) -> String {
     let discount = info.discount_percentage;
     let store_page_link = info.store_page_link;
 
-    format!(
+    let game_card = format!(
     r#"
     <div class="game-card">
 
@@ -92,14 +92,15 @@ pub fn create_game_card(info: SaleInfo, store_name: &str) -> String {
 
     <a class="store-link"
     href="{5}">
-    View on {6} →
+    View on {6} &#8594;
     </a>
 
     </div>
 
     </div>
     "#,
-    icon_link, game_title, old_price, new_price, discount, store_page_link, store_name)
+    icon_link, game_title, old_price, new_price, discount, store_page_link, store_name);
+    game_card
 }
 
 pub fn create_store_cards(store_name: &str, sales: Vec<SaleInfo>) -> String {
@@ -123,7 +124,7 @@ pub fn create_store_cards(store_name: &str, sales: Vec<SaleInfo>) -> String {
 }
 
 pub fn create_html_body(sales_info_html: &str) -> String {
-    format!(r#"
+    let html_body = format!(r#"
     <!DOCTYPE html>
     <html lang="en">
     <head>
@@ -143,7 +144,8 @@ pub fn create_html_body(sales_info_html: &str) -> String {
     </div>
     </body>
     </html>
-    "#, EMAIL_STYLESHEET, HTML_BODY_HEADER, sales_info_html)
+    "#, EMAIL_STYLESHEET, HTML_BODY_HEADER, sales_info_html);
+    html_body
 }
 
 pub fn send_html_msg(recipient: &str, subject: &str, body: &str) {
@@ -151,7 +153,7 @@ pub fn send_html_msg(recipient: &str, subject: &str, body: &str) {
     let smtp_port : u16 = properties::get_smtp_port();
     let smtp_email = properties::get_smtp_email();
     let smtp_user = properties::get_smtp_user();
-    let smtp_pwd = properties::get_smtp_pwd();
+    let smtp_pwd = properties::get_smtp_pwd(false);
     
     let email = Message::builder()
         .from(smtp_email.parse().unwrap())

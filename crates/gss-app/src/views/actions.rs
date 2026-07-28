@@ -2,7 +2,7 @@ use file_ops::settings;
 use file_types::general;
 use iced::widget::{Button, Scrollable, column, container, row, text};
 use iced::{font, Element, Font, Length};
-
+use crate::components::custom_widgets::game_store_card;
 use crate::components::{custom_widgets};
 
 use crate::{LOADING_FRAMES_SIZE, Message};
@@ -25,15 +25,17 @@ pub fn view_actions(app: &crate::App) -> Element<'_, Message> {
         if games.is_empty() { continue; }
         let store_name = settings::get_proper_store_name(store).unwrap_or_else(|| store.clone());
         sales_by_store = sales_by_store.push(
-            container(text(store_name).size(40.0)
+            container(text(store_name).size(32.0)
                 .font(Font{
                     weight: font::Weight::Bold,
                     ..Font::DEFAULT
                 }))
-                .center_x(Length::Fill)
+                // .center_x(Length::Fill)
                 .padding(10.0)
         );
-        sales_by_store = sales_by_store.push(container(custom_widgets::create_sales_table( &games)).center_x(Length::Fill));
+        for game in games {
+            sales_by_store = sales_by_store.push(game_store_card(game));
+        }
     }
 
     let stores_with_sales: Vec<_> = app.sales_info_by_store

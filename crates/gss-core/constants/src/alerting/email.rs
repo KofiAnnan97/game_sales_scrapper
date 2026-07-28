@@ -151,7 +151,7 @@ body{
 
 pub static HTML_BODY_HEADER: &str = r#"
 <div class="header">
-    <h1>🎮 Game Sale Alerts</h1>
+    <h1>&#127918; Game Sale Alerts</h1>
     <p>
     One or more games have dropped below your target price.
     Games may appear multiple times if they're on sale across multiple storefronts.

@@ -1,6 +1,6 @@
-use iced::Theme;
+use iced::{Alignment, Color, Theme, Renderer};
 use iced::widget::{
-    Text, button, container, row, table, text
+    Container, Text, button, container, row, column, table, text, Image
 };
 use iced::widget::table::Table;
 use iced::{Element, Length, alignment, Alignment::Center};
@@ -10,6 +10,7 @@ use structs::internal::data::SaleInfo;
 
 use crate::Message;
 use crate::components::custom_styles::bold_text;
+use crate::utils::pricing_utils::SaleInfoWithHandler;
 
 // Butttons
 
@@ -39,6 +40,56 @@ pub fn menu_text_button<'a>(label: &'a str, message: Message) -> Element<'a, Mes
     .into()
 }
 
+pub fn store_link<'a>(label: &'a str, url: String,) -> iced::Element<'a, Message> {
+    text::Rich::<String, Message, Theme, Renderer>::with_spans([
+        text::Span::new(label)
+            .link(url)
+            .underline(true),
+    ])
+    .on_link_click(Message::CopyLinkToClipboard)
+    .size(16)
+    .into()
+}
+
+// Badges
+
+pub fn discount_badge(value: String) -> iced::Element<'static ,Message> {
+    container(
+        text(value)
+            .size(14)
+            .color(Color::WHITE)
+    )
+    .padding([6, 12])
+    .style(|_| container::Style {
+        background: Some(Color::from_rgb8(76, 175, 80).into()), // #4CAF50
+        border: iced::Border {
+            radius: 20.0.into(),
+            ..Default::default()
+        },
+        ..Default::default()
+    })
+    .padding(10)
+    .into()
+}
+
+fn price_change<'a>(old_price: &'a str, new_price: &'a str) -> Element<'a, Message> {
+    row![
+        text::Rich::with_spans([
+            text::Span::<()>::new(old_price)
+                .size(16)
+                .color(Color::from_rgb8(154, 163, 173))
+                .strikethrough(true)
+                .padding(10)
+        ]),
+        text(new_price)
+            .size(24)
+            .color(Color::from_rgb8(142, 245, 142))
+    ].align_y(Alignment::Center)
+    .spacing(10)
+    .padding(10)
+    .into()
+}
+
 // Tables
 
 pub fn create_sales_table<'a>(sales_info: &'a Vec<SaleInfo>) -> Table<'a, Message>{
@@ -60,7 +111,35 @@ pub fn create_sales_table<'a>(sales_info: &'a Vec<SaleInfo>) -> Table<'a, Messag
         .padding_y(10.0)
 }
 
+// Containers
+
+pub fn game_store_card(data: &SaleInfoWithHandler) -> Container<'_, Message> {
+    let discount: String = format!("{} % OFF", &data.sale_info.discount_percentage);
+    container(
+        row![
+            container(Image::new(&data.icon_handler)
+                .height(100)).align_y(Alignment::Center)
+                .padding(10),
+            column![
+                bold_text(&data.sale_info.title).size(24),
+                row![
+                    price_change(&data.sale_info.original_price, &data.sale_info.current_price),
+                    discount_badge(discount),
+                ].align_y(Alignment::Center),
+                store_link("Copy store page link", data.sale_info.store_page_link.clone())
+            ]
+        ]
+        .spacing(4),
+    )
+    .width(Length::Fill)
+    .padding(10)
+    .style(|_| { 
+        container::Style::from(Color::from_rgb8(45, 76, 105))
+    })
+}
+
 // Simple Animations
+
 pub fn text_loading_indicator<'a>(description: &str, current_frame: usize, frame_size: usize) -> Text<'a, Theme> {
     text(
         format!("{}{}", 

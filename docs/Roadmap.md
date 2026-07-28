@@ -3,7 +3,7 @@
 ### Release 0.3.1
 - Features/Updates
   - General
-    - [ ] Configure Steam API call to not send steam key as plain text
+    - ~~[ ] Configure Steam API call to not send steam key as plain text~~
     - [X] Modernize email html
     - [X] Only show sensitive passwords when requested by user.
     - [ ] Deteremine if defaulting the path should be in getters for project and test path if properties and dot env file have an invalid/empty path
@@ -12,7 +12,10 @@
     - [ ] Add interface from custom email cron jobs (Windows and Linux). Might need to rework the current setup.
     - [ ] Log filtering by all, lowest severity, and exact match when displayed (move to separate window)
       - [ ] include the ability to prune logs
-    - [ ] Update check price table to show game image from url and hyperlink store page to title
+    - [ ] Update check price display to look more modern
+      - [X] Make style similar to modernize email design (including image) 
+      - [X] User can copy store page link to clipboard
+      - [ ] Notiify user that copy to clipboard was successful
     - [ ] Print out "Saved settings successfully"  or close Settings when Save Settings button is pressed
     - [ ] Add auto advance to the next store as a toggable option when a radial button is selected
 - Bugs/Fixes

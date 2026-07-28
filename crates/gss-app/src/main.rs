@@ -1,7 +1,7 @@
 use iced::widget::{
     Button, Checkbox, column, container, row, text
 };
-use iced::{Element, Length, Padding, Subscription, Task, application, window, exit};
+use iced::{Element, Length, Padding, Subscription, Task, clipboard, application, window, exit};
 use iced::time::{self, Duration};
 use iced_aw::menu::{self, Menu};
 use iced_aw::{ICED_AW_FONT_BYTES, menu_bar, menu_items, TabLabel, tabs::{Tabs, TabBarPosition}};
@@ -17,7 +17,6 @@ use file_types::{csv, general};
 use file_ops::{settings, thresholds};
 use properties;
 use structs::internal::data::{GameThreshold, SimpleGameThreshold};
-use structs::internal::data::SaleInfo;
 
 // App specific modules
 mod views;
@@ -30,7 +29,7 @@ use views::actions::ActionDisplayed;
 use components::custom_widgets;
 use utils::actions_utils::{send_sales_email, update_cache};
 use utils::search_utils::perform_store_search;
-use utils::pricing_utils::{check_prices_for_display};
+use utils::pricing_utils::{check_prices_for_display, SaleInfoWithHandler};
 use utils::file_utils::open_file;
 use utils::log_utils::{self, LogLevel};
 
@@ -134,11 +133,12 @@ enum Message {
     RemoveThresholdRow(usize),
     SortThresholds(SortColumn),
     CheckPrices,
-    CheckPricesResult(Result<HashMap<String, Vec<SaleInfo>>, String>),
+    CheckPricesResult(Result<HashMap<String, Vec<SaleInfoWithHandler>>, String>),
     SendEmail,
     SendEmailResult(Result<String, String>),
     UpdateCache,
     UpdateCacheResult(Result<String, String>),
+    CopyLinkToClipboard(String),
     LogsShown,
     UpdateLogFile,
     Tick,
@@ -219,7 +219,7 @@ struct App {
     log_batch: String,
     current_log_file: String,
     action_displayed: ActionDisplayed,
-    sales_info_by_store: HashMap<String, Vec<SaleInfo>>,
+    sales_info_by_store: HashMap<String, Vec<SaleInfoWithHandler>>,
 }
 
 impl App {
@@ -270,7 +270,7 @@ impl App {
             current_log_file: log_file,
             action_displayed: ActionDisplayed::NoAction,
             sales_info_by_store: {
-                let sibs: HashMap<String, Vec<SaleInfo>> = settings::get_available_stores()
+                let sibs: HashMap<String, Vec<SaleInfoWithHandler>> = settings::get_available_stores()
                 .iter()
                     .map(|store_name| (store_name.clone(), Vec::new()))
                     .collect();
@@ -448,6 +448,9 @@ impl App {
                     };
                 }
                 Task::none()
+            }
+            Message::CopyLinkToClipboard(url) => {
+                clipboard::write(url)
             }
             Message::Tick => {
                 if self.is_search_in_progress {
