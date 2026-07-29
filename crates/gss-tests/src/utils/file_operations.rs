@@ -112,9 +112,9 @@ pub fn load_alias_state() -> bool{
     serde_json::from_str::<bool>(&alias_enabled).unwrap_or_else(|_|false)
 }
 
-pub fn create_env_str(steam_api_key_val: &str, recipient_email_val: &str, smtp_host_val: &str, smtp_port_val: &str, smtp_email_val: &str, 
+pub fn create_env_str(steam_api_key_val: &str, recipient_email_val: &str, smtp_host_val: &str, smtp_port_val: u16, smtp_email_val: &str, 
     smtp_username_val: &str, smtp_password_val: &str, dir_path: &Path)-> String {
-    format!(
+    let env_str = format!(
         "{steam_env}=\"{steam_api_key_val}\"\n{recipient_env}=\"{recipient_email_val}\"\n{host_env}=\"{smtp_host_val}\"\n{port_env}={smtp_port_val}\n{email_env}=\"{smtp_email_val}\"\n{user_env}=\"{smtp_username_val}\"\n{pwd_env}=\"{smtp_password_val}\"\n{project_env}=\"{project_path_val}\"\n{test_env}=\"{test_path_val}\"\n",
         steam_env = STEAM_API_KEY_ENV,
         recipient_env = RECIPIENT_EMAIL_ENV,
@@ -134,7 +134,8 @@ pub fn create_env_str(steam_api_key_val: &str, recipient_email_val: &str, smtp_h
         smtp_password_val = smtp_password_val,
         project_path_val = dir_path.display().to_string(),
         test_path_val = dir_path.join(DEFAULT_TEST_DIR).display().to_string()
-    )
+    );
+    env_str
 }
 
 pub fn teardown(){

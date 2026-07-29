@@ -110,7 +110,7 @@ pub fn thresholds_tab(app: &crate::App) -> Element<'_, Message> {
                     .width(Length::FillPortion(1)),
                 ]
                 .spacing(4),
-            )            .padding(2),
+            ).padding(2),
         );
     }
 

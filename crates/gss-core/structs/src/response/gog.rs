@@ -40,7 +40,7 @@ pub struct PriceOverview {
  | VERSION 2 |
  *-----------*/
 
-#[derive(Deserialize, Serialize, Debug)]
+#[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct GameInfo {
     pub id: String,
     pub title: String,
@@ -111,7 +111,7 @@ impl GameInfoBuilder{
     }
 }
 
-#[derive(Deserialize, Serialize, Debug, Default)]
+#[derive(Deserialize, Serialize, Debug, Default, Clone)]
 pub struct UserPreferredLanguage{
     pub code: String,
     #[serde(rename="inAudio")]
@@ -120,7 +120,7 @@ pub struct UserPreferredLanguage{
     pub in_text: bool,
 }
 
-#[derive(Deserialize, Serialize, Debug)]
+#[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct Price {
     #[serde(rename="final")]
     pub final_price: String,
@@ -133,20 +133,20 @@ pub struct Price {
     pub base_money: BaseMoney,
 }
 
-#[derive(Deserialize, Serialize, Debug)]
+#[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct BaseMoney {
     pub amount: String,
     pub currency: String,
 }
 
-#[derive(Deserialize, Serialize, Debug)]
+#[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct FinalMoney {
     pub amount: String,
     pub currency: String,
     pub discount: String,
 }
 
-#[derive(Deserialize, Serialize, Debug)]
+#[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct Editions{
     id: u64,
     #[serde(rename="isRootEdition")]

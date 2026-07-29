@@ -91,17 +91,17 @@ pub async fn check_prices(use_html: bool) -> String {
     }
     if !steam_sales.is_empty(){
         let store_name = settings::get_proper_store_name(STEAM_STORE_ID).unwrap();
-        if use_html { output.push_str(&email::create_storefront_table_html(&store_name, steam_sales)); }
+        if use_html { output.push_str(&email::create_store_cards(&store_name, steam_sales)); }
         else { output.push_str(&get_simple_prices_str(&store_name, steam_sales)); }
     }
     if !gog_sales.is_empty(){
         let store_name = settings::get_proper_store_name(GOG_STORE_ID).unwrap();
-        if use_html { output.push_str(&email::create_storefront_table_html(&store_name, gog_sales)); }
+        if use_html { output.push_str(&email::create_store_cards(&store_name, gog_sales)); }
         else { output.push_str(&get_simple_prices_str(&store_name, gog_sales)); }
     }
     if !microsoft_store_sales.is_empty(){
         let store_name = settings::get_proper_store_name(MICROSOFT_STORE_ID).unwrap();
-        if use_html { output.push_str(&email::create_storefront_table_html(&store_name, microsoft_store_sales)); }
+        if use_html { output.push_str(&email::create_store_cards(&store_name, microsoft_store_sales)); }
         else{ output.push_str(&get_simple_prices_str(&store_name, microsoft_store_sales)); }
     }
     output

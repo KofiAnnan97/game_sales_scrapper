@@ -5,6 +5,7 @@ use crate::Message;
 
 pub fn settings_window(app: &crate::App) -> Element<'_, Message> {
     let settings_content = column![
+        text("General Settings").size(20),
         if app.test_mode {
             column![
             text("Test path"),
@@ -25,12 +26,19 @@ pub fn settings_window(app: &crate::App) -> Element<'_, Message> {
         },
         column![
             text("Steam API key"),
-            TextInput::new("Enter Steam API key", &app.steam_api_key)
-                .on_input(Message::SteamApiKeyChanged)
-                .padding(5)
-                .width(Length::Fill),
+            if app.reveal_sensitive_data {
+                TextInput::new("Enter Steam API key", &app.steam_api_key)
+                    .on_input(Message::SteamApiKeyChanged)
+                    .padding(5)
+                    .width(Length::Fill)
+            } else {
+                TextInput::new("Enter Steam API key", &app.steam_api_key)
+                    .padding(5)
+                    .width(Length::Fill)
+            }
         ]
         .spacing(4),
+        text("Email Settings").size(20),
         column![
             text("Recipient email"),
             TextInput::new("Enter recipient email", &app.recipient_email)
@@ -83,16 +91,30 @@ pub fn settings_window(app: &crate::App) -> Element<'_, Message> {
         .spacing(8),
         column![
             text("SMTP password"),
-            TextInput::new("Enter SMTP password", &app.smtp_password)
+            if app.reveal_sensitive_data {
+                TextInput::new("Enter SMTP password", &app.smtp_password)
                 .on_input(Message::SmtpPasswordChanged)
                 .padding(5)
-                .width(Length::Fill),
+                .width(Length::Fill)
+            } else {
+                TextInput::new("Enter SMTP password", &app.smtp_password)
+                .padding(5)
+                .width(Length::Fill)
+            },
         ]
         .spacing(4),
-        Checkbox::new(app.test_mode)
-            .label("Enable test mode")
-            .on_toggle(Message::ToggleTestMode)
-            .spacing(10),
+        
+        row![
+            Checkbox::new(app.test_mode)
+                .label("Enable test mode")
+                .on_toggle(Message::ToggleTestMode)
+                .width(Length::Fixed(200.0))
+                .spacing(10), 
+            Checkbox::new(app.reveal_sensitive_data)
+                .label("Reveal sensitive data")
+                .on_toggle(Message::ToggleSensitiveData)
+                .spacing(10)
+        ].padding(10),
         Button::new(text("Save Settings"))
             .on_press(Message::SaveSettings)
             .padding(10),

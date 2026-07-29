@@ -6,7 +6,6 @@ on:
     - cron: "0 0 1 */4 *"
   push:
     branches: 
-      - "master"
       - "release/**"
   pull_request:
     branches: 
@@ -46,9 +45,9 @@ jobs:
       - name: Configure toolchain
         run: |
           # Install toolchain
-          rustup toolchain install stable-x86_64-pc-windows-gnu
+          #rustup toolchain install stable-x86_64-pc-windows-gnu
           # Set default toolchain
-          rustup default stable-x86_64-pc-windows-gnu
+          #rustup default stable-x86_64-pc-windows-gnu
           # List toolchains
           echo "List Toolchains:"
           rustup toolchain list

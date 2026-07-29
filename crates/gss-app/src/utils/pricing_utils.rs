@@ -1,13 +1,21 @@
 use std::collections::HashMap;
-
 use reqwest::Client;
+use iced::widget::image::Handle;
 
 use constants::operations::settings::{GOG_STORE_ID, MICROSOFT_STORE_ID, STEAM_STORE_ID};
 use alerting::email;
 use file_ops::{settings, thresholds};
+use crate::utils::file_utils::load_image_from_url;
 use stores::pc::{gog, microsoft_store, steam};
 use structs::internal::data::SaleInfo;
 use constants::stores::gog::VERSION as GOG_VERSION;
+
+#[derive(Debug, Clone)]
+pub struct SaleInfoWithHandler {
+    pub sale_info: SaleInfo,
+    pub game_id: String,
+    pub icon_handler: Handle
+}
 
 pub fn get_simple_prices_str(store_name: &str, sales: Vec<SaleInfo>) -> String{
     let mut prices_str = String::new();
@@ -23,10 +31,10 @@ pub fn get_simple_prices_str(store_name: &str, sales: Vec<SaleInfo>) -> String{
     prices_str
 }
 
-pub async fn check_prices_for_display() -> Result<HashMap<String, Vec<SaleInfo>>, String> {
+pub async fn check_prices_for_display() -> Result<HashMap<String, Vec<SaleInfoWithHandler>>, String> {
     let thresholds = thresholds::load_thresholds().unwrap_or_else(|_e|Vec::new());
     let http_client = Client::new();
-    let mut sales_info_by_store: HashMap<String, Vec<SaleInfo>> = HashMap::new();
+    let mut sales_info_by_store: HashMap<String, Vec<SaleInfoWithHandler>> = HashMap::new();
     for store in settings::get_available_stores() {
         sales_info_by_store.insert(store.clone(), Vec::new());
     }
@@ -34,9 +42,17 @@ pub async fn check_prices_for_display() -> Result<HashMap<String, Vec<SaleInfo>>
         if elem.steam_id != 0 {
             match steam::get_price_details(elem.steam_id, &http_client).await {
                 Ok(info) => {
+                    let img_handler: Handle = match load_image_from_url(&info.icon_link).await {
+                        Ok(handler) => handler,
+                        Err(_) => Handle::from_bytes(vec![])
+                    };
                     let current_price = info.current_price.parse::<f64>().unwrap();
                     if elem.desired_price >= current_price {
-                        sales_info_by_store.get_mut(STEAM_STORE_ID).unwrap().push(info);
+                        sales_info_by_store.get_mut(STEAM_STORE_ID).unwrap().push(SaleInfoWithHandler {
+                            sale_info: info,
+                            game_id: format!("{}_{}",STEAM_STORE_ID, elem.steam_id),
+                            icon_handler: img_handler
+                        });
                     }
                 },
                 Err(e) => println!("{}", e)
@@ -46,9 +62,17 @@ pub async fn check_prices_for_display() -> Result<HashMap<String, Vec<SaleInfo>>
             if GOG_VERSION == 2{
                 match gog::get_price_details_v2(&elem.title, &http_client).await {
                     Some(info) => {
+                        let img_handler: Handle = match load_image_from_url(&info.icon_link).await {
+                            Ok(handler) => handler,
+                            Err(_) => Handle::from_bytes(vec![])
+                        };
                         let current_price = info.current_price.parse::<f64>().unwrap();
                         if elem.desired_price >= current_price {
-                            sales_info_by_store.get_mut(GOG_STORE_ID).unwrap().push(info);
+                            sales_info_by_store.get_mut(GOG_STORE_ID).unwrap().push(SaleInfoWithHandler {
+                            sale_info: info,
+                            game_id: format!("{}_{}",GOG_STORE_ID, elem.gog_id),
+                            icon_handler: img_handler
+                        });
                         }
                     },
                     None => ()
@@ -58,9 +82,17 @@ pub async fn check_prices_for_display() -> Result<HashMap<String, Vec<SaleInfo>>
         if !elem.microsoft_store_id.is_empty() {
             match microsoft_store::get_price_details(&elem.microsoft_store_id, &http_client).await {
                 Some(info) => {
+                    let img_handler: Handle = match load_image_from_url(&info.icon_link).await {
+                        Ok(handler) => handler,
+                        Err(_) => Handle::from_bytes(vec![])
+                    };
                     let current_price = info.current_price.parse::<f64>().unwrap();
                     if elem.desired_price >= current_price {
-                        sales_info_by_store.get_mut(MICROSOFT_STORE_ID).unwrap().push(info);
+                        sales_info_by_store.get_mut(MICROSOFT_STORE_ID).unwrap().push(SaleInfoWithHandler {
+                            sale_info: info,
+                            game_id: format!("{}_{}", MICROSOFT_STORE_ID, elem.microsoft_store_id),
+                            icon_handler: img_handler
+                        });
                     }
                 },
                 None => ()
@@ -136,17 +168,17 @@ pub async fn check_prices(use_html: bool) -> Result<String, String> {
     }
     if !steam_sales.is_empty(){
         let store_name = settings::get_proper_store_name(STEAM_STORE_ID).unwrap();
-        if use_html { output.push_str(&email::create_storefront_table_html(&store_name, steam_sales)); }
+        if use_html { output.push_str(&email::create_store_cards(&store_name, steam_sales)); }
         else { output.push_str(&get_simple_prices_str(&store_name, steam_sales)); }
     }
     if !gog_sales.is_empty(){
         let store_name = settings::get_proper_store_name(GOG_STORE_ID).unwrap();
-        if use_html { output.push_str(&email::create_storefront_table_html(&store_name, gog_sales)); }
+        if use_html { output.push_str(&email::create_store_cards(&store_name, gog_sales)); }
         else { output.push_str(&get_simple_prices_str(&store_name, gog_sales)); }
     }
     if !microsoft_store_sales.is_empty(){
         let store_name = settings::get_proper_store_name(MICROSOFT_STORE_ID).unwrap();
-        if use_html { output.push_str(&email::create_storefront_table_html(&store_name, microsoft_store_sales)); }
+        if use_html { output.push_str(&email::create_store_cards(&store_name, microsoft_store_sales)); }
         else{ output.push_str(&get_simple_prices_str(&store_name, microsoft_store_sales)); }
     }
 

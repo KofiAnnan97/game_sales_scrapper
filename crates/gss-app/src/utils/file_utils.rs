@@ -1,4 +1,5 @@
 use iced::{Window};
+use iced::widget::image::Handle;
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -27,4 +28,9 @@ async fn load_file(path: impl Into<PathBuf>) -> Result<(PathBuf, Arc<String>), E
         .map_err(|error| Error::IoError(error.kind()))?;
 
     Ok((path, contents))
+}
+
+pub async fn load_image_from_url(url: &str) -> Result<Handle, reqwest::Error> {
+    let bytes = reqwest::get(url).await?.bytes().await?;
+    Ok(Handle::from_bytes(bytes.to_vec()))
 }

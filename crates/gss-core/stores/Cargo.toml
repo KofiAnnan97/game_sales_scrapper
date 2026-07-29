@@ -14,11 +14,13 @@ structs = { path = "../structs" }
 file_types = { path = "../file_types" }
 properties = { path = "../properties" }
 constants = { path = "../constants" }
+errors = { path = "../errors" }
 
 # External crates
 tokio.workspace = true
 reqwest = { workspace = true, features = ["json", "cookies"] }
 serde_json.workspace = true
+serde = { workspace = true, features = ["derive"] }
 regex.workspace = true
 exitcode.workspace = true
 rand.workspace = true

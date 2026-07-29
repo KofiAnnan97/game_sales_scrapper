@@ -8,6 +8,7 @@ members = [
     "crates/gss-core/file_ops",
     "crates/gss-core/stores",
     "crates/gss-core/alerting", 
+    "crates/gss-core/errors", 
     "crates/gss-app",
     "crates/gss-cli", 
     "crates/gss-tests"

@@ -1,7 +1,7 @@
 use iced::widget::{
-    Button, Checkbox, column, container, row, text
+    Button, Checkbox, column, container, row, text, stack, center
 };
-use iced::{Element, Length, Padding, Subscription, Task, application, window, exit};
+use iced::{Element, Length, Padding, Subscription, Task, clipboard, application, window, exit};
 use iced::time::{self, Duration};
 use iced_aw::menu::{self, Menu};
 use iced_aw::{ICED_AW_FONT_BYTES, menu_bar, menu_items, TabLabel, tabs::{Tabs, TabBarPosition}};
@@ -17,7 +17,6 @@ use file_types::{csv, general};
 use file_ops::{settings, thresholds};
 use properties;
 use structs::internal::data::{GameThreshold, SimpleGameThreshold};
-use structs::internal::data::SaleInfo;
 
 // App specific modules
 mod views;
@@ -27,12 +26,14 @@ mod utils;
 use views::{thresholds as thrshlds_view, settings as sttngs_view};
 use views::search::SKIP_STORE_SELECTION;
 use views::actions::ActionDisplayed;
-use components::custom_widgets;
+use components::{custom_widgets, custom_styles};
 use utils::actions_utils::{send_sales_email, update_cache};
 use utils::search_utils::perform_store_search;
-use utils::pricing_utils::{check_prices_for_display};
+use utils::pricing_utils::{check_prices_for_display, SaleInfoWithHandler};
 use utils::file_utils::open_file;
 use utils::log_utils::{self, LogLevel};
+
+use crate::components::custom_widgets::message_dialog;
 
 const LOADING_FRAMES_SIZE: usize = 4;
 
@@ -113,6 +114,7 @@ enum Message {
     SmtpUserChanged(String),
     SmtpPasswordChanged(String),
     ToggleTestMode(bool),
+    ToggleSensitiveData(bool),
     SaveSettings,
     SearchQueryChanged(String),
     StartSearch,
@@ -133,16 +135,19 @@ enum Message {
     RemoveThresholdRow(usize),
     SortThresholds(SortColumn),
     CheckPrices,
-    CheckPricesResult(Result<HashMap<String, Vec<SaleInfo>>, String>),
+    CheckPricesResult(Result<HashMap<String, Vec<SaleInfoWithHandler>>, String>),
     SendEmail,
     SendEmailResult(Result<String, String>),
     UpdateCache,
     UpdateCacheResult(Result<String, String>),
+    CopyLinkToClipboard(String, String),
+    ResetCopyMessage,
     LogsShown,
     UpdateLogFile,
     Tick,
     Refresh,
     AppClosing,
+    HideDialog,
 }
 
 impl StoreSearchResult {
@@ -181,6 +186,7 @@ struct App {
     selected_stores: Vec<String>,
     alias_enabled: bool,
     alias_reuse_enabled: bool,
+    reveal_sensitive_data: bool,
     steam_api_key: String,
     recipient_email: String,
     smtp_host: String,
@@ -217,7 +223,9 @@ struct App {
     log_batch: String,
     current_log_file: String,
     action_displayed: ActionDisplayed,
-    sales_info_by_store: HashMap<String, Vec<SaleInfo>>,
+    sales_info_by_store: HashMap<String, Vec<SaleInfoWithHandler>>,
+    show_dialog: bool,
+    copied_link: Option<String>,
 }
 
 impl App {
@@ -230,13 +238,14 @@ impl App {
             selected_stores: settings::get_selected_stores(),
             alias_enabled: settings::get_alias_state(),
             alias_reuse_enabled: settings::get_alias_reuse_state(),
-            steam_api_key: properties::get_steam_api_key(),
+            reveal_sensitive_data: false,
+            steam_api_key: properties::get_steam_api_key(true),
             recipient_email: properties::get_recipient(),
             smtp_host: properties::get_smtp_host(),
             smtp_port: properties::get_smtp_port().to_string(),
             smtp_email: properties::get_smtp_email(),
             smtp_user: properties::get_smtp_user(),
-            smtp_password: properties::get_smtp_pwd(),
+            smtp_password: properties::get_smtp_pwd(true),
             project_path: properties::get_project_path(),
             test_path: properties::get_test_path(),
             test_mode: properties::is_testing_enabled(),
@@ -267,12 +276,14 @@ impl App {
             current_log_file: log_file,
             action_displayed: ActionDisplayed::NoAction,
             sales_info_by_store: {
-                let sibs: HashMap<String, Vec<SaleInfo>> = settings::get_available_stores()
+                let sibs: HashMap<String, Vec<SaleInfoWithHandler>> = settings::get_available_stores()
                 .iter()
                     .map(|store_name| (store_name.clone(), Vec::new()))
                     .collect();
                 sibs
             },
+            show_dialog: false,
+            copied_link: None,
         };
         app.sync_threshold_edits();
         app
@@ -344,6 +355,7 @@ impl App {
             Message::CloseSettings => {
                 self.settings_view_open = false;
                 self.active_view = View::Base;
+                self.show_dialog = false;
                 let status_str = String::from("Closed settings tab");
                 self.log_batch.push_str(&log_utils::message_builder(&status_str, LogLevel::INFO));
                 Task::none()
@@ -389,6 +401,7 @@ impl App {
             Message::SmtpEmailChanged(value) => { self.smtp_email = value; Task::none() }
             Message::SmtpUserChanged(value) => { self.smtp_user = value; Task::none() }
             Message::SmtpPasswordChanged(value) => { self.smtp_password = value; Task::none() }
+            Message::ToggleSensitiveData(reveal) => { self.set_reveal_sensitive_data(reveal); Task::none() }
             Message::ToggleTestMode(enabled) => { self.test_mode = enabled; Task::none() }
             Message::SearchQueryChanged(value) => { self.search_query = value; Task::none() }
             Message::StartSearch => {
@@ -443,6 +456,23 @@ impl App {
                         None => ()
                     };
                 }
+                Task::none()
+            }
+            Message::CopyLinkToClipboard(id, url) => {
+                self.copied_link = Some(id);
+
+                Task::batch([
+                    clipboard::write(url),
+                    Task::perform(
+                    async {
+                        tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+                    },
+                    |_| Message::ResetCopyMessage,
+                )
+                ])
+            }
+            Message::ResetCopyMessage => {
+                self.copied_link = None;
                 Task::none()
             }
             Message::Tick => {
@@ -640,7 +670,7 @@ impl App {
                 if !self.test_path.is_empty() && Path::new(&self.test_path).is_dir() {
                     properties::set_test_path(&self.test_path);
                 }
-                if !self.steam_api_key.is_empty() {
+                if self.reveal_sensitive_data && !self.steam_api_key.is_empty() {
                     properties::set_steam_api_key(self.steam_api_key.clone());
                 }
                 if !self.recipient_email.is_empty() {
@@ -653,12 +683,13 @@ impl App {
                         smtp_port,
                         self.smtp_email.clone(),
                         self.smtp_user.clone(),
-                        self.smtp_password.clone(),
+                        if self.reveal_sensitive_data { self.smtp_password.clone() } else { String::new() },
                     );
                 }
                 properties::set_test_mode(self.test_mode);
                 let status_str = String::from("Saved settings");
                 self.log_batch.push_str(&log_utils::message_builder(&status_str, LogLevel::INFO));
+                self.show_dialog = true;
                 Task::none()
             }
             Message::CheckPrices => {
@@ -812,6 +843,7 @@ impl App {
                 }
                 exit()
             }
+            Message::HideDialog => { self.show_dialog = false; Task::none() }
         }
     }
 
@@ -913,12 +945,6 @@ impl App {
         let tab_bar = {
             let mut bar = row![];
 
-            // if self.active_tab == Tab::Base {
-            //     bar = bar.push(container(text("Base")).padding(8));
-            // } else {
-            //     bar = bar.push(Button::new(text("Base")).on_press(Message::ViewSelected(Tab::Base)).padding(8));
-            // }
-
             if self.settings_view_open {
                 if self.active_view == View::Settings {
                     bar = bar.push(
@@ -929,7 +955,7 @@ impl App {
                                 .padding(8),
                         ]
                         .spacing(4)
-                        .align_y(iced::Alignment::Center),
+                        .align_y(iced::Alignment::Center)
                     );
                 } else {
                     bar = bar.push(Button::new(text("Settings")).on_press(Message::ViewSelected(View::Settings)).padding(8));
@@ -939,9 +965,24 @@ impl App {
             bar.spacing(10).padding(10)
         };
 
+        let settings_window: Element<'_, Message> = if self.show_dialog {
+            stack![
+                sttngs_view::settings_window(self),
+                custom_styles::backdrop(Message::HideDialog),
+                center(message_dialog(
+                    "Info",
+                    "Settings were saved successfully.",
+                    Message::CloseSettings
+                ))
+            ]
+            .into()
+        } else {
+            sttngs_view::settings_window(self).into()
+        };
+
         let right_pane = match self.active_view {
             View::Base => base_view.into(),
-            View::Settings => sttngs_view::settings_window(self),
+            View::Settings => settings_window,
         };
 
         let content = column![
@@ -963,13 +1004,13 @@ impl App {
         self.selected_stores = settings::get_selected_stores();
         self.alias_enabled = settings::get_alias_state();
         self.alias_reuse_enabled = settings::get_alias_reuse_state();
-        self.steam_api_key = properties::get_steam_api_key();
+        self.steam_api_key = properties::get_steam_api_key(!self.reveal_sensitive_data);
         self.recipient_email = properties::get_recipient();
         self.smtp_host = properties::get_smtp_host();
         self.smtp_port = properties::get_smtp_port().to_string();
         self.smtp_email = properties::get_smtp_email();
         self.smtp_user = properties::get_smtp_user();
-        self.smtp_password = properties::get_smtp_pwd();
+        self.smtp_password = properties::get_smtp_pwd(!self.reveal_sensitive_data);
         self.project_path = properties::get_project_path();
         self.test_path = properties::get_test_path();
         self.test_mode = properties::is_testing_enabled();
@@ -1008,6 +1049,11 @@ impl App {
             });
             true
         }
+    }
+    
+    fn set_reveal_sensitive_data(&mut self, reveal: bool) {
+        self.reveal_sensitive_data = reveal;
+        self.refresh_state();
     }
 
     fn view_thresholds(&self) -> Element<'_, Message> {
@@ -1216,7 +1262,7 @@ mod tests {
         }
 
         #[test]
-        fn log_start_search_with_no_sores() {
+        fn log_start_search_with_no_stores() {
             let mut app = App::new(String::new());
             app.selected_stores.clear();
             app.search_query = "Example".into();

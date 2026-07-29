@@ -1,10 +1,61 @@
 use aes_gcm::{AeadCore, Aes256Gcm, Key, KeyInit, Nonce};
 use aes_gcm::aead::{Aead, OsRng};
 use base64::prelude::*;
+use core::panic;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PasswordState {
+    Hidden,
+    Encrypted,
+    PlainText,
+}
+
+#[derive(Debug)]
+pub struct Password{
+    value: String,
+    state: PasswordState,
+}
+
+impl Password{
+    pub fn new(key_str: &str, pwd: String) -> Self{
+        Password { value: encrypt(key_str, pwd), state: PasswordState::Encrypted }
+    }
+
+    pub fn new_encrypted(pwd_encrypted: String) -> Self {
+        Password { value: pwd_encrypted, state: PasswordState::Encrypted }
+    }
+
+    pub fn get_state(&self) -> PasswordState {
+        self.state
+    }
+
+    pub fn set_state(&mut self, new_state: PasswordState) {
+        self.state = new_state;
+    }
+
+    pub fn get_value(&self, key_str: Option<&str>) -> String {
+        match self.state {
+            PasswordState::Hidden => "\u{2219}".repeat(24),
+            PasswordState::Encrypted => {
+                if key_str.is_some() {
+                    decrypt(key_str.unwrap(), self.value.to_owned())
+                } else {
+                    self.value.to_owned()
+                }
+            },
+            PasswordState::PlainText => {
+                if key_str.is_some() {
+                    decrypt(key_str.unwrap(), self.value.to_owned())
+                } else {
+                    String::new()
+                }
+            }
+        }
+    }
+}
 
 // Encryption and Decryption uses AES-256 GCM and Base64
-
-pub fn encrypt(key_str: &str, plaintext: String) -> String{
+fn encrypt(key_str: &str, plaintext: String) -> String{
     let key = Key::<Aes256Gcm>::from_slice(key_str.as_bytes());
     let cipher = Aes256Gcm::new(key);
     let nonce = Aes256Gcm::generate_nonce(&mut OsRng);
@@ -16,7 +67,8 @@ pub fn encrypt(key_str: &str, plaintext: String) -> String{
     encrypted
 }
 
-pub fn decrypt(key_str: &str, encrypted_text: String) -> String {
+fn decrypt(key_str: &str, encrypted_text: String) -> String {
+    if encrypted_text.is_empty() { return String::new() }
     if key_str == "" || key_str.len() != 32 { panic!("Decrypt key is empty or incorrectly formatted") }
     let key = Key::<Aes256Gcm>::from_slice(key_str.as_bytes());
     let base64_decode = BASE64_STANDARD.decode(encrypted_text.as_bytes()).expect("Failed to base64 decode");

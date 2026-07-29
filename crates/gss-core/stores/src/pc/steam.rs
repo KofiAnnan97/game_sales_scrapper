@@ -1,4 +1,5 @@
-use serde_json::{Result, Value};
+use serde::Deserialize;
+use serde_json::{self, Value};
 use std::collections::HashMap;
 use std::fs::read_to_string;
 use regex::Regex;
@@ -12,9 +13,10 @@ use file_types::general;
 use properties;
 use constants::operations::properties::PROP_STEAM_API_KEY;
 use structs::internal::data::SaleInfo;
-use structs::response::steam::{App, PriceOverview};
+use structs::response::steam::{App, AppDetails, PriceOverview};
 use constants::stores::steam::*;
 use constants::operations::thresholds::{LEVENSTEIN_DIST_PERCENTAGE, SMITH_WATERMAN_DIST_PERCENTAGE};
+use errors::api::ApiError;
 use crate::algorithms::fuzzy;
 
 #[allow(dead_code)]
@@ -24,14 +26,14 @@ enum SearchPattern {
     FuzzySmithWatrerman
 }
 
-#[automock]
+// #[automock]
 #[async_trait]
 pub trait SteamApi {
     async fn search_game(&self, keyphrase: &str) -> Option<String>;
-    async fn search_by_keyphrase(&self, keyphrase: &str) -> Result<Vec<String>>;
+    async fn search_by_keyphrase(&self, keyphrase: &str) -> Result<Vec<String>, ApiError>;
     async fn check_game(&self, name: &str) -> Option<App>;
-    async fn get_price(&self, app_id: u32) -> Result<PriceOverview>;
-    async fn get_price_details(&self, app_id: u32) -> Result<SaleInfo>;
+    async fn get_price(&self, app_id: u32) -> Result<PriceOverview, ApiError>;
+    async fn get_price_details(&self, app_id: u32) -> Result<SaleInfo, ApiError>;
 }
 
 pub struct SteamClient {
@@ -92,7 +94,7 @@ impl SteamApi for SteamClient {
         None
     }
 
-    async fn search_by_keyphrase(&self, keyphrase: &str) -> Result<Vec<String>> {
+    async fn search_by_keyphrase(&self, keyphrase: &str) -> Result<Vec<String>, ApiError> {
         let mut games_list : Vec<App> = load_cached_games().unwrap_or_default();
         if games_list.len() == 0 {
             update_cached_games().await;
@@ -167,80 +169,54 @@ impl SteamApi for SteamClient {
         None
     }
     
-    async fn get_price(&self, app_id : u32) -> Result<PriceOverview> {
-        let mut overview = PriceOverview {
-            currency: String::from(""),
-            discount_percent: 0,
-            initial: 0.0,
-            final_price: 0.0,
-        };
+    async fn get_price(&self, app_id : u32) -> Result<PriceOverview, ApiError> {
         match get_game_data(app_id, &self.http_client).await {
-            Ok(success) => {
-                let body : Value = serde_json::from_str(&success).expect("Could convert to game data json");
-                let data = body[app_id.to_string()]["success"].clone();
-                match data{
-                    Value::Bool(true) => {
-                        let price_overview : &Value = &body[app_id.to_string()]["data"]["price_overview"];
-                        if *price_overview != Value::Null {
-                            overview.final_price = price_overview["final"].as_f64().unwrap()/100.0;
-                            overview.initial = price_overview["initial"].as_f64().unwrap()/100.0;
-                            overview.discount_percent = price_overview["discount_percent"].as_u64().unwrap() as u32;
-                            overview.currency = price_overview["currency"].to_string();
-                        }
-                        else{
-                            eprintln!("Could not find pricing data for {:?}", &body[app_id.to_string()]["data"]["name"]);
-                        }
-                    },
-                    Value::Bool(false) => {
-                        eprintln!("Error: No data available for game.");
-                        std::process::exit(exitcode::DATAERR);
-                    },
-                    _ => panic!("Something strange occurred")
+            Ok(app_details) => {
+                let success = app_details.success;
+                let data = app_details.app_data;
+                if success && data.is_some(){
+                    if let Some(price_overview) = data.unwrap().price_overview {
+                        Ok(PriceOverview{
+                            currency: price_overview.currency,
+                            discount_percent: price_overview.discount_percent,
+                            initial: price_overview.initial/100.0,
+                            final_price: price_overview.final_price/100.0,
+                        })
+                    } else {
+                        Err(ApiError::Message(format!("Could not retrieve pricing information for game with id {}.", app_id)))
+                    }
+                } else {
+                    Err(ApiError::Message(format!("No data available for game with id {}.", app_id)))
                 }
             },
-            Err(e) =>  println!("{}", e)
+            Err(e) =>  Err(ApiError::Message(format!("An issue was found for Steam game with id: {}, {}", app_id, e)))
         }
-        Ok(overview)
     }
 
-    async fn get_price_details(&self, app_id : u32) -> Result<SaleInfo> {
-        let mut sale_info = SaleInfo {
-            icon_link: String::new(),
-            title: String::new(),
-            original_price: String::new(),
-            current_price: String::new(),
-            discount_percentage: String::new(),
-            store_page_link: String::new(),
-        };
+    async fn get_price_details(&self, app_id : u32) -> Result<SaleInfo, ApiError> {
         match get_game_data(app_id, &self.http_client).await {
-            Ok(success) => {
-                let body : Value = serde_json::from_str(&success).expect("Could convert to game data json");
-                let data = &body[app_id.to_string()]["success"];
-                match data{
-                    Value::Bool(true) => {
-                        let data : &Value = &body[app_id.to_string()]["data"];
-                        if *data != Value::Null {
-                            sale_info.icon_link = data["header_image"].as_str().unwrap().to_string();
-                            sale_info.title = data["name"].as_str().unwrap().to_string();
-                            sale_info.original_price = format!("{}", data["price_overview"]["initial"].as_f64().unwrap()/100.0);
-                            sale_info.current_price = format!("{}", data["price_overview"]["final"].as_f64().unwrap()/100.0);
-                            sale_info.discount_percentage = format!("{}", data["price_overview"]["discount_percent"].as_f64().unwrap() as usize);
-                            sale_info.store_page_link = format!("{}{}", STORE_PAGE_URL, app_id);
-                        }
-                        else{
-                            eprintln!("Could not find pricing data for {:?}", &body[app_id.to_string()]["data"]["name"]);
-                        }
-                    },
-                    Value::Bool(false) => {
-                        eprintln!("Error: No data available for game.");
-                        std::process::exit(exitcode::DATAERR);
-                    },
-                    _ => panic!("Something strange occurred")
+            Ok(app_details) => {
+                let success = app_details.success;
+                if success {
+                    if let Some(data) = app_details.app_data {
+                        let price_overview = data.price_overview.unwrap();
+                        Ok(SaleInfo{
+                            icon_link: data.header_image,
+                            title: data.name,
+                            original_price: format!("{}", price_overview.initial/100.0),
+                            current_price: format!("{}", price_overview.final_price/100.0),
+                            discount_percentage: format!("{}", price_overview.discount_percent),
+                            store_page_link: format!("{}{}", STORE_PAGE_URL, app_id),
+                        })
+                    } else {
+                        Err(ApiError::Message(format!("Game with id {} was present but info was not available", app_id)))
+                    }
+                } else {
+                    Err(ApiError::Message(format!("No data available for game with id {}.", app_id)))
                 }
             },
-            Err(e) =>  println!("{}", e)
+            Err(e) =>  Err(ApiError::Message(format!("An issue was found for Steam game with id: {}, {}", app_id, e)))
         }
-        Ok(sale_info)
     }
 }
 
@@ -252,7 +228,7 @@ fn get_cache_path() -> String{
     general::get_path(&cache_file_path)
 }
 
-fn load_cached_games() -> Result<Vec<App>> {
+fn load_cached_games() -> serde_json::Result<Vec<App>> {
     let filepath = get_cache_path();
     let data = read_to_string(filepath).unwrap();
     let cached_games = serde_json::from_str::<Vec<App>>(&data);
@@ -322,8 +298,8 @@ pub async fn update_cached_games(){
 }
 
 // API Functions 
-async fn get_games(client: &reqwest::Client, max_results: u32, last_appid: u32) -> Result<Vec<App>> {
-    let steam_api_key = properties::get_steam_api_key();
+async fn get_games(client: &reqwest::Client, max_results: u32, last_appid: u32) -> Result<Vec<App>, ApiError> {
+    let steam_api_key = properties::get_steam_api_key(false);
     if steam_api_key.is_empty() { panic!("Missing '{}' property.", PROP_STEAM_API_KEY) }
     let query_string = [
         ("key", steam_api_key.as_str()),
@@ -336,19 +312,17 @@ async fn get_games(client: &reqwest::Client, max_results: u32, last_appid: u32) 
         .timeout(Duration::from_secs(GAME_LIST_TIMEOUT_IN_SECS))
         .query(&query_string)
         .send()
-        .await
-        .expect("Failed to get response")
+        .await?
         .text()
-        .await
-        .expect("Failed to get data");
+        .await?;
     // println!("Response: {:?}", resp);
-    let body : Value = serde_json::from_str(&resp).expect("Could convert Steam app list to JSON");
-    let app_list_str = serde_json::to_string(&body["response"]["apps"]).unwrap();
-    let app_list = serde_json::from_str::<Vec<App>>(&app_list_str);
-    app_list
+    let body : Value = serde_json::from_str(&resp)?;
+    let app_list_str = serde_json::to_string(&body["response"]["apps"])?;
+    let app_list = serde_json::from_str::<Vec<App>>(&app_list_str)?;
+    Ok(app_list)
 }
 
-async fn get_game_data(app_id : u32, client: &reqwest::Client) -> Result<String>{
+async fn get_game_data(app_id : u32, client: &reqwest::Client) -> Result<AppDetails, ApiError>{
     let app_id_str = app_id.to_string();
     let query_string = [
         ("appids", app_id_str.as_str()),
@@ -359,19 +333,21 @@ async fn get_game_data(app_id : u32, client: &reqwest::Client) -> Result<String>
         .timeout(Duration::from_secs(DEFAULT_TIMEOUT_IN_SECS))
         .query(&query_string)
         .send()
-        .await
-        .expect("Failed to get response")
+        .await?
         .text()
-        .await
-        .expect("Failed to get data");
-    Ok(resp)
+        .await?;
+
+    let body: Value = serde_json::from_str(&resp)?;
+    let game_by_app_id = body.get(&app_id.to_string()).ok_or(ApiError::Message(format!("")))?;
+    let game: AppDetails = AppDetails::deserialize(game_by_app_id)?;
+    Ok(game)
 }
 
-pub async fn get_price(app_id : u32, client: &reqwest::Client) -> Result<PriceOverview>{
+pub async fn get_price(app_id : u32, client: &reqwest::Client) -> Result<PriceOverview, ApiError>{
     SteamClient::with_client(client.clone()).get_price(app_id).await
 }
 
-pub async fn get_price_details(app_id : u32, client: &reqwest::Client) -> Result<SaleInfo>{
+pub async fn get_price_details(app_id : u32, client: &reqwest::Client) -> Result<SaleInfo, ApiError>{
     SteamClient::with_client(client.clone()).get_price_details(app_id).await
 }
 
@@ -380,7 +356,7 @@ pub async fn check_game(name: &str) -> Option<App> {
     SteamClient::new().check_game(name).await
 }
 
-pub async fn search_by_keyphrase(keyphrase: &str) -> Result<Vec<String>>{
+pub async fn search_by_keyphrase(keyphrase: &str) -> Result<Vec<String>, ApiError>{
     SteamClient::new().search_by_keyphrase(keyphrase).await
 }
 

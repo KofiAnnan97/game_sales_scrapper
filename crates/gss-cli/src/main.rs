@@ -149,6 +149,16 @@ async fn main(){
                                 .help("List properties")                      
                         )
                         .arg(
+                            Arg::new(REVEAL_SECRETS) 
+                                .short('v')
+                                .long(REVEAL_SECRETS)
+                                .action(ArgAction::SetTrue)
+                                .conflicts_with_all(["test_mode", FROM_ENV, SET_SMTP, SET_RECIPIENT, 
+                                                     SET_API_KEY, SET_PROJECT_PATH, SET_TEST_PATH])
+                                .required(false)
+                                .help("Reveal secrets as plain text (only works with list-properties)")                      
+                        )
+                        .arg(
                             arg!(-z --test_mode "Flag for saving data using the TEST_PATH env variable")
                                 .action(ArgAction::Set)
                                 .value_parser(clap::value_parser!(i32))
@@ -354,7 +364,7 @@ async fn main(){
                     // Set Steam api key
                     match properties_args.get_one::<String>(SET_API_KEY){
                         Some(key) => {
-                            let prev_key = properties::get_steam_api_key();
+                            let prev_key = properties::get_steam_api_key(false);
                             if !key.is_empty() && prev_key != *key{
                                 properties::set_steam_api_key(key.to_string());
                             }
@@ -384,6 +394,10 @@ async fn main(){
                         None => (),
                     }
 
+                    // Reveal secrets
+                    let reveal_secrets = properties_args.value_source(REVEAL_SECRETS).unwrap();
+                    let hidden: bool = if reveal_secrets == ValueSource::CommandLine { false } else { true };
+
                     // List properties
                     let list_properties = properties_args.value_source(LIST_PROPERTIES).unwrap();
                     if list_properties == ValueSource::CommandLine {
@@ -400,12 +414,12 @@ async fn main(){
                                     _ => println!("Cannot show path given test_mode '{}'", &test_mode)
                                 }
                                 println!("Recipient Email: {}", lookup.get(PROP_RECIPIENT_EMAIL).unwrap_or_default());
-                                println!("Steam API Key: {}", properties::get_steam_api_key());
+                                println!("Steam API Key: {}", properties::get_steam_api_key(hidden));
                                 println!("SMTP Host: {}", lookup.get(PROP_SMTP_HOST).unwrap_or_default());
                                 println!("SMTP Port: {}", lookup.get(PROP_SMTP_PORT).unwrap_or_default());
                                 println!("SMTP Email: {}", lookup.get(PROP_SMTP_EMAIL).unwrap_or_default());
                                 println!("SMTP User: {}", lookup.get(PROP_SMTP_USERNAME).unwrap_or_default());
-                                println!("SMTP Password: {}", properties::get_smtp_pwd());
+                                println!("SMTP Password: {}", properties::get_smtp_pwd(hidden));
                                 println!("Test Mode: {}", test_mode);
                             },
                             Err(e) => eprintln!("Failed to list properties.\n{}", e)
