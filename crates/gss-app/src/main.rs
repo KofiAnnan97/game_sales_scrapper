@@ -1,5 +1,5 @@
 use iced::widget::{
-    Button, Checkbox, column, container, row, text
+    Button, Checkbox, column, container, row, text, stack, center
 };
 use iced::{Element, Length, Padding, Subscription, Task, clipboard, application, window, exit};
 use iced::time::{self, Duration};
@@ -26,12 +26,14 @@ mod utils;
 use views::{thresholds as thrshlds_view, settings as sttngs_view};
 use views::search::SKIP_STORE_SELECTION;
 use views::actions::ActionDisplayed;
-use components::custom_widgets;
+use components::{custom_widgets, custom_styles};
 use utils::actions_utils::{send_sales_email, update_cache};
 use utils::search_utils::perform_store_search;
 use utils::pricing_utils::{check_prices_for_display, SaleInfoWithHandler};
 use utils::file_utils::open_file;
 use utils::log_utils::{self, LogLevel};
+
+use crate::components::custom_widgets::message_dialog;
 
 const LOADING_FRAMES_SIZE: usize = 4;
 
@@ -138,12 +140,14 @@ enum Message {
     SendEmailResult(Result<String, String>),
     UpdateCache,
     UpdateCacheResult(Result<String, String>),
-    CopyLinkToClipboard(String),
+    CopyLinkToClipboard(String, String),
+    ResetCopyMessage,
     LogsShown,
     UpdateLogFile,
     Tick,
     Refresh,
     AppClosing,
+    HideDialog,
 }
 
 impl StoreSearchResult {
@@ -220,6 +224,8 @@ struct App {
     current_log_file: String,
     action_displayed: ActionDisplayed,
     sales_info_by_store: HashMap<String, Vec<SaleInfoWithHandler>>,
+    show_dialog: bool,
+    copied_link: Option<String>,
 }
 
 impl App {
@@ -276,6 +282,8 @@ impl App {
                     .collect();
                 sibs
             },
+            show_dialog: false,
+            copied_link: None,
         };
         app.sync_threshold_edits();
         app
@@ -347,6 +355,7 @@ impl App {
             Message::CloseSettings => {
                 self.settings_view_open = false;
                 self.active_view = View::Base;
+                self.show_dialog = false;
                 let status_str = String::from("Closed settings tab");
                 self.log_batch.push_str(&log_utils::message_builder(&status_str, LogLevel::INFO));
                 Task::none()
@@ -449,8 +458,22 @@ impl App {
                 }
                 Task::none()
             }
-            Message::CopyLinkToClipboard(url) => {
-                clipboard::write(url)
+            Message::CopyLinkToClipboard(id, url) => {
+                self.copied_link = Some(id);
+
+                Task::batch([
+                    clipboard::write(url),
+                    Task::perform(
+                    async {
+                        tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+                    },
+                    |_| Message::ResetCopyMessage,
+                )
+                ])
+            }
+            Message::ResetCopyMessage => {
+                self.copied_link = None;
+                Task::none()
             }
             Message::Tick => {
                 if self.is_search_in_progress {
@@ -666,8 +689,7 @@ impl App {
                 properties::set_test_mode(self.test_mode);
                 let status_str = String::from("Saved settings");
                 self.log_batch.push_str(&log_utils::message_builder(&status_str, LogLevel::INFO));
-                self.settings_view_open = false;
-                self.active_view = View::Base;
+                self.show_dialog = true;
                 Task::none()
             }
             Message::CheckPrices => {
@@ -821,6 +843,7 @@ impl App {
                 }
                 exit()
             }
+            Message::HideDialog => { self.show_dialog = false; Task::none() }
         }
     }
 
@@ -922,12 +945,6 @@ impl App {
         let tab_bar = {
             let mut bar = row![];
 
-            // if self.active_tab == Tab::Base {
-            //     bar = bar.push(container(text("Base")).padding(8));
-            // } else {
-            //     bar = bar.push(Button::new(text("Base")).on_press(Message::ViewSelected(Tab::Base)).padding(8));
-            // }
-
             if self.settings_view_open {
                 if self.active_view == View::Settings {
                     bar = bar.push(
@@ -938,7 +955,7 @@ impl App {
                                 .padding(8),
                         ]
                         .spacing(4)
-                        .align_y(iced::Alignment::Center),
+                        .align_y(iced::Alignment::Center)
                     );
                 } else {
                     bar = bar.push(Button::new(text("Settings")).on_press(Message::ViewSelected(View::Settings)).padding(8));
@@ -948,9 +965,24 @@ impl App {
             bar.spacing(10).padding(10)
         };
 
+        let settings_window: Element<'_, Message> = if self.show_dialog {
+            stack![
+                sttngs_view::settings_window(self),
+                custom_styles::backdrop(Message::HideDialog),
+                center(message_dialog(
+                    "Info",
+                    "Settings were saved successfully.",
+                    Message::CloseSettings
+                ))
+            ]
+            .into()
+        } else {
+            sttngs_view::settings_window(self).into()
+        };
+
         let right_pane = match self.active_view {
             View::Base => base_view.into(),
-            View::Settings => sttngs_view::settings_window(self),
+            View::Settings => settings_window,
         };
 
         let content = column![
@@ -1018,7 +1050,7 @@ impl App {
             true
         }
     }
-
+    
     fn set_reveal_sensitive_data(&mut self, reveal: bool) {
         self.reveal_sensitive_data = reveal;
         self.refresh_state();

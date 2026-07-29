@@ -12,11 +12,12 @@
     - [ ] Add interface from custom email cron jobs (Windows and Linux). Might need to rework the current setup.
     - [ ] Log filtering by all, lowest severity, and exact match when displayed (move to separate window)
       - [ ] include the ability to prune logs
-    - [ ] Update check price display to look more modern
+    - [X] Update check price display to look more modern
       - [X] Make style similar to modernize email design (including image) 
       - [X] User can copy store page link to clipboard
-      - [ ] Notiify user that copy to clipboard was successful
-    - [ ] Print out "Saved settings successfully"  or close Settings when Save Settings button is pressed
+      - [X] Notiify user that copy to clipboard was successful
+    - [x] In window overlay when settings are saved successfully before settings are closed
+    - [ ] Only update settings if needed (currently always update)
     - [ ] Add auto advance to the next store as a toggable option when a radial button is selected
 - Bugs/Fixes
   - General

@@ -13,6 +13,7 @@ use constants::stores::gog::VERSION as GOG_VERSION;
 #[derive(Debug, Clone)]
 pub struct SaleInfoWithHandler {
     pub sale_info: SaleInfo,
+    pub game_id: String,
     pub icon_handler: Handle
 }
 
@@ -49,6 +50,7 @@ pub async fn check_prices_for_display() -> Result<HashMap<String, Vec<SaleInfoWi
                     if elem.desired_price >= current_price {
                         sales_info_by_store.get_mut(STEAM_STORE_ID).unwrap().push(SaleInfoWithHandler {
                             sale_info: info,
+                            game_id: format!("{}_{}",STEAM_STORE_ID, elem.steam_id),
                             icon_handler: img_handler
                         });
                     }
@@ -68,6 +70,7 @@ pub async fn check_prices_for_display() -> Result<HashMap<String, Vec<SaleInfoWi
                         if elem.desired_price >= current_price {
                             sales_info_by_store.get_mut(GOG_STORE_ID).unwrap().push(SaleInfoWithHandler {
                             sale_info: info,
+                            game_id: format!("{}_{}",GOG_STORE_ID, elem.gog_id),
                             icon_handler: img_handler
                         });
                         }
@@ -87,6 +90,7 @@ pub async fn check_prices_for_display() -> Result<HashMap<String, Vec<SaleInfoWi
                     if elem.desired_price >= current_price {
                         sales_info_by_store.get_mut(MICROSOFT_STORE_ID).unwrap().push(SaleInfoWithHandler {
                             sale_info: info,
+                            game_id: format!("{}_{}", MICROSOFT_STORE_ID, elem.microsoft_store_id),
                             icon_handler: img_handler
                         });
                     }

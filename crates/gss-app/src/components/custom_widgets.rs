@@ -1,4 +1,4 @@
-use iced::{Alignment, Color, Theme, Renderer};
+use iced::{Alignment, alignment::Horizontal, Color, Theme, Renderer};
 use iced::widget::{
     Container, Text, button, container, row, column, table, text, Image
 };
@@ -9,7 +9,7 @@ use iced_aw::{iced_aw_font};
 use structs::internal::data::SaleInfo;
 
 use crate::Message;
-use crate::components::custom_styles::bold_text;
+use crate::components::custom_styles::{bold_text, dialog_style};
 use crate::utils::pricing_utils::SaleInfoWithHandler;
 
 // Butttons
@@ -40,20 +40,19 @@ pub fn menu_text_button<'a>(label: &'a str, message: Message) -> Element<'a, Mes
     .into()
 }
 
-pub fn store_link<'a>(label: &'a str, url: String,) -> iced::Element<'a, Message> {
+fn store_link<'a>(label: &'a str, id: &'a str, url: String,) -> iced::Element<'a, Message> {
     text::Rich::<String, Message, Theme, Renderer>::with_spans([
         text::Span::new(label)
-            .link(url)
-            .underline(true),
+            .link(&url)
     ])
-    .on_link_click(Message::CopyLinkToClipboard)
+    .on_link_click(move |_| Message::CopyLinkToClipboard(String::from(id), url.clone()))
     .size(16)
     .into()
 }
 
 // Badges
 
-pub fn discount_badge(value: String) -> iced::Element<'static ,Message> {
+fn discount_badge(value: String) -> iced::Element<'static ,Message> {
     container(
         text(value)
             .size(14)
@@ -71,6 +70,8 @@ pub fn discount_badge(value: String) -> iced::Element<'static ,Message> {
     .padding(10)
     .into()
 }
+
+// Text 
 
 fn price_change<'a>(old_price: &'a str, new_price: &'a str) -> Element<'a, Message> {
     row![
@@ -113,8 +114,8 @@ pub fn create_sales_table<'a>(sales_info: &'a Vec<SaleInfo>) -> Table<'a, Messag
 
 // Containers
 
-pub fn game_store_card(data: &SaleInfoWithHandler) -> Container<'_, Message> {
-    let discount: String = format!("{} % OFF", &data.sale_info.discount_percentage);
+pub fn game_store_card(copied_link: Option<String>, data: &SaleInfoWithHandler) -> Container<'_, Message> {
+    let discount: String = format!("{}% OFF", &data.sale_info.discount_percentage);
     container(
         row![
             container(Image::new(&data.icon_handler)
@@ -126,7 +127,14 @@ pub fn game_store_card(data: &SaleInfoWithHandler) -> Container<'_, Message> {
                     price_change(&data.sale_info.original_price, &data.sale_info.current_price),
                     discount_badge(discount),
                 ].align_y(Alignment::Center),
-                store_link("Copy store page link", data.sale_info.store_page_link.clone())
+                store_link(
+                    if copied_link == Some(data.game_id.clone()) {
+                        "✔ Copied to Clipboard"
+                    } else {
+                        "Copy Store Page Link"
+                    },
+                    &data.game_id, 
+                    data.sale_info.store_page_link.clone())
             ]
         ]
         .spacing(4),
@@ -136,6 +144,27 @@ pub fn game_store_card(data: &SaleInfoWithHandler) -> Container<'_, Message> {
     .style(|_| { 
         container::Style::from(Color::from_rgb8(45, 76, 105))
     })
+}
+
+pub fn message_dialog<'a>(title: &'a str, body: &'a str, message: Message) -> Container<'a, Message>{
+    container(
+        column![
+            text(title).size(24),
+            text(body).size(16).width(Length::Fill),
+            column![
+                button("OK")
+                    .padding([8, 24])
+                    .on_press(message),
+            ]
+            .width(Length::Fill)
+            .align_x(Horizontal::Right),
+        ]
+        .spacing(24)
+        .padding(24),
+    )
+    .width(360)
+    .max_width(360)
+    .style(dialog_style)
 }
 
 // Simple Animations

@@ -17,7 +17,7 @@ constants = { path = "../gss-core/constants" }
 # External crates
 iced.workspace = true
 iced.features = ["canvas", "tokio", "debug"]
-iced_aw.workspace = true
+iced_aw = { workspace = true, features = [ "full" ] } 
 tokio = { workspace = true, features = ["full"] }
 reqwest = { workspace = true, features = ["json"] }
 chrono.workspace = true

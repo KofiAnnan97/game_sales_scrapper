@@ -35,7 +35,7 @@ impl Password{
 
     pub fn get_value(&self, key_str: Option<&str>) -> String {
         match self.state {
-            PasswordState::Hidden => "\u{00B7}".repeat(16),
+            PasswordState::Hidden => "\u{2219}".repeat(24),
             PasswordState::Encrypted => {
                 if key_str.is_some() {
                     decrypt(key_str.unwrap(), self.value.to_owned())

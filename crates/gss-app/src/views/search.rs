@@ -161,6 +161,7 @@ pub fn search_tab(app: &crate::App) -> Element<'_, Message> {
         row![
             TextInput::new("Search games", &app.search_query)
                 .on_input(Message::SearchQueryChanged)
+                .on_submit(Message::StartSearch)
                 .padding(5)
                 .width(Length::Fill),
             search_button,

@@ -5,6 +5,7 @@ use crate::Message;
 
 pub fn settings_window(app: &crate::App) -> Element<'_, Message> {
     let settings_content = column![
+        text("General Settings").size(20),
         if app.test_mode {
             column![
             text("Test path"),
@@ -37,6 +38,7 @@ pub fn settings_window(app: &crate::App) -> Element<'_, Message> {
             }
         ]
         .spacing(4),
+        text("Email Settings").size(20),
         column![
             text("Recipient email"),
             TextInput::new("Enter recipient email", &app.recipient_email)

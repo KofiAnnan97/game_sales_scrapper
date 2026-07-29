@@ -30,11 +30,10 @@ pub fn view_actions(app: &crate::App) -> Element<'_, Message> {
                     weight: font::Weight::Bold,
                     ..Font::DEFAULT
                 }))
-                // .center_x(Length::Fill)
                 .padding(10.0)
         );
         for game in games {
-            sales_by_store = sales_by_store.push(game_store_card(game));
+            sales_by_store = sales_by_store.push(game_store_card(app.copied_link.clone(), game));
         }
     }
 
