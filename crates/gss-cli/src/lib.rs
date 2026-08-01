@@ -42,8 +42,7 @@ pub async fn check_prices(use_html: bool) -> String {
         if elem.steam_id != 0 {
             match steam::get_price_details(elem.steam_id, &http_client).await {
                 Ok(info) => {
-                    let current_price = info.current_price.parse::<f64>().unwrap();
-                    if elem.desired_price >= current_price {
+                    if elem.desired_price >= info.current_price {
                         steam_sales.push(info);
                     }
                 },
@@ -68,8 +67,7 @@ pub async fn check_prices(use_html: bool) -> String {
             else if GOG_VERSION == 2{
                 match gog::get_price_details_v2(&elem.title, &http_client).await {
                     Some(info) => {
-                        let current_price = info.current_price.parse::<f64>().unwrap();
-                        if elem.desired_price >= current_price {
+                        if elem.desired_price >= info.current_price {
                             gog_sales.push(info);
                         }
                     },
@@ -80,8 +78,7 @@ pub async fn check_prices(use_html: bool) -> String {
         if !elem.microsoft_store_id.is_empty() {
             match microsoft_store::get_price_details(&elem.microsoft_store_id, &http_client).await {
                 Some(info) => {
-                    let current_price = info.current_price.parse::<f64>().unwrap();
-                    if elem.desired_price >= current_price {
+                    if elem.desired_price >= info.current_price {
                         microsoft_store_sales.push(info);
                     }
                 },

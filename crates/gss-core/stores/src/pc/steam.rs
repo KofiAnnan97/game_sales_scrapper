@@ -203,8 +203,8 @@ impl SteamApi for SteamClient {
                         Ok(SaleInfo{
                             icon_link: data.header_image,
                             title: data.name,
-                            original_price: format!("{}", price_overview.initial/100.0),
-                            current_price: format!("{}", price_overview.final_price/100.0),
+                            original_price: price_overview.initial/100.0,
+                            current_price: price_overview.final_price/100.0,
                             discount_percentage: format!("{}", price_overview.discount_percent),
                             store_page_link: format!("{}{}", STORE_PAGE_URL, app_id),
                         })

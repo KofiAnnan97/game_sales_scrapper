@@ -1,3 +1,5 @@
+use constants::operations::settings::{STEAM_STORE_ID, GOG_STORE_ID, MICROSOFT_STORE_ID};
+use iced::widget::image::Handle;
 use iced::{Alignment, alignment::Horizontal, Color, Theme, Renderer};
 use iced::widget::{
     Container, Text, button, container, row, column, table, text, Image
@@ -9,8 +11,8 @@ use iced_aw::{iced_aw_font};
 use structs::internal::data::SaleInfo;
 
 use crate::Message;
-use crate::components::custom_styles::{bold_text, dialog_style};
-use crate::utils::pricing_utils::SaleInfoWithHandler;
+use crate::components::custom_styles::{bold_text, cmp_row_style, dialog_style, normal_price_style, best_price_style};
+use crate::utils::pricing_utils::{SaleInfoCompare, StoreSale};
 
 // Butttons
 
@@ -52,15 +54,15 @@ fn store_link<'a>(label: &'a str, id: &'a str, url: String,) -> iced::Element<'a
 
 // Badges
 
-fn discount_badge(value: String) -> iced::Element<'static ,Message> {
+fn colored_badge(value: String, font_size: u32, color: Color) -> iced::Element<'static ,Message> {
     container(
         text(value)
-            .size(14)
+            .size(font_size)
             .color(Color::WHITE)
     )
     .padding([6, 12])
-    .style(|_| container::Style {
-        background: Some(Color::from_rgb8(76, 175, 80).into()), // #4CAF50
+    .style(move |_| container::Style {
+        background: Some(color.into()),
         border: iced::Border {
             radius: 20.0.into(),
             ..Default::default()
@@ -73,7 +75,7 @@ fn discount_badge(value: String) -> iced::Element<'static ,Message> {
 
 // Text 
 
-fn price_change<'a>(old_price: &'a str, new_price: &'a str) -> Element<'a, Message> {
+fn price_change<'a>(old_price: f64, new_price: f64) -> Element<'a, Message> {
     row![
         text::Rich::with_spans([
             text::Span::<()>::new(old_price)
@@ -114,27 +116,28 @@ pub fn create_sales_table<'a>(sales_info: &'a Vec<SaleInfo>) -> Table<'a, Messag
 
 // Containers
 
-pub fn game_store_card(copied_link: Option<String>, data: &SaleInfoWithHandler) -> Container<'_, Message> {
-    let discount: String = format!("{}% OFF", &data.sale_info.discount_percentage);
+pub fn game_store_card<'a>(copied_link: &'a Option<String>, data: &'a StoreSale) -> Container<'a, Message> {
+    let discount: String = format!("{}% OFF", &data.info.discount_percentage);
+    let handler = data.icon_handler.clone().unwrap_or_else(|| Handle::from_bytes(vec![]));
     container(
         row![
-            container(Image::new(&data.icon_handler)
+            container(Image::new(handler)
                 .height(100)).align_y(Alignment::Center)
                 .padding(10),
             column![
-                bold_text(&data.sale_info.title).size(24),
+                bold_text(&data.info.title).size(24),
                 row![
-                    price_change(&data.sale_info.original_price, &data.sale_info.current_price),
-                    discount_badge(discount),
+                    price_change(data.info.original_price, data.info.current_price),
+                    colored_badge(discount, 14, Color::from_rgb8(76, 175, 80)),
                 ].align_y(Alignment::Center),
                 store_link(
-                    if copied_link == Some(data.game_id.clone()) {
+                    if copied_link == &Some(data.game_id.clone()) {
                         "✔ Copied to Clipboard"
                     } else {
                         "Copy Store Page Link"
                     },
                     &data.game_id, 
-                    data.sale_info.store_page_link.clone())
+                    data.info.store_page_link.clone())
             ]
         ]
         .spacing(4),
@@ -144,6 +147,60 @@ pub fn game_store_card(copied_link: Option<String>, data: &SaleInfoWithHandler) 
     .style(|_| { 
         container::Style::from(Color::from_rgb8(45, 76, 105))
     })
+}
+
+pub fn store_price_cell<'a>(price: &'a Option<f64>, is_best: bool) -> Container<'a, Message> {
+    let price_str;
+    if let Some(price_val) = price {
+        price_str = format!("{}", price_val);
+    }else {
+        price_str = String::from(" - ");
+    }
+    container(
+        text(price_str.clone())
+    )
+    .center_x(Length::Fill)
+    .padding(8)
+    .style(if is_best {
+        best_price_style
+    } else {
+        normal_price_style
+    })
+}
+
+pub fn game_comparison_row<'a>(data: &'a SaleInfoCompare, idx: usize) -> Container<'a, Message>{
+    let handler = data.icon_handler.clone().unwrap_or_else(|| Handle::from_bytes(vec![]));
+    let mut steam_lowest = data.lowest_price_stores.contains(&String::from(STEAM_STORE_ID));
+    let mut gog_lowest = data.lowest_price_stores.contains(&String::from(GOG_STORE_ID));
+    let mut ms_lowest = data.lowest_price_stores.contains(&String::from(MICROSOFT_STORE_ID));
+    if steam_lowest && gog_lowest && ms_lowest {
+        steam_lowest = false;
+        gog_lowest = false;
+        ms_lowest = false;
+    }
+    container(
+        row![
+            row![
+                container(Image::new(handler)
+                    .height(100)).align_y(Alignment::Center)
+                    .padding(10),
+                text(data.title.clone())
+            ]
+            .spacing(12)
+            .align_y(Alignment::Center)
+            .width(Length::FillPortion(2)),
+            store_price_cell(&data.steam_price, steam_lowest)
+                .width(Length::FillPortion(1)),
+            store_price_cell(&data.gog_price, gog_lowest)
+                .width(Length::FillPortion(1)),
+            store_price_cell(&data.microsoft_store_price, ms_lowest)
+                .width(Length::FillPortion(1)),
+        ]
+        .spacing(20)
+        .padding(12)
+        .align_y(Alignment::Center)
+    )
+    .style(cmp_row_style(idx))
 }
 
 pub fn message_dialog<'a>(title: &'a str, body: &'a str, message: Message) -> Container<'a, Message>{

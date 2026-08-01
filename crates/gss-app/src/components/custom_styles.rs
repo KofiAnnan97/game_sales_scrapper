@@ -1,5 +1,5 @@
 use iced::widget::{ MouseArea, Text, text, mouse_area, container};
-use iced::{font, Font, Length, Border, Color, Shadow, Theme};
+use iced::{Background, Border, Color, Font, Length, Shadow, Theme, font};
 
 use crate::Message;
 
@@ -49,5 +49,53 @@ pub fn dialog_style(_theme: &Theme) -> container::Style {
         },
         text_color: None,
         snap: false
+    }
+}
+
+pub fn normal_price_style(_theme: &Theme) -> container::Style {
+    container::Style {
+        background: None,
+        text_color: Some(Color::from_rgb8(255, 255, 255)),
+
+        border: Border {
+            radius: 4.0.into(),
+            width: 0.0,
+            color: Color::TRANSPARENT,
+        },
+        shadow: Shadow::default(),
+        snap: false
+    }
+}
+
+pub fn best_price_style(_theme: &Theme) -> container::Style {
+    container::Style {
+        background: Some(Background::Color(Color::from_rgb8(34, 170, 59))),
+        text_color: Some(Color::from_rgb8(255, 255, 255)),
+        border: Border {
+            radius: 20.0.into(),
+            width: 0.0,
+            color: Color::TRANSPARENT,
+            ..Default::default()
+        },
+        shadow: Shadow::default(),
+        snap: false
+    }
+} 
+
+pub fn cmp_row_style(index: usize) -> impl Fn(&Theme) -> container::Style {
+    move |_| {
+        let bg = if index % 2 == 0 {
+            Color::from_rgb8(76, 122, 165)
+        } else {
+            Color::from_rgb8(45, 76, 105)
+        };
+
+        container::Style {
+            background: Some(Background::Color(bg)),
+            text_color: None,
+            border: Border::default(),
+            shadow: Shadow::default(),
+            snap: false,
+        }
     }
 }

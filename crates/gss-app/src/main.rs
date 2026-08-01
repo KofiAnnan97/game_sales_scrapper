@@ -29,11 +29,12 @@ use views::actions::ActionDisplayed;
 use components::{custom_widgets, custom_styles};
 use utils::actions_utils::{send_sales_email, update_cache};
 use utils::search_utils::perform_store_search;
-use utils::pricing_utils::{check_prices_for_display, SaleInfoWithHandler};
+use utils::pricing_utils::{check_prices_for_display};
 use utils::file_utils::open_file;
 use utils::log_utils::{self, LogLevel};
 
 use crate::components::custom_widgets::message_dialog;
+use crate::utils::pricing_utils::{SalesCache, StoreSale,  compare_prices, get_sales};
 
 const LOADING_FRAMES_SIZE: usize = 4;
 
@@ -135,7 +136,10 @@ enum Message {
     RemoveThresholdRow(usize),
     SortThresholds(SortColumn),
     CheckPrices,
-    CheckPricesResult(Result<HashMap<String, Vec<SaleInfoWithHandler>>, String>),
+    ComparePrices(bool),
+    GetSales(Result<Vec<StoreSale>, String>),
+    GetSalesUpdated(SalesCache),
+    GetSalesReset(),
     SendEmail,
     SendEmailResult(Result<String, String>),
     UpdateCache,
@@ -223,7 +227,8 @@ struct App {
     log_batch: String,
     current_log_file: String,
     action_displayed: ActionDisplayed,
-    sales_info_by_store: HashMap<String, Vec<SaleInfoWithHandler>>,
+    sales_cache: SalesCache,
+    cmp_sales_mode: bool,
     show_dialog: bool,
     copied_link: Option<String>,
 }
@@ -275,13 +280,8 @@ impl App {
             log_batch: String::new(),
             current_log_file: log_file,
             action_displayed: ActionDisplayed::NoAction,
-            sales_info_by_store: {
-                let sibs: HashMap<String, Vec<SaleInfoWithHandler>> = settings::get_available_stores()
-                .iter()
-                    .map(|store_name| (store_name.clone(), Vec::new()))
-                    .collect();
-                sibs
-            },
+            sales_cache: SalesCache::new(),
+            cmp_sales_mode: false,
             show_dialog: false,
             copied_link: None,
         };
@@ -694,30 +694,54 @@ impl App {
             }
             Message::CheckPrices => {
                 self.search_results_by_store.clear();
-                self.action_displayed = ActionDisplayed::CheckPrices;
+                if self.cmp_sales_mode {
+                    self.action_displayed = ActionDisplayed::ComparePrices;
+                } else {
+                    self.action_displayed = ActionDisplayed::CheckPrices;
+                }
                 self.is_price_check_in_progress = true;
                 self.price_check_loading_frame = 0;
-                let status_str = String::from("Fetching sales info...");
-                self.status_message = status_str.clone();
-                self.log_batch.push_str(&log_utils::message_builder(&status_str, LogLevel::INFO));
-                Task::perform(check_prices_for_display(), Message::CheckPricesResult)
+
+                // New data
+                self.sales_cache.clear();
+
+                self.log_batch.push_str(&log_utils::message_builder("Fetching sales info...", LogLevel::INFO));
+                Task::perform(get_sales(), Message::GetSales)
             }
-            Message::CheckPricesResult(result) => {
-                self.is_price_check_in_progress = false;
-                match result {
-                    Ok(map) => {
-                        self.sales_info_by_store = map;
-                        let status_str = String::from("Price info fetched for sales.");
-                        self.status_message = status_str.clone();
-                        self.log_batch.push_str(&log_utils::message_builder(&status_str, LogLevel::INFO));
-                    }
-                    Err(err) => {
-                        self.log_batch= err.clone();
-                        let status_str = String::from("Failed to fetch sales info");
-                        self.status_message = status_str.clone();
-                        self.log_batch.push_str(&log_utils::message_builder(&status_str, LogLevel::INFO));
-                    }
+            Message::ComparePrices(toggled) => {
+                self.cmp_sales_mode = toggled;
+                if toggled {
+                    self.action_displayed = ActionDisplayed::ComparePrices;
+                } else {
+                    self.action_displayed = ActionDisplayed::CheckPrices;
                 }
+                Task::none()
+            }
+            Message::GetSales(sales_results) => {
+                let all_stores = self.available_stores.clone();
+                Task::perform(
+                    async {
+                        let store_sales = sales_results.unwrap_or_default();
+                        let by_store = check_prices_for_display(all_stores, &store_sales);
+                        let comparisons = compare_prices(&store_sales);
+                        (store_sales, by_store, comparisons)
+                    },
+                    |(store_sales, by_store, comparisons)| {
+                        Message::GetSalesUpdated(SalesCache { 
+                            store_sales, 
+                            comparisons, 
+                            by_store 
+                        })
+                    }
+                )
+            }
+            Message::GetSalesUpdated(new_sales_cache) => {
+                self.sales_cache = new_sales_cache;
+                self.is_price_check_in_progress = false;
+                Task::none()
+            }
+            Message::GetSalesReset() => {
+                self.sales_cache.clear();
                 Task::none()
             }
             Message::SendEmail => {

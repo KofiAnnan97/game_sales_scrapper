@@ -63,8 +63,8 @@ pub fn get_steam_price_check(title: &str, base_price: f64, curr_price: f64) -> S
         discount_percentage: format!("{}%", discount_amount),
         icon_link: String::new(),
         title: title.to_string(),
-        original_price: base_price.to_string(),
-        current_price: curr_price.to_string(),
+        original_price: base_price,
+        current_price: curr_price,
         store_page_link: String::new(),
     };
     steam_sales_info
@@ -76,8 +76,8 @@ pub fn get_gog_price_check(title: &str, base_price: f64, curr_price: f64) -> Sal
         discount_percentage: format!("{}%", discount_amount),
         icon_link: String::new(),
         title: title.to_string(),
-        original_price: base_price.to_string(),
-        current_price: curr_price.to_string(),
+        original_price: base_price,
+        current_price: curr_price,
         store_page_link: String::new(),
     };
     gog_sales_info
@@ -89,8 +89,8 @@ pub fn get_ms_price_check(title: &str, base_price: f64, curr_price: f64) -> Sale
         discount_percentage: format!("{}%", discount_amount),
         icon_link: String::new(),
         title: title.to_string(),
-        original_price: base_price.to_string(),
-        current_price: curr_price.to_string(),
+        original_price: base_price,
+        current_price: curr_price,
         store_page_link: String::new(),
     };
     ms_sales_info

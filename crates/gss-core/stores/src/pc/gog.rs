@@ -136,8 +136,8 @@ impl GogApi for GogClient {
                     };
                     return Some(SaleInfo{
                         title: data.title,
-                        original_price: po.base_money.amount,
-                        current_price: po.final_money.amount, 
+                        original_price: po.base_money.amount.parse::<f64>().unwrap_or_else(|_| f64::MAX),
+                        current_price: po.final_money.amount.parse::<f64>().unwrap_or_else(|_| f64::MAX), 
                         discount_percentage: discount_str,
                         icon_link: data.c_horizontal,
                         store_page_link: data.store_link,

@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, format, println};
 use reqwest::Client;
 use iced::widget::image::Handle;
 
@@ -11,10 +11,46 @@ use structs::internal::data::SaleInfo;
 use constants::stores::gog::VERSION as GOG_VERSION;
 
 #[derive(Debug, Clone)]
-pub struct SaleInfoWithHandler {
-    pub sale_info: SaleInfo,
+pub struct StoreSale {
+    pub store: String,
+    pub info: SaleInfo,
+    pub alias: String,
     pub game_id: String,
-    pub icon_handler: Handle
+    pub icon_handler: Option<Handle>,
+}
+
+#[derive(Debug, Clone)]
+pub struct SaleInfoCompare {
+    pub icon_handler: Option<Handle>,
+    pub title: String, 
+    pub alias: String,
+    pub steam_price: Option<f64>,
+    pub gog_price: Option<f64>,
+    pub microsoft_store_price: Option<f64>,
+    pub lowest_price_stores: Vec<String>
+}
+
+#[derive(Debug, Clone)]
+pub struct SalesCache {
+    pub store_sales: Vec<StoreSale>,
+    pub comparisons: Vec<SaleInfoCompare>,
+    pub by_store: HashMap<String, Vec<usize>>
+}
+
+impl SalesCache {
+    pub fn new() -> Self {
+        SalesCache { 
+            store_sales: Vec::new(),
+            comparisons: Vec::new(),
+            by_store: HashMap::new()
+        }
+    }
+
+    pub fn clear(&mut self){
+        self.store_sales.clear();
+        self.comparisons.clear();
+        self.by_store.clear();
+    }
 }
 
 pub fn get_simple_prices_str(store_name: &str, sales: Vec<SaleInfo>) -> String{
@@ -31,81 +67,26 @@ pub fn get_simple_prices_str(store_name: &str, sales: Vec<SaleInfo>) -> String{
     prices_str
 }
 
-pub async fn check_prices_for_display() -> Result<HashMap<String, Vec<SaleInfoWithHandler>>, String> {
-    let thresholds = thresholds::load_thresholds().unwrap_or_else(|_e|Vec::new());
-    let http_client = Client::new();
-    let mut sales_info_by_store: HashMap<String, Vec<SaleInfoWithHandler>> = HashMap::new();
-    for store in settings::get_available_stores() {
-        sales_info_by_store.insert(store.clone(), Vec::new());
-    }
-    for elem in thresholds.iter(){
-        if elem.steam_id != 0 {
-            match steam::get_price_details(elem.steam_id, &http_client).await {
-                Ok(info) => {
-                    let img_handler: Handle = match load_image_from_url(&info.icon_link).await {
-                        Ok(handler) => handler,
-                        Err(_) => Handle::from_bytes(vec![])
-                    };
-                    let current_price = info.current_price.parse::<f64>().unwrap();
-                    if elem.desired_price >= current_price {
-                        sales_info_by_store.get_mut(STEAM_STORE_ID).unwrap().push(SaleInfoWithHandler {
-                            sale_info: info,
-                            game_id: format!("{}_{}",STEAM_STORE_ID, elem.steam_id),
-                            icon_handler: img_handler
-                        });
-                    }
-                },
-                Err(e) => println!("{}", e)
-            }
-        }
-        if elem.gog_id != 0 {
-            if GOG_VERSION == 2{
-                match gog::get_price_details_v2(&elem.title, &http_client).await {
-                    Some(info) => {
-                        let img_handler: Handle = match load_image_from_url(&info.icon_link).await {
-                            Ok(handler) => handler,
-                            Err(_) => Handle::from_bytes(vec![])
-                        };
-                        let current_price = info.current_price.parse::<f64>().unwrap();
-                        if elem.desired_price >= current_price {
-                            sales_info_by_store.get_mut(GOG_STORE_ID).unwrap().push(SaleInfoWithHandler {
-                            sale_info: info,
-                            game_id: format!("{}_{}",GOG_STORE_ID, elem.gog_id),
-                            icon_handler: img_handler
-                        });
-                        }
-                    },
-                    None => ()
-                }
-            }
-        }
-        if !elem.microsoft_store_id.is_empty() {
-            match microsoft_store::get_price_details(&elem.microsoft_store_id, &http_client).await {
-                Some(info) => {
-                    let img_handler: Handle = match load_image_from_url(&info.icon_link).await {
-                        Ok(handler) => handler,
-                        Err(_) => Handle::from_bytes(vec![])
-                    };
-                    let current_price = info.current_price.parse::<f64>().unwrap();
-                    if elem.desired_price >= current_price {
-                        sales_info_by_store.get_mut(MICROSOFT_STORE_ID).unwrap().push(SaleInfoWithHandler {
-                            sale_info: info,
-                            game_id: format!("{}_{}", MICROSOFT_STORE_ID, elem.microsoft_store_id),
-                            icon_handler: img_handler
-                        });
-                    }
-                },
-                None => ()
-            }
-        }
-    }
-    if sales_info_by_store.get_mut(STEAM_STORE_ID).unwrap().len() > 0 ||
-        sales_info_by_store.get_mut(GOG_STORE_ID).unwrap().len() > 0 ||
-        sales_info_by_store.get_mut(MICROSOFT_STORE_ID).unwrap().len() > 0 {
-        return Ok(sales_info_by_store);
-    }
+pub fn check_prices_for_display(stores: Vec<String>, store_sales: &Vec<StoreSale>) -> HashMap<String, Vec<usize>> {
+    let mut by_store: HashMap<String, Vec<usize>> = HashMap::new();
+    stores.iter().for_each(|name| { by_store.insert(name.clone(), Vec::new()); });
 
-    Err(String::from("Failed to get prices"))
+    for i in 0..store_sales.len() {
+        let sale: &StoreSale = store_sales.get(i).unwrap();
+        match sale.store.as_str() {
+            STEAM_STORE_ID => {
+                by_store.get_mut(STEAM_STORE_ID).unwrap().push(i);
+            }
+            GOG_STORE_ID => {
+                by_store.get_mut(GOG_STORE_ID).unwrap().push(i);
+            }
+            MICROSOFT_STORE_ID => {
+                by_store.get_mut(MICROSOFT_STORE_ID).unwrap().push(i);
+            }
+            _ => ()
+        }
+    }
+    by_store
 }
 
 pub async fn check_prices(use_html: bool) -> Result<String, String> {
@@ -119,8 +100,7 @@ pub async fn check_prices(use_html: bool) -> Result<String, String> {
         if elem.steam_id != 0 {
             match steam::get_price_details(elem.steam_id, &http_client).await {
                 Ok(info) => {
-                    let current_price = info.current_price.parse::<f64>().unwrap();
-                    if elem.desired_price >= current_price {
+                    if elem.desired_price >= info.current_price {
                         steam_sales.push(info);
                     }
                 },
@@ -145,8 +125,7 @@ pub async fn check_prices(use_html: bool) -> Result<String, String> {
             else if GOG_VERSION == 2{
                 match gog::get_price_details_v2(&elem.title, &http_client).await {
                     Some(info) => {
-                        let current_price = info.current_price.parse::<f64>().unwrap();
-                        if elem.desired_price >= current_price {
+                        if elem.desired_price >= info.current_price {
                             gog_sales.push(info);
                         }
                     },
@@ -157,8 +136,7 @@ pub async fn check_prices(use_html: bool) -> Result<String, String> {
         if !elem.microsoft_store_id.is_empty() {
             match microsoft_store::get_price_details(&elem.microsoft_store_id, &http_client).await {
                 Some(info) => {
-                    let current_price = info.current_price.parse::<f64>().unwrap();
-                    if elem.desired_price >= current_price {
+                    if elem.desired_price >= info.current_price {
                         microsoft_store_sales.push(info);
                     }
                 },
@@ -187,4 +165,120 @@ pub async fn check_prices(use_html: bool) -> Result<String, String> {
     } else {
         Ok(output)
     }
+}
+
+pub fn compare_prices(store_sales: &Vec<StoreSale>) -> Vec<SaleInfoCompare> {
+    let mut compared_sales: HashMap<String, SaleInfoCompare> = HashMap::new();
+    for sale in store_sales.iter() {
+        let cmp_id = if !sale.alias.is_empty() { sale.alias.clone() } else { sale.info.title.clone() };
+        let entry = compared_sales.entry(cmp_id)
+            .or_insert_with(|| SaleInfoCompare { 
+                icon_handler: sale.icon_handler.clone(),
+                title: sale.info.title.clone(), 
+                alias: sale.alias.clone(), 
+                steam_price: None, 
+                gog_price: None, 
+                microsoft_store_price: None,
+                lowest_price_stores: Vec::new()
+            });
+
+        let price = sale.info.current_price.clone();
+        match sale.store.as_str() {
+            STEAM_STORE_ID => entry.steam_price = Some(price),
+            GOG_STORE_ID => entry.gog_price = Some(price),
+            MICROSOFT_STORE_ID => entry.microsoft_store_price = Some(price),
+            _ => ()
+        }
+    }  
+    let mut compiled_sales: Vec<SaleInfoCompare> = compared_sales.into_values().collect();
+    for sale in compiled_sales.iter_mut() {
+        let lowest_price = sale.steam_price.unwrap_or(f64::MAX)
+            .min(sale.gog_price.unwrap_or(f64::MAX))
+            .min(sale.microsoft_store_price.unwrap_or(f64::MAX));
+        if sale.steam_price == Some(lowest_price) {
+            sale.lowest_price_stores.push(STEAM_STORE_ID.into());
+        }
+        if sale.gog_price == Some(lowest_price) {
+            sale.lowest_price_stores.push(GOG_STORE_ID.into());
+        }
+        if sale.microsoft_store_price == Some(lowest_price) {
+            sale.lowest_price_stores.push(MICROSOFT_STORE_ID.into());
+        }
+    }
+    compiled_sales
+}
+
+pub async fn get_sales() -> Result<Vec<StoreSale>, String> {
+    let mut sales: Vec<StoreSale> = Vec::new();
+    let thresholds = thresholds::load_thresholds().unwrap_or_else(|_e|Vec::new());
+    let http_client = reqwest::Client::new();
+    for game in thresholds.iter() {
+        if game.steam_id != 0 {
+            match steam::get_price_details(game.steam_id, &http_client).await {
+                Ok(info) => {
+                    if game.desired_price >= info.current_price {
+                        let icon_handler= match load_image_from_url(&info.icon_link).await {
+                            Ok(handler) => {
+                                Some(handler)
+                            },
+                            Err(_) => None
+                        };
+                        sales.push(StoreSale{ 
+                            store: String::from(STEAM_STORE_ID), 
+                            info, 
+                            alias: game.alias.clone(), 
+                            game_id: format!("{}_{}", STEAM_STORE_ID, &game.steam_id), 
+                            icon_handler 
+                        })
+                    }
+                },
+                Err(e) => println!("{}", e)
+            }
+        }
+        if game.gog_id != 0 {
+            match gog::get_price_details_v2(&game.title, &http_client).await {
+                Some(info) => {
+                    if game.desired_price >= info.current_price {
+                        let icon_handler= match load_image_from_url(&info.icon_link).await {
+                            Ok(handler) => {
+                                Some(handler)
+                            },
+                            Err(_) => None
+                        };
+                        sales.push(StoreSale{ 
+                            store: String::from(GOG_STORE_ID), 
+                            info, 
+                            alias: game.alias.clone(), 
+                            game_id: format!("{}_{}", GOG_STORE_ID, &game.gog_id), 
+                            icon_handler 
+                        })
+                    }
+                },
+                None => () //Err(String::from("Could not find"))
+            }
+        }
+        if !game.microsoft_store_id.is_empty() {
+            match microsoft_store::get_price_details(&game.microsoft_store_id, &http_client).await {
+                Some(info) => {
+                    if game.desired_price >= info.current_price {
+                        let icon_handler= match load_image_from_url(&info.icon_link).await {
+                            Ok(handler) => {
+                                Some(handler)
+                            },
+                            Err(_) => None
+                        };
+                        sales.push(StoreSale{ 
+                            store: String::from(MICROSOFT_STORE_ID), 
+                            info, 
+                            alias: game.alias.clone(), 
+                            game_id: format!("{}_{}", MICROSOFT_STORE_ID, &game.microsoft_store_id), 
+                            icon_handler 
+                        })
+                    }
+                },
+                None => ()
+            }
+        }
+    }
+    Ok(sales)
 }

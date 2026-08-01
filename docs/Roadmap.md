@@ -8,17 +8,33 @@
     - [X] Only show sensitive passwords when requested by user.
     - [ ] Deteremine if defaulting the path should be in getters for project and test path if properties and dot env file have an invalid/empty path
   - Application
-    - [ ] Add custom theme setup for user customization
-    - [ ] Add interface from custom email cron jobs (Windows and Linux). Might need to rework the current setup.
-    - [ ] Log filtering by all, lowest severity, and exact match when displayed (move to separate window)
-      - [ ] include the ability to prune logs
     - [X] Update check price display to look more modern
-      - [X] Make style similar to modernize email design (including image) 
+      - [X] Make style similar to updated email design (including image) 
       - [X] User can copy store page link to clipboard
-      - [X] Notiify user that copy to clipboard was successful
-    - [x] In window overlay when settings are saved successfully before settings are closed
-    - [ ] Only update settings if needed (currently always update)
-    - [ ] Add auto advance to the next store as a toggable option when a radial button is selected
+      - [X] Noitify user that copy to clipboard was successful
+    - [x] In window overlay presented to user when settings are saved successfully before settings are closed
+    - [ ] Implement Preview Window
+      - [ ] Move Check price display here as the main functionality
+      - [ ] Move "Send test email" here and rename to "Send Manual Email" 
+      - [ ] Link to email Settings
+      - [X] Add a compare stores checkbox that restructures the sales data to compare prices between stores (highlight the ones with the lowest price unless all options are the same)
+    - [ ] Implement a logging window (separate from Actions Tab)
+      - [ ] Filtering logs by all, lowest severity, and exact match when displayed (move to separate window)
+      - [ ] include the ability to prune logs
+    - New Features
+      - [ ] Add auto advance to the next store as a toggable option when a radial button is selected
+      - [ ] User customization
+        - [ ] Alow for custom color theme
+        - [ ] Add default options
+        - [ ] Update settings.json to include app.default_theme
+        - [ ] Create a new file called themes.json for user created themes
+      - [ ] Implement Alert Tab
+        - [ ] Move email settings in the Alert Settings sub menu
+        - [ ] Add interface from custom email cron jobs (Windows and Linux). Might need to rework the current setup.
+        - [ ] User modifiable schedule
+        - [ ] Update settings for alerts
+        - [ ] Check past runs (may need to added later on)
+        - [ ] In settings allow the user to send a test alert to confirm that the configuration works
 - Bugs/Fixes
   - General
     - [X] Added custom error handling for api calls
@@ -26,6 +42,9 @@
   - Application
     - [ ] Fix logic to support updating log file when application is prompted to close
     - [X] Fix store search to filter out any game with no price
+    - [ ] Only update settings if needed (currently always update)
+    - [ ] Add message dialog when game cache cannot be updated due to connection issues or missing/incorrect api keys
+    - [ ] Add message dialog when connection issues occur while calling storefronts for checking prices and search stores  
 - Testing:
   - [ ] Add caching to Github actions
 

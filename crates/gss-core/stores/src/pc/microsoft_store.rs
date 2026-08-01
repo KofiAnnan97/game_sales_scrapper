@@ -92,8 +92,8 @@ impl MicrosoftStoreApi for MSClient{
             return Some(SaleInfo{
                 icon_link: game.box_icon_url.clone(),
                 title: game.title.clone(),
-                original_price: format!("{}", game.price_info.msrp.unwrap_or_default()),
-                current_price: format!("{}", game.price_info.price.unwrap_or_default()),
+                original_price: game.price_info.msrp.unwrap_or_else(|| f64::MAX),
+                current_price: game.price_info.price.unwrap_or_else(|| f64::MAX),
                 discount_percentage: discount_str,
                 store_page_link: game.redirect_url.unwrap_or_default(),
             });
@@ -114,8 +114,8 @@ impl MicrosoftStoreApi for MSClient{
                 return Some(SaleInfo{
                     icon_link: game.box_icon_url.clone(),
                     title: game.title.clone(),
-                    original_price: format!("{}", game.price_info.msrp.unwrap_or_default()),
-                    current_price: format!("{}", game.price_info.price.unwrap_or_default()),
+                    original_price: game.price_info.msrp.unwrap_or_else(|| f64::MAX),
+                    current_price: game.price_info.price.unwrap_or_else(|| f64::MAX),
                     discount_percentage: discount_str,
                     store_page_link: game.redirect_url.unwrap_or_default(),
                 });
