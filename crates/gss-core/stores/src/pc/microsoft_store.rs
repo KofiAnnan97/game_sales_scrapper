@@ -1,7 +1,7 @@
 use serde_json::{self, Value};
 use serde::Deserialize;
 use async_trait::async_trait;
-use mockall::automock;
+// use mockall::automock;
 use tokio::time::{Duration};
 use std::result::Result;
 
@@ -92,7 +92,7 @@ impl MicrosoftStoreApi for MSClient{
             return Some(SaleInfo{
                 icon_link: game.box_icon_url.clone(),
                 title: game.title.clone(),
-                original_price: game.price_info.msrp.unwrap_or_else(|| f64::MAX),
+                original_price: game.price_info.msrp.unwrap_or_else(|| f64::MIN),
                 current_price: game.price_info.price.unwrap_or_else(|| f64::MAX),
                 discount_percentage: discount_str,
                 store_page_link: game.redirect_url.unwrap_or_default(),
@@ -114,7 +114,7 @@ impl MicrosoftStoreApi for MSClient{
                 return Some(SaleInfo{
                     icon_link: game.box_icon_url.clone(),
                     title: game.title.clone(),
-                    original_price: game.price_info.msrp.unwrap_or_else(|| f64::MAX),
+                    original_price: game.price_info.msrp.unwrap_or_else(|| f64::MIN),
                     current_price: game.price_info.price.unwrap_or_else(|| f64::MAX),
                     discount_percentage: discount_str,
                     store_page_link: game.redirect_url.unwrap_or_default(),

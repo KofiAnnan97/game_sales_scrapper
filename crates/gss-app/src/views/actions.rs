@@ -1,7 +1,6 @@
 use iced::widget::{Button, Checkbox, Scrollable, column, container, row, text};
 use iced::{font, Element, Font, Length};
 
-use file_ops::settings;
 use file_types::general;
 use constants::operations::settings::{STEAM_STORE_NAME, GOG_STORE_NAME, MICROSOFT_STORE_NAME};
 
@@ -36,9 +35,8 @@ pub fn view_actions(app: &crate::App) -> Element<'_, Message> {
     } else {
         for (store, sale_idxs) in &app.sales_cache.by_store {
             if sale_idxs.is_empty() { continue; }
-            let store_name = settings::get_proper_store_name(&store).unwrap_or_else(|| store.clone());
             sales_by_store = sales_by_store.push(
-                container(text(store_name).size(32.0)
+                container(text(store.get_name()).size(32.0)
                     .font(Font{
                         weight: font::Weight::Bold,
                         ..Font::DEFAULT

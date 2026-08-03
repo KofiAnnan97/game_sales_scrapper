@@ -2,7 +2,7 @@ use serde_json::{Value};
 use serde::Deserialize;
 use std::{f64, format};
 use async_trait::async_trait;
-use mockall::automock;
+// use mockall::automock;
 use tokio::time::{Duration};
 
 use structs::internal::data::{SaleInfo};
@@ -136,7 +136,7 @@ impl GogApi for GogClient {
                     };
                     return Some(SaleInfo{
                         title: data.title,
-                        original_price: po.base_money.amount.parse::<f64>().unwrap_or_else(|_| f64::MAX),
+                        original_price: po.base_money.amount.parse::<f64>().unwrap_or_else(|_| f64::MIN),
                         current_price: po.final_money.amount.parse::<f64>().unwrap_or_else(|_| f64::MAX), 
                         discount_percentage: discount_str,
                         icon_link: data.c_horizontal,

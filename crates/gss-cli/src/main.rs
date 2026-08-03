@@ -7,7 +7,6 @@ use serde_json::Value;
 // Internal libraries
 use constants::operations::properties::{PROP_PROJECT_PATH, PROP_TEST_PATH, PROP_RECIPIENT_EMAIL, PROP_SMTP_EMAIL, 
                                         PROP_SMTP_HOST, PROP_SMTP_PORT, PROP_SMTP_USERNAME, PROP_TEST_MODE};
-use constants::operations::settings::{GOG_STORE_ID, MICROSOFT_STORE_ID, STEAM_STORE_ID};
 use constants::cli::args::*;
 use stores::pc::{steam};
 use alerting::email;
@@ -15,6 +14,7 @@ use file_types::csv;
 use properties;
 use file_ops::{settings, thresholds};
 use structs::internal::data::{SimpleGameThreshold};
+use structs::internal::enums::GameStore;
 use gss_cli::{check_prices, gog_insert_sequence, microsoft_store_insert_sequence, steam_insert_sequence, storefront_check};
 
 // Main function
@@ -258,10 +258,10 @@ async fn main(){
                     let search_microsoft_store = settings_args.value_source("microsoft_store").unwrap();
                     let search_all = settings_args.value_source("all_stores").unwrap();
 
-                    let mut selected : Vec<String> = Vec::new();
-                    if search_steam == ValueSource::CommandLine { selected.push(STEAM_STORE_ID.to_string()); }
-                    if search_gog == ValueSource::CommandLine { selected.push(GOG_STORE_ID.to_string()); }
-                    if search_microsoft_store == ValueSource::CommandLine { selected.push(MICROSOFT_STORE_ID.to_string()); }
+                    let mut selected : Vec<GameStore> = Vec::new();
+                    if search_steam == ValueSource::CommandLine { selected.push(GameStore::STEAM); }
+                    if search_gog == ValueSource::CommandLine { selected.push(GameStore::GOOD_OLD_GAMES); }
+                    if search_microsoft_store == ValueSource::CommandLine { selected.push(GameStore::MICROSOFT_STORE_PC); }
                     if search_all == ValueSource::CommandLine { selected = settings::get_available_stores(); }
                     if selected.len() > 0 { settings::update_selected_stores(selected); }
 
@@ -442,14 +442,14 @@ async fn main(){
             let title = add_args.get_one::<String>("title").unwrap().clone();
             let price = add_args.get_one::<f64>("price").unwrap().clone();
             let http_client = reqwest::Client::new();
-            for store in selected_stores.iter(){
-                if store == STEAM_STORE_ID {
+            for store in selected_stores{
+                if store == GameStore::STEAM {
                     steam_insert_sequence(&alias, &title, price, &http_client).await;
                 }
-                if store == GOG_STORE_ID {
+                if store == GameStore::GOOD_OLD_GAMES {
                     gog_insert_sequence(&alias, &title, price, &http_client).await;
                 }
-                if store == MICROSOFT_STORE_ID {
+                if store == GameStore::MICROSOFT_STORE_PC {
                     microsoft_store_insert_sequence(&alias, &title, price, &http_client).await;
                 }
             }
@@ -470,13 +470,13 @@ async fn main(){
                 let alias = thresholds::set_game_alias();
                 let price: f64 = game.price;
                 for store in selected_stores.iter(){
-                    if store == STEAM_STORE_ID {
+                    if store == &GameStore::STEAM {
                         steam_insert_sequence(&alias, &title, price, &http_client).await;
                     }
-                    if store == GOG_STORE_ID {
+                    if store == &GameStore::GOOD_OLD_GAMES {
                         gog_insert_sequence(&alias, &title, price, &http_client).await;
                     }
-                    if store == MICROSOFT_STORE_ID {
+                    if store == &GameStore::MICROSOFT_STORE_PC {
                         microsoft_store_insert_sequence(&alias, &title, price, &http_client).await;
                     }
                 }
@@ -507,7 +507,7 @@ async fn main(){
         _ => {
             if properties::is_testing_enabled() { println!("------------------------\n* TEST MODE IS ENABLED *\n------------------------"); }
             if cmd.get_flag(LIST_THRESHOLDS) { thresholds::list_games(); }
-            else if cmd.get_flag(LIST_SELECTED_STORES) { settings::list_selected(); }
+            else if cmd.get_flag(LIST_SELECTED_STORES) { settings::list_selected_stores(); }
             else if cmd.get_flag(UPDATE_CACHE){
                 println!("Caching started (this might take a while)...");
                 steam::update_cached_games().await;

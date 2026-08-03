@@ -3,8 +3,8 @@ use std::io::Write;
 use std::process::{Command, Stdio};
 use regex::Regex;
 
-use file_ops::settings;
 use constants::operations::settings::{GOG_STORE_ID, MICROSOFT_STORE_ID, STEAM_STORE_ID};
+use structs::internal::enums::GameStore;
 // use constants::stores::microsoft_store::BASE_URL as MS_BASE_URL;
 // use stores::pc::microsoft_store::{self, MockMicrosoftStoreApi};
 // use stores::pc::gog::MockGogApi;
@@ -280,9 +280,9 @@ fn list_selected_stores_cmd() {
         results.push((choice, store_name));
     }
     let expected = vec![
-        (" ", settings::get_proper_store_name(STEAM_STORE_ID).unwrap()),
-        (" ", settings::get_proper_store_name(GOG_STORE_ID).unwrap()),
-        ("X", settings::get_proper_store_name(MICROSOFT_STORE_ID).unwrap()),
+        (" ", GameStore::STEAM.get_name()),
+        (" ", GameStore::GOOD_OLD_GAMES.get_name()),
+        ("X", GameStore::MICROSOFT_STORE_PC.get_name()),
     ];
     for result in results {
         let idx = expected.iter().position(|threshold| result.1 == threshold.1);
@@ -351,19 +351,19 @@ async fn check_prices() {
     let lines = output.split("\n").collect::<Vec<&str>>();
     let mut curr_store = "";
     let mut games_by_store: HashMap<&str, Vec<&str>> = HashMap::new();
-    let steam_proper = settings::get_proper_store_name(STEAM_STORE_ID).unwrap();
-    games_by_store.insert(&steam_proper, Vec::new());
-    let gog_proper = settings::get_proper_store_name(GOG_STORE_ID).unwrap();
-    games_by_store.insert(&gog_proper, Vec::new());
-    let ms_proper = settings::get_proper_store_name(MICROSOFT_STORE_ID).unwrap();
-    games_by_store.insert(&ms_proper, Vec::new());
+    let steam_name = GameStore::STEAM.get_name();
+    games_by_store.insert(steam_name, Vec::new());
+    let gog_name = GameStore::GOOD_OLD_GAMES.get_name();
+    games_by_store.insert(gog_name, Vec::new());
+    let ms_name = GameStore::MICROSOFT_STORE_PC.get_name();
+    games_by_store.insert(ms_name, Vec::new());
 
     let re = Regex::new(PRICE_CHECK_PTRN).unwrap();
 
     for i in 3..lines.len() {
-        if lines[i].contains(&steam_proper) { curr_store = &steam_proper; }
-        else if lines[i].contains(&gog_proper) { curr_store = &gog_proper; }
-        else if lines[i].contains(&ms_proper) { curr_store = &ms_proper; }
+        if lines[i].contains(steam_name) { curr_store = steam_name; }
+        else if lines[i].contains(gog_name) { curr_store = gog_name; }
+        else if lines[i].contains(ms_name) { curr_store = ms_name; }
         else if lines[i].is_empty() { continue; }
         else{
             for(_, [game_title]) in re.captures_iter(lines[i]).map(|c| c.extract() ){
@@ -376,19 +376,19 @@ async fn check_prices() {
     // print!("Games by store:{:?}", games_by_store);
 
     let expected = HashMap::from([
-        (steam_proper.as_str(), vec![E33_GAME_TITLE]),
-        (gog_proper.as_str(), vec![E33_GAME_TITLE]),
-        (ms_proper.as_str(), vec![E33_GAME_TITLE]),
+        (steam_name, vec![E33_GAME_TITLE]),
+        (gog_name, vec![E33_GAME_TITLE]),
+        (ms_name, vec![E33_GAME_TITLE]),
     ]);
 
-    let mut expected_title = expected.get(steam_proper.as_str()).unwrap()[0];
-    let mut actual_title = games_by_store.get(steam_proper.as_str()).unwrap()[0];
-    assert_eq!(expected_title, actual_title, "{} -> Game title should be {} not {}", steam_proper, expected_title, actual_title);
-    expected_title = expected.get(gog_proper.as_str()).unwrap()[0];
-    actual_title = games_by_store.get(gog_proper.as_str()).unwrap()[0];
-    assert_eq!(expected_title, actual_title, "{} -> Game title should be {} not {}", gog_proper, expected_title, actual_title);
-    expected_title = expected.get(ms_proper.as_str()).unwrap()[0];
-    actual_title = games_by_store.get(ms_proper.as_str()).unwrap()[0];
-    assert_eq!(expected_title, actual_title, "{} -> Game title should be {} not {}", ms_proper, expected_title, actual_title);
+    let mut expected_title = expected.get(steam_name).unwrap()[0];
+    let mut actual_title = games_by_store.get(steam_name).unwrap()[0];
+    assert_eq!(expected_title, actual_title, "{} -> Game title should be {} not {}", steam_name, expected_title, actual_title);
+    expected_title = expected.get(gog_name).unwrap()[0];
+    actual_title = games_by_store.get(gog_name).unwrap()[0];
+    assert_eq!(expected_title, actual_title, "{} -> Game title should be {} not {}", gog_name, expected_title, actual_title);
+    expected_title = expected.get(ms_name).unwrap()[0];
+    actual_title = games_by_store.get(ms_name).unwrap()[0];
+    assert_eq!(expected_title, actual_title, "{} -> Game title should be {} not {}", ms_name, expected_title, actual_title);
     file_operations::teardown();
 }

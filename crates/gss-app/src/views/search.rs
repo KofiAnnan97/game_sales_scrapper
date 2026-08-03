@@ -30,9 +30,8 @@ pub fn search_tab(app: &crate::App) -> Element<'_, Message> {
     } else if app.search_results_by_store.len() == 0 {
         column![text("")]
     } else {
-        let (current_store_id, current_results) = &app.search_results_by_store[app.current_store_search_idx];
-        let store_name = settings::get_proper_store_name(current_store_id)
-            .unwrap_or_else(|| current_store_id.clone());
+        let (current_store, current_results) = &app.search_results_by_store[app.current_store_search_idx];
+        let store_name = current_store.get_name();
         let progress = format!("Store {}/{}: {}  ",
             app.current_store_search_idx + 1,
             app.search_results_by_store.len(),
@@ -40,7 +39,7 @@ pub fn search_tab(app: &crate::App) -> Element<'_, Message> {
         );
 
         let mut search_list = column![];
-        let selected_index_opt = match app.selected_results_by_store.get(current_store_id) {
+        let selected_index_opt = match app.selected_results_by_store.get(current_store) {
             Some(Some(index)) => Some(*index),
             Some(None) => Some(SKIP_STORE_SELECTION),
             None => None,

@@ -1,18 +1,17 @@
-use std::{collections::HashMap, format, println};
-use reqwest::Client;
+use std::collections::HashMap;
 use iced::widget::image::Handle;
 
 use constants::operations::settings::{GOG_STORE_ID, MICROSOFT_STORE_ID, STEAM_STORE_ID};
 use alerting::email;
-use file_ops::{settings, thresholds};
+use file_ops::{thresholds};
 use crate::utils::file_utils::load_image_from_url;
 use stores::pc::{gog, microsoft_store, steam};
-use structs::internal::data::SaleInfo;
+use structs::internal::{data::SaleInfo, enums::GameStore};
 use constants::stores::gog::VERSION as GOG_VERSION;
 
 #[derive(Debug, Clone)]
 pub struct StoreSale {
-    pub store: String,
+    pub store: GameStore,
     pub info: SaleInfo,
     pub alias: String,
     pub game_id: String,
@@ -23,7 +22,6 @@ pub struct StoreSale {
 pub struct SaleInfoCompare {
     pub icon_handler: Option<Handle>,
     pub title: String, 
-    pub alias: String,
     pub steam_price: Option<f64>,
     pub gog_price: Option<f64>,
     pub microsoft_store_price: Option<f64>,
@@ -34,7 +32,7 @@ pub struct SaleInfoCompare {
 pub struct SalesCache {
     pub store_sales: Vec<StoreSale>,
     pub comparisons: Vec<SaleInfoCompare>,
-    pub by_store: HashMap<String, Vec<usize>>
+    pub by_store: HashMap<GameStore, Vec<usize>>
 }
 
 impl SalesCache {
@@ -67,24 +65,12 @@ pub fn get_simple_prices_str(store_name: &str, sales: Vec<SaleInfo>) -> String{
     prices_str
 }
 
-pub fn check_prices_for_display(stores: Vec<String>, store_sales: &Vec<StoreSale>) -> HashMap<String, Vec<usize>> {
-    let mut by_store: HashMap<String, Vec<usize>> = HashMap::new();
-    stores.iter().for_each(|name| { by_store.insert(name.clone(), Vec::new()); });
+pub fn check_prices_for_display(store_sales: &Vec<StoreSale>) -> HashMap<GameStore, Vec<usize>> {
+    let mut by_store: HashMap<GameStore, Vec<usize>> = HashMap::new();
 
     for i in 0..store_sales.len() {
         let sale: &StoreSale = store_sales.get(i).unwrap();
-        match sale.store.as_str() {
-            STEAM_STORE_ID => {
-                by_store.get_mut(STEAM_STORE_ID).unwrap().push(i);
-            }
-            GOG_STORE_ID => {
-                by_store.get_mut(GOG_STORE_ID).unwrap().push(i);
-            }
-            MICROSOFT_STORE_ID => {
-                by_store.get_mut(MICROSOFT_STORE_ID).unwrap().push(i);
-            }
-            _ => ()
-        }
+        by_store.entry(sale.store).or_insert_with(Vec::new).push(i);
     }
     by_store
 }
@@ -145,17 +131,17 @@ pub async fn check_prices(use_html: bool) -> Result<String, String> {
         }
     }
     if !steam_sales.is_empty(){
-        let store_name = settings::get_proper_store_name(STEAM_STORE_ID).unwrap();
-        if use_html { output.push_str(&email::create_store_cards(&store_name, steam_sales)); }
+        let store_name =  GameStore::STEAM.get_name();
+        if use_html { output.push_str(&email::create_store_cards(store_name, steam_sales)); }
         else { output.push_str(&get_simple_prices_str(&store_name, steam_sales)); }
     }
     if !gog_sales.is_empty(){
-        let store_name = settings::get_proper_store_name(GOG_STORE_ID).unwrap();
-        if use_html { output.push_str(&email::create_store_cards(&store_name, gog_sales)); }
+        let store_name = GameStore::GOOD_OLD_GAMES.get_name();
+        if use_html { output.push_str(&email::create_store_cards(store_name, gog_sales)); }
         else { output.push_str(&get_simple_prices_str(&store_name, gog_sales)); }
     }
     if !microsoft_store_sales.is_empty(){
-        let store_name = settings::get_proper_store_name(MICROSOFT_STORE_ID).unwrap();
+        let store_name = GameStore::MICROSOFT_STORE_PC.get_name();
         if use_html { output.push_str(&email::create_store_cards(&store_name, microsoft_store_sales)); }
         else{ output.push_str(&get_simple_prices_str(&store_name, microsoft_store_sales)); }
     }
@@ -175,7 +161,6 @@ pub fn compare_prices(store_sales: &Vec<StoreSale>) -> Vec<SaleInfoCompare> {
             .or_insert_with(|| SaleInfoCompare { 
                 icon_handler: sale.icon_handler.clone(),
                 title: sale.info.title.clone(), 
-                alias: sale.alias.clone(), 
                 steam_price: None, 
                 gog_price: None, 
                 microsoft_store_price: None,
@@ -183,11 +168,10 @@ pub fn compare_prices(store_sales: &Vec<StoreSale>) -> Vec<SaleInfoCompare> {
             });
 
         let price = sale.info.current_price.clone();
-        match sale.store.as_str() {
-            STEAM_STORE_ID => entry.steam_price = Some(price),
-            GOG_STORE_ID => entry.gog_price = Some(price),
-            MICROSOFT_STORE_ID => entry.microsoft_store_price = Some(price),
-            _ => ()
+        match sale.store {
+            GameStore::STEAM => entry.steam_price = Some(price),
+            GameStore::GOOD_OLD_GAMES => entry.gog_price = Some(price),
+            GameStore::MICROSOFT_STORE_PC => entry.microsoft_store_price = Some(price),
         }
     }  
     let mut compiled_sales: Vec<SaleInfoCompare> = compared_sales.into_values().collect();
@@ -224,7 +208,7 @@ pub async fn get_sales() -> Result<Vec<StoreSale>, String> {
                             Err(_) => None
                         };
                         sales.push(StoreSale{ 
-                            store: String::from(STEAM_STORE_ID), 
+                            store: GameStore::STEAM, 
                             info, 
                             alias: game.alias.clone(), 
                             game_id: format!("{}_{}", STEAM_STORE_ID, &game.steam_id), 
@@ -246,7 +230,7 @@ pub async fn get_sales() -> Result<Vec<StoreSale>, String> {
                             Err(_) => None
                         };
                         sales.push(StoreSale{ 
-                            store: String::from(GOG_STORE_ID), 
+                            store: GameStore::GOOD_OLD_GAMES, 
                             info, 
                             alias: game.alias.clone(), 
                             game_id: format!("{}_{}", GOG_STORE_ID, &game.gog_id), 
@@ -268,7 +252,7 @@ pub async fn get_sales() -> Result<Vec<StoreSale>, String> {
                             Err(_) => None
                         };
                         sales.push(StoreSale{ 
-                            store: String::from(MICROSOFT_STORE_ID), 
+                            store: GameStore::MICROSOFT_STORE_PC, 
                             info, 
                             alias: game.alias.clone(), 
                             game_id: format!("{}_{}", MICROSOFT_STORE_ID, &game.microsoft_store_id), 

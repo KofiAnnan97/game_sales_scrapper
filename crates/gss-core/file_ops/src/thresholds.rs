@@ -5,8 +5,7 @@ use serde_json::{json, Result, Value};
 use std::fs::{metadata, read_to_string};
 
 use file_types::general;
-use constants::operations::settings::{STEAM_STORE_ID, GOG_STORE_ID, MICROSOFT_STORE_ID,
-                                      ALLOW_ALIAS_REUSE_AFTER_CREATION};
+use constants::operations::settings::{ALLOW_ALIAS_REUSE_AFTER_CREATION};
 use constants::operations::thresholds::*;
 use crate::settings::{self, get_alias_reuse_state};
 use stores::pc::steam; //, gog, microsoft_store};
@@ -15,6 +14,8 @@ use structs::response::steam::App;
 use structs::response::gog::GameInfo as GOGGameInfo;
 use structs::response::microsoft_store::ProductInfo;
 use structs::internal::data::GameThreshold;
+use structs::internal::enums::GameStore;
+
 use properties;
 
 pub fn get_path() -> String {
@@ -203,7 +204,7 @@ pub async fn add_steam_game(new_alias: String, app: App, price: f64, client: &re
                 if is_threshold(&app.name, elem) {
                     unique = false;
                     if elem.steam_id == 0 {
-                        update_id(&elem.title, STEAM_STORE_ID, app.app_id);
+                        update_id(&elem.title, GameStore::STEAM, app.app_id);
                     }
                     break;
                 }
@@ -244,7 +245,7 @@ pub fn add_gog_game(new_alias: String, game: &GOGGameInfo, price: f64){
             unique = false;
             if elem.gog_id == 0 {
                 let game_id = game.id.parse::<u32>().unwrap();
-                update_id(&elem.title, GOG_STORE_ID, game_id);
+                update_id(&elem.title,GameStore::GOOD_OLD_GAMES, game_id);
             }
             break;
         }
@@ -287,7 +288,7 @@ pub fn add_microsoft_store_game(new_alias: String, game: &ProductInfo, price: f6
             unique = false;
             if elem.microsoft_store_id.is_empty() {
                 let game_id = &game.product_id;
-                update_id_str(&elem.title, MICROSOFT_STORE_ID, game_id);
+                update_id_str(&elem.title, GameStore::MICROSOFT_STORE_PC, game_id);
             }
             break;
         }
@@ -428,22 +429,19 @@ pub fn update_price_fuzzy(title: &str, price: f64) {
     }
 }
 
-pub fn update_id(title: &str, store_type: &str, id: u32){
+pub fn update_id(title: &str, store_type: GameStore, id: u32){
     let mut thresholds = load_thresholds().unwrap_or_else(|_e|Vec::new());
     let idx = thresholds.iter().position(|threshold| is_threshold(title, threshold));
-    //println!("{:?}", idx);
     if !idx.is_none() {
         let mut updated_id : bool = false;
         let i = idx.unwrap();
-        let mut store_name = String::new();
+        let store_name: String = store_type.get_name().into();
         match store_type{
-            STEAM_STORE_ID => {
-                store_name = settings::get_proper_store_name(STEAM_STORE_ID).unwrap();
+            GameStore::STEAM => {
                 thresholds[i].steam_id = id;
                 updated_id = true;
             },
-            GOG_STORE_ID => {
-                store_name = settings::get_proper_store_name(GOG_STORE_ID).unwrap();
+            GameStore::GOOD_OLD_GAMES => {
                 thresholds[i].gog_id = id;
                 updated_id = true;
             },
@@ -457,16 +455,15 @@ pub fn update_id(title: &str, store_type: &str, id: u32){
     }
 }
 
-pub fn update_id_str(title: &str, store_type: &str, id: &str){
+pub fn update_id_str(title: &str, store_type: GameStore, id: &str){
     let mut thresholds = load_thresholds().unwrap_or_else(|_e|Vec::new());
     let idx = thresholds.iter().position(|threshold| is_threshold(title, threshold));
     if !idx.is_none() {
         let mut updated_id : bool = false;
         let i = idx.unwrap();
-        let mut store_name = String::new();
+        let store_name: String = store_type.get_name().into();
         match store_type {
-            MICROSOFT_STORE_ID => {
-                store_name = settings::get_proper_store_name(MICROSOFT_STORE_ID).unwrap();
+            GameStore::MICROSOFT_STORE_PC => {
                 thresholds[i].microsoft_store_id = id.to_string();
                 updated_id = true;
             }

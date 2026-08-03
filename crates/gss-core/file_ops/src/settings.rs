@@ -1,37 +1,11 @@
 use serde_json::{Result, Value, json};
 use std::fs::{read_to_string, metadata};
-use std::collections::HashMap;
 use std::path::PathBuf;
 
 use file_types::general;
 use properties;
 use constants::operations::settings::*;
-
-fn get_store_map() -> HashMap<String, String> {
-    let store_map = HashMap::from([
-        (STEAM_STORE_ID.to_string(), STEAM_STORE_NAME.to_string()),
-        (GOG_STORE_ID.to_string(), GOG_STORE_NAME.to_string()),
-        (MICROSOFT_STORE_ID.to_string(), MICROSOFT_STORE_NAME.to_string()),
-    ]);
-    store_map
-}
-
-pub fn get_available_stores() -> Vec<String> {
-    let stores_map = get_store_map();
-    let mut available_stores: Vec<String> = Vec::new();
-    for key in stores_map.keys(){
-        available_stores.push(key.to_string());
-    }
-    available_stores
-}
-
-pub fn get_proper_store_name(id: &str) -> Option<String> {
-    let stores_map = get_store_map();
-    if stores_map.contains_key(id){
-        return Some(stores_map[id].clone());
-    }
-    None
-}
+use structs::internal::enums::GameStore;
 
 fn get_path() -> String{
     let path_buf: PathBuf = [properties::get_config_path(), SETTINGS_FILENAME.to_string()].iter().collect();
@@ -61,14 +35,31 @@ pub fn load_data() -> Result<Value> {
     Ok(body)
 }
 
-pub fn get_selected_stores() -> Vec<String> {
+pub fn get_available_stores() -> Vec<GameStore> {
+    let available_stores = vec![GameStore::STEAM, GameStore::GOOD_OLD_GAMES, GameStore::MICROSOFT_STORE_PC];
+    available_stores
+}
+
+pub fn get_selected_stores() -> Vec<GameStore> {
     let filepath = get_path();
-    let mut stores : Vec<String> = Vec::new();
+    let mut stores : Vec<GameStore> = Vec::new();
     let data = read_to_string(filepath).unwrap();
     let body : Value = serde_json::from_str(&data).expect("Get selected stores - could not convert to JSON");
     let selected = serde_json::to_string(&body[SELECTED_STORES.to_string()]).unwrap();
     match serde_json::from_str::<Vec<String>>(&selected){
-        Ok(data) => stores = data,
+        Ok(data) => {
+            for id in data.iter() {
+                if id == GameStore::STEAM.get_id() {
+                    stores.push(GameStore::STEAM);
+                }
+                else if id == GameStore::GOOD_OLD_GAMES.get_id() {
+                    stores.push(GameStore::GOOD_OLD_GAMES);
+                } 
+                else if id == GameStore::MICROSOFT_STORE_PC.get_id() {
+                    stores.push(GameStore::MICROSOFT_STORE_PC)
+                }
+            }
+        },
         Err(e) => eprintln!("Error: {}", e)
     };
     stores
@@ -106,15 +97,13 @@ pub fn get_alias_reuse_state() -> bool {
     state
 }
 
-pub fn update_selected_stores(selected: Vec<String>) {
+pub fn update_selected_stores(selected: Vec<GameStore>) {
     match load_data(){
         Ok(data) => {
             let mut settings = data;
             let selected_stores = settings.get_mut(SELECTED_STORES.to_string()).unwrap();
-            let mut unique_stores : Vec<String> = Vec::new();
-            for store in selected {
-                if !unique_stores.contains(&store) { unique_stores.push(store); }
-            }
+            let mut unique_stores : Vec<String> = selected.iter().map(|store| store.get_id().into()).collect();
+            unique_stores.dedup();
             *selected_stores = json!(unique_stores);
             let settings_str = serde_json::to_string_pretty(&settings);
             general::write_to_file(get_path(), settings_str.expect("Cannot update store search settings"));
@@ -149,20 +138,26 @@ pub fn update_alias_reuse_state(is_enabled: i32){
     }
 }
 
-pub fn list_selected(){
+pub fn clear_selected_stores() {
+    match load_data(){
+        Ok(data) => {
+            let mut settings = data;
+            let selected_stores = settings.get_mut(SELECTED_STORES.to_string()).unwrap();
+            *selected_stores = json!([]);
+            let settings_str = serde_json::to_string_pretty(&settings);
+            general::write_to_file(get_path(), settings_str.expect("Cannot clear store search settings"));
+        },
+        Err(e) => eprintln!("Error: {}", e)
+    }
+}
+
+pub fn list_selected_stores(){
     let available_stores = get_available_stores();
     let selected = get_selected_stores();
     println!("Selected Stores");
-    for a_store in available_stores.iter(){
-        let mut is_selected = false;
-        let proper_name = get_proper_store_name(a_store).unwrap();
-        for s_store in selected.iter() {
-            if a_store == s_store {
-                is_selected = true;
-                break;
-            }
-        }
-        if is_selected { println!("  [X] {}", proper_name); }
-        else { println!("  [ ] {}", proper_name); }
+    for store in available_stores.iter() {
+        let is_selected = selected.contains(&store);
+        if is_selected { println!("  [X] {}", store.get_name()); }
+        else { println!("  [ ] {}", store.get_name()); }
     }
 }

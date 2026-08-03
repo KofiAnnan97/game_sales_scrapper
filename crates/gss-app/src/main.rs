@@ -17,6 +17,7 @@ use file_types::{csv, general};
 use file_ops::{settings, thresholds};
 use properties;
 use structs::internal::data::{GameThreshold, SimpleGameThreshold};
+use structs::internal::enums::GameStore;
 
 // App specific modules
 mod views;
@@ -102,7 +103,7 @@ enum Message {
     ViewSelected(View),
     OpenMoreSettings,
     CloseSettings,
-    ToggleStore(String, bool),
+    ToggleStore(GameStore, bool),
     ToggleAliasEnabled(bool),
     ToggleAliasReuse(bool),
     ProjectPathChanged(String),
@@ -125,7 +126,7 @@ enum Message {
     OpenCsv,
     CsvOpened(Result<(PathBuf, Arc<String>), Error>),
     ExecuteBulkInsert,
-    StoreSearchCompleted(String, Result<Vec<StoreSearchResult>, String>),
+    StoreSearchCompleted(GameStore, Result<Vec<StoreSearchResult>, String>),
     SearchReset,
     NextStore,
     PreviousStore,
@@ -186,8 +187,8 @@ struct App {
     tab: Tab,
     active_view: View,
     settings_view_open: bool,
-    available_stores: Vec<String>,
-    selected_stores: Vec<String>,
+    available_stores: Vec<GameStore>,
+    selected_stores: Vec<GameStore>,
     alias_enabled: bool,
     alias_reuse_enabled: bool,
     reveal_sensitive_data: bool,
@@ -204,9 +205,9 @@ struct App {
     search_query: String,
     add_alias: String,
     add_price: String,
-    search_results_by_store: Vec<(String, Vec<StoreSearchResult>)>,
+    search_results_by_store: Vec<(GameStore, Vec<StoreSearchResult>)>,
     current_store_search_idx: usize,
-    selected_results_by_store: HashMap<String, Option<usize>>,
+    selected_results_by_store: HashMap<GameStore, Option<usize>>,
     is_search_in_progress: bool,
     is_caching_in_progress: bool,
     is_price_check_in_progress: bool,
@@ -415,7 +416,7 @@ impl App {
             }
             Message::SelectNoStores => {
                 self.selected_stores.clear();
-                settings::update_selected_stores(Vec::new());
+                settings::clear_selected_stores();
                 Task::none()
             }
             Message::OpenCsv => {
@@ -508,25 +509,25 @@ impl App {
                 }
             }
             Message::SearchResultSelected(selected) => {
-                if let Some((store_id, _)) = self.search_results_by_store.get(self.current_store_search_idx) {
+                if let Some((game_store, _)) = self.search_results_by_store.get(self.current_store_search_idx) {
                     if selected == SKIP_STORE_SELECTION {
-                        self.selected_results_by_store.insert(store_id.clone(), None);
+                        self.selected_results_by_store.insert(game_store.clone(), None);
                     } else {
-                        self.selected_results_by_store.insert(store_id.clone(), Some(selected));
+                        self.selected_results_by_store.insert(game_store.clone(), Some(selected));
                     }
                 }
                 Task::none()
             }
-            Message::StoreSearchCompleted(store_id, result) => {
-                if let Some(entry) = self.search_results_by_store.iter_mut().find(|(id, _)| id == &store_id) {
+            Message::StoreSearchCompleted(game_store, result) => {
+                if let Some(entry) = self.search_results_by_store.iter_mut().find(|(id, _)| id == &game_store) {
                     match result {
                         Ok(list) => {
                             entry.1 = list;
-                            let status_str = format!("Search complete for {}", store_id);
+                            let status_str = format!("Search complete for {}", game_store.get_name());
                             self.log_batch.push_str(&log_utils::message_builder(&status_str, LogLevel::INFO));
                         }
                         Err(err) => {
-                            let status_str = format!("Search failed for {}: {}", store_id, err);
+                            let status_str = format!("Search failed for {}: {}", game_store.get_name(), err);
                             self.log_batch.push_str(log_utils::message_builder(&status_str, LogLevel::ERROR).as_str());
                         }
                     }
@@ -554,14 +555,14 @@ impl App {
             Message::NextStore => {
                 if self.current_store_search_idx < self.search_results_by_store.len() - 1 {
                     self.current_store_search_idx += 1;
-                    let (store_id, results) = &self.search_results_by_store[self.current_store_search_idx];
+                    let (game_store, results) = &self.search_results_by_store[self.current_store_search_idx];
                     if results.is_empty() {
                         let query = self.search_query.clone();
-                        let store_id_clone = store_id.clone();
-                        let status_str = format!("Searching {}...", store_id);
+                        let game_store_clone = game_store.clone();
+                        let status_str = format!("Searching {}...", game_store.get_name());
                         self.log_batch.push_str(&log_utils::message_builder(&status_str, LogLevel::INFO));
-                        return Task::perform(perform_store_search(query, store_id_clone.clone()), move |result| {
-                            Message::StoreSearchCompleted(store_id_clone, result)
+                        return Task::perform(perform_store_search(query, game_store_clone), move |result| {
+                            Message::StoreSearchCompleted(game_store_clone, result)
                         });
                     }
                 } else {
@@ -718,11 +719,10 @@ impl App {
                 Task::none()
             }
             Message::GetSales(sales_results) => {
-                let all_stores = self.available_stores.clone();
                 Task::perform(
                     async {
                         let store_sales = sales_results.unwrap_or_default();
-                        let by_store = check_prices_for_display(all_stores, &store_sales);
+                        let by_store = check_prices_for_display( &store_sales);
                         let comparisons = compare_prices(&store_sales);
                         (store_sales, by_store, comparisons)
                     },
@@ -872,12 +872,12 @@ impl App {
     }
 
     fn view(&self) -> Element<'_, Message> {       
-        let store_menu_items = self.available_stores.iter().fold(column![], |column, store_id| {
-            let label = settings::get_proper_store_name(store_id).unwrap_or_else(|| store_id.clone());
+        let store_menu_items = self.available_stores.iter().fold(column![], |column, game_store| {
+            let label = game_store.get_name();
             column.push(
-                Checkbox::new(self.selected_stores.contains(store_id))
+                Checkbox::new(self.selected_stores.contains(game_store))
                     .label(label)
-                    .on_toggle(move |enabled| Message::ToggleStore(store_id.clone(), enabled))
+                    .on_toggle(move |enabled| Message::ToggleStore(game_store.clone(), enabled))
                     .width(Length::Fill),
             )
         });
