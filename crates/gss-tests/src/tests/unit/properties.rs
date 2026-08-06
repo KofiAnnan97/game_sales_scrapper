@@ -2,7 +2,7 @@ use std::env;
 use std::fs::{read_to_string};
 use std::path::{Path};
 
-use file_types::general;
+use files::general;
 use properties;
 use properties::passwords::Password;
 use serde_json::Value;

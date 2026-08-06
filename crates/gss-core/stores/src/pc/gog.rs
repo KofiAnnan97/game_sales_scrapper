@@ -5,8 +5,8 @@ use async_trait::async_trait;
 // use mockall::automock;
 use tokio::time::{Duration};
 
-use structs::internal::data::{SaleInfo};
-use structs::response::gog::{Game, PriceOverview, GameInfo};
+use types::internal::data::{SaleInfo};
+use types::response::gog::{Game, PriceOverview, GameInfo};
 use constants::stores::gog::*;
 use errors::api::ApiError;
 

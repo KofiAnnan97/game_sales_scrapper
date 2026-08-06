@@ -8,7 +8,7 @@ use iced::widget::table::Table;
 use iced::{Element, Length, alignment, Alignment::Center};
 use iced_aw::{iced_aw_font};
 
-use structs::internal::data::SaleInfo;
+use types::internal::data::SaleInfo;
 
 use crate::Message;
 use crate::components::custom_styles::{bold_text, cmp_row_style, dialog_style, normal_price_style, best_price_style};
@@ -169,15 +169,28 @@ pub fn store_price_cell<'a>(price: &'a Option<f64>, is_best: bool) -> Container<
 }
 
 pub fn game_comparison_row<'a>(data: &'a SaleInfoCompare, idx: usize) -> Container<'a, Message>{
+    
+    // Retrieve image handler from struct
     let handler = data.icon_handler.clone().unwrap_or_else(|| Handle::from_bytes(vec![]));
+
+    // Retrieve store(s) with lowest price
     let mut steam_lowest = data.lowest_price_stores.contains(&String::from(STEAM_STORE_ID));
     let mut gog_lowest = data.lowest_price_stores.contains(&String::from(GOG_STORE_ID));
     let mut ms_lowest = data.lowest_price_stores.contains(&String::from(MICROSOFT_STORE_ID));
-    if steam_lowest && gog_lowest && ms_lowest {
+
+    // Get count of stores with available sales
+    let mut sale_avaiable_count: usize = 0;
+    sale_avaiable_count += if data.steam_price.is_some() { 1 } else { 0 };
+    sale_avaiable_count += if data.gog_price.is_some() { 1 } else { 0 };
+    sale_avaiable_count += if data.microsoft_store_price.is_some() { 1 } else { 0 }; 
+
+    // Toggle lowest pricing visual off if every available sale is the lowest
+    if sale_avaiable_count > 1 && sale_avaiable_count == data.lowest_price_stores.len() {
         steam_lowest = false;
         gog_lowest = false;
         ms_lowest = false;
     }
+
     container(
         row![
             row![

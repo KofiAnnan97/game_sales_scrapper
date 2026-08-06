@@ -10,7 +10,7 @@ test = false
 
 [dependencies]
 # Internal crates
-file_types = { path = "../file_types" }
+files = { path = "../files" }
 constants = { path = "../constants" }
 
 # External crates

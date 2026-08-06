@@ -6,7 +6,7 @@ use alerting::email;
 use file_ops::{thresholds};
 use crate::utils::file_utils::load_image_from_url;
 use stores::pc::{gog, microsoft_store, steam};
-use structs::internal::{data::SaleInfo, enums::GameStore};
+use types::internal::{data::SaleInfo, store::GameStore};
 use constants::stores::gog::VERSION as GOG_VERSION;
 
 #[derive(Debug, Clone)]
@@ -216,7 +216,7 @@ pub async fn get_sales() -> Result<Vec<StoreSale>, String> {
                         })
                     }
                 },
-                Err(e) => println!("{}", e)
+                Err(e) => return Err(format!("{}", e.to_string()))
             }
         }
         if game.gog_id != 0 {

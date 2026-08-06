@@ -10,11 +10,11 @@ use constants::operations::properties::{PROP_PROJECT_PATH, PROP_TEST_PATH, PROP_
 use constants::cli::args::*;
 use stores::pc::{steam};
 use alerting::email;
-use file_types::csv;
+use files::csv;
 use properties;
 use file_ops::{settings, thresholds};
-use structs::internal::data::{SimpleGameThreshold};
-use structs::internal::enums::GameStore;
+use types::internal::data::{SimpleGameThreshold};
+use types::internal::store::GameStore;
 use gss_cli::{check_prices, gog_insert_sequence, microsoft_store_insert_sequence, steam_insert_sequence, storefront_check};
 
 // Main function
@@ -510,7 +510,10 @@ async fn main(){
             else if cmd.get_flag(LIST_SELECTED_STORES) { settings::list_selected_stores(); }
             else if cmd.get_flag(UPDATE_CACHE){
                 println!("Caching started (this might take a while)...");
-                steam::update_cached_games().await;
+                match steam::update_cached_games().await {
+                    Ok(result) => println!("{}",result),
+                    Err(e) => eprint!("Caching could not be completed due to {:?}",e)
+                }
             }
             else if cmd.get_flag(CHECK_PRICES) {
                 let use_html = false;

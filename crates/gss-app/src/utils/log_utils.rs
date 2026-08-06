@@ -4,7 +4,7 @@ use chrono::offset::Utc;
 use chrono::DateTime;
 use std::panic::PanicHookInfo;
 
-use file_types::general;
+use files::general;
 use constants::operations::logging::*;
 use properties::get_log_path;
 

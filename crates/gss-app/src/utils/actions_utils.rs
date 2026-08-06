@@ -27,6 +27,8 @@ pub async fn send_sales_email() -> Result<String, String> {
 }
 
 pub async fn update_cache() -> Result<String, String> {
-    steam::update_cached_games().await;
-    Ok(String::from("Steam cache updated."))
+    match steam::update_cached_games().await{
+        Ok(results) => Ok(results),
+        Err(err) => Err(err.to_string()),
+    }
 }

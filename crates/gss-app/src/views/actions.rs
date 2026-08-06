@@ -1,7 +1,7 @@
 use iced::widget::{Button, Checkbox, Scrollable, column, container, row, text};
 use iced::{font, Element, Font, Length};
 
-use file_types::general;
+use files::general;
 use constants::operations::settings::{STEAM_STORE_NAME, GOG_STORE_NAME, MICROSOFT_STORE_NAME};
 
 use crate::components::custom_styles::bold_text;
@@ -30,7 +30,9 @@ pub fn view_actions(app: &crate::App) -> Element<'_, Message> {
         .filter(|(_, sales)| sales.len() > 0)
         .map(|(store_front,_)| store_front)
         .collect();
-    if current_sales.is_empty() {
+     if !app.error_message.is_empty() {
+        sales_by_store = sales_by_store.push(text("Retrieving sales failed."));
+    } else if current_sales.is_empty() {
         sales_by_store = sales_by_store.push(text("No games are on sale for your desired prices."));
     } else {
         for (store, sale_idxs) in &app.sales_cache.by_store {
@@ -59,7 +61,9 @@ pub fn view_actions(app: &crate::App) -> Element<'_, Message> {
     ).width(Length::Fill);
 
     let mut sales_comparisons = column![];
-    if current_sales.is_empty() {
+    if !app.error_message.is_empty() {
+        sales_comparisons = sales_comparisons.push(text("Retrieving sales failed."));
+    } else if current_sales.is_empty() {
         sales_comparisons = sales_comparisons.push(text("No games to compare sale prices against."));
     } else {
         let cmp_header = row![
@@ -93,6 +97,8 @@ pub fn view_actions(app: &crate::App) -> Element<'_, Message> {
     let caching_display = Scrollable::new(
         if app.is_caching_in_progress {
             cache_loading
+        } else if !app.error_message.is_empty() {
+            text("Cache update failed.")
         } else {
             text(&app.status_message)
         }

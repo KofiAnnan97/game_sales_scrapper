@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use file_ops::settings;
 use constants::operations::settings::{ENABLED_STATE, DISABLED_STATE, DEFAULT_ALIAS_STATE};
 use properties;
-use structs::internal::enums::GameStore;
+use types::internal::store::GameStore;
 use crate::utils::{tmp_setup};
 
 static TMP_DIR_TITLE : &str = "settings";

@@ -4,9 +4,9 @@ use constants::stores::gog::VERSION as GOG_VERSION;
 use stores::pc::{steam, gog, microsoft_store};
 use alerting::email;
 use file_ops::{settings, thresholds};
-use structs::internal::{data::SaleInfo, enums::GameStore};
-use structs::response::gog::{GameInfo as GOGGameInfo};
-use structs::response::microsoft_store::ProductInfo;
+use types::internal::{data::SaleInfo, store::GameStore};
+use types::response::gog::{GameInfo as GOGGameInfo};
+use types::response::microsoft_store::ProductInfo;
 
 pub fn storefront_check() -> Vec<GameStore> {
     let selected_stores = settings::get_selected_stores();

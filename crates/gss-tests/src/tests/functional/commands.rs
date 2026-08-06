@@ -4,7 +4,7 @@ use std::process::{Command, Stdio};
 use regex::Regex;
 
 use constants::operations::settings::{GOG_STORE_ID, MICROSOFT_STORE_ID, STEAM_STORE_ID};
-use structs::internal::enums::GameStore;
+use types::internal::store::GameStore;
 // use constants::stores::microsoft_store::BASE_URL as MS_BASE_URL;
 // use stores::pc::microsoft_store::{self, MockMicrosoftStoreApi};
 // use stores::pc::gog::MockGogApi;

@@ -5,7 +5,7 @@ use dotenv as env_linux;
 use dotenvy as env_windows;
 use rand::distr::{Alphanumeric, SampleString};
 
-use file_types::general;
+use files::general;
 use crate::passwords::Password;
 use constants::operations::properties::{DEFAULT_TEST_DIR, CONFIG_DIR, DECRYPT_FILENAME, 
                                         ENV_FILENAME, STEAM_API_KEY_ENV, RECIPIENT_EMAIL_ENV, 

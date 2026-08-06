@@ -4,17 +4,21 @@ use std::path::PathBuf;
 use serde_json::{json, Result, Value};
 use std::fs::{metadata, read_to_string};
 
-use file_types::general;
+use files::general;
 use constants::operations::settings::{ALLOW_ALIAS_REUSE_AFTER_CREATION};
 use constants::operations::thresholds::*;
 use crate::settings::{self, get_alias_reuse_state};
 use stores::pc::steam; //, gog, microsoft_store};
 use stores::algorithms::fuzzy;
-use structs::response::steam::App;
-use structs::response::gog::GameInfo as GOGGameInfo;
-use structs::response::microsoft_store::ProductInfo;
-use structs::internal::data::GameThreshold;
-use structs::internal::enums::GameStore;
+use types::response::{
+    steam::App,
+    gog::GameInfo as GOGGameInfo,
+    microsoft_store::ProductInfo
+};
+use types::internal::{
+    data::GameThreshold,
+    store::GameStore
+};
 
 use properties;
 

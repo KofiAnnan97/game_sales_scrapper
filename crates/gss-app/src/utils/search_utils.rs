@@ -1,7 +1,7 @@
 use reqwest::Client;
 
 use stores::pc::{gog, microsoft_store, steam};
-use structs::internal::enums::GameStore;
+use types::internal::store::GameStore;
 
 use crate::StoreSearchResult;
 

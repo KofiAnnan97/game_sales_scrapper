@@ -43,11 +43,14 @@
     - [ ] Fix logic to support updating log file when application is prompted to close
     - [X] Fix store search to filter out any game with no price
     - [ ] Only update settings if needed (currently always update)
-    - [ ] Add message dialog when game cache cannot be updated due to connection issues or missing/incorrect api keys
-    - [ ] Add message dialog when connection issues occur while calling storefronts for checking prices and search stores  
+    - Add message dialog for the following 
+      - [X] Game cache cannot be updated
+      - [X] Checking pricing fails
+      - [ ] Calling storefronts fails  
 - Testing:
   - [ ] Add caching to Github actions
-
+  - [ ] Update each test to do clean up before execution. If one test fails that temp environment might cause other tests to fail. 
+ 
 ### Backlog
 - Features/Updates
   - General

@@ -4,7 +4,7 @@ use std::path::{PathBuf};
 
 use properties::env_vars::EnvVar;
 use properties::{self, env_vars::{self, get_decrypt_key}};
-use file_types::general;
+use files::general;
 use constants::operations::properties::*;
 use crate::utils::{file_operations, tmp_setup};
 

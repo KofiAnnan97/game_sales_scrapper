@@ -3,9 +3,9 @@ use std::path::PathBuf;
 use constants::operations::{properties::DATA_DIR, thresholds::THRESHOLDS};
 use dotenv::dotenv as dotenv_linux;
 use dotenvy::dotenv as dotenv_windows;
-use file_types::{csv, general};
+use files::{csv, general};
 use serde_json::json;
-use structs::internal::data::{GameThreshold, SimpleGameThreshold, SaleInfo};
+use types::internal::data::{GameThreshold, SimpleGameThreshold, SaleInfo};
 
 use crate::utils::file_operations::{self, get_threshold_path};
 

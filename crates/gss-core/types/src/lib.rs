@@ -1,6 +1,6 @@
 pub mod internal {
     pub mod data;
-    pub mod enums;
+    pub mod store;
 }
 
 pub mod response {

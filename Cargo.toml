@@ -2,13 +2,13 @@
 resolver = "3"
 members = [
     "crates/gss-core/constants",
-    "crates/gss-core/structs",
-    "crates/gss-core/file_types",
+    "crates/gss-core/types",
+    "crates/gss-core/errors", 
+    "crates/gss-core/files",
     "crates/gss-core/properties",
     "crates/gss-core/file_ops",
     "crates/gss-core/stores",
     "crates/gss-core/alerting", 
-    "crates/gss-core/errors", 
     "crates/gss-app",
     "crates/gss-cli", 
     "crates/gss-tests"

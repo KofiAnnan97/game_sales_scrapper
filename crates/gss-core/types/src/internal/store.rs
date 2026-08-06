@@ -11,11 +11,10 @@ const GOG_STORE_NAME : &str = "Good Old Games (GOG)";
 const MICROSOFT_STORE_NAME : &str = "Microsoft Store (PC)";
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
+#[allow(nonstandard_style)]
 pub enum GameStore {
     STEAM,
-    #[warn(nonstandard_style)]
     GOOD_OLD_GAMES,
-    #[warn(nonstandard_style)]
     MICROSOFT_STORE_PC
 }
 

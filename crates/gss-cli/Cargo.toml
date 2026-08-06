@@ -8,9 +8,9 @@ edition.workspace = true
 # Internal crates
 alerting = { path = "../gss-core/alerting" }
 file_ops = { path = "../gss-core/file_ops" }
-file_types = { path = "../gss-core/file_types" }
+files = { path = "../gss-core/files" }
 stores = { path = "../gss-core/stores" }
-structs = { path = "../gss-core/structs" }
+types = { path = "../gss-core/types" }
 properties = { path = "../gss-core/properties" }
 constants = { path = "../gss-core/constants" }
 

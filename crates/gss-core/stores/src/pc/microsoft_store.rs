@@ -5,8 +5,8 @@ use async_trait::async_trait;
 use tokio::time::{Duration};
 use std::result::Result;
 
-use structs::internal::data::SaleInfo;
-use structs::response::microsoft_store::{ProductInfo, GameInfo};
+use types::internal::data::SaleInfo;
+use types::response::microsoft_store::{ProductInfo, GameInfo};
 use constants::stores::microsoft_store::*;
 use errors::api::ApiError;
 

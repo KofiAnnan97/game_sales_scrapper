@@ -2,7 +2,7 @@ use std::fs::{metadata, read_to_string};
 use std::path::{Path, PathBuf};
 use serde_json::{json, Value, Result};
 
-use file_types::general;
+use files::general;
 pub mod env_vars;
 pub mod passwords;
 use constants::operations::properties::{DATA_DIR, CONFIG_DIR, DEFAULT_TEST_DIR, PROPERTIES_FILENAME, ENV_FILENAME,

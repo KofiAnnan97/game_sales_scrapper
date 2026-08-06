@@ -1,6 +1,6 @@
 use file_ops::{thresholds};
 use properties;
-use structs::internal::enums::GameStore;
+use types::internal::store::GameStore;
 use crate::stubs::threshold_stubs;
 use crate::utils::{tmp_setup};
 

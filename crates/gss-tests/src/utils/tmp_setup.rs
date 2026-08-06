@@ -3,13 +3,13 @@ use std::path::{Path, PathBuf};
 use serde_json::json;
 use std::sync::{Mutex, MutexGuard, OnceLock};
 
-use file_types::general;
+use files::general;
 use constants::operations::thresholds::{ALIAS_MAP, THRESHOLDS, THRESHOLD_FILENAME};
 use constants::operations::settings::{ALIASES_ENABLED, ALLOW_ALIAS_REUSE_AFTER_CREATION, 
                                       SELECTED_STORES, SETTINGS_FILENAME};
 use constants::operations::properties::{CONFIG_DIR, DATA_DIR, PROJECT_PATH_ENV, TEST_PATH_ENV, DEFAULT_TEST_DIR};
 use constants::stores::steam::{CACHE_FILENAME};
-use structs::response::steam::App;
+use types::response::steam::App;
 
 static TMP_DIR_PREFIX: &str = "gss_tests";
 static TEST_LOCK: OnceLock<Mutex<()>> = OnceLock::new();

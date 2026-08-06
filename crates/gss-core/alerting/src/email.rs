@@ -2,7 +2,7 @@ use lettre::{Message, SmtpTransport, Transport};
 use lettre::message::{MultiPart, SinglePart};
 use lettre::transport::smtp::authentication::{Credentials, Mechanism};
 
-use structs::internal::data::SaleInfo;
+use types::internal::data::SaleInfo;
 use properties;
 use constants::operations::settings::{STEAM_STORE_NAME, GOG_STORE_NAME, MICROSOFT_STORE_NAME}; 
 use constants::operations::properties::{PROP_RECIPIENT_EMAIL, PROP_SMTP_HOST, PROP_SMTP_PORT, 

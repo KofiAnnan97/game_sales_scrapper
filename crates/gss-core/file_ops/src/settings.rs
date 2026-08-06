@@ -2,10 +2,10 @@ use serde_json::{Result, Value, json};
 use std::fs::{read_to_string, metadata};
 use std::path::PathBuf;
 
-use file_types::general;
+use files::general;
 use properties;
 use constants::operations::settings::*;
-use structs::internal::enums::GameStore;
+use types::internal::store::GameStore;
 
 fn get_path() -> String{
     let path_buf: PathBuf = [properties::get_config_path(), SETTINGS_FILENAME.to_string()].iter().collect();
