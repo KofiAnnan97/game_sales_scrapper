@@ -168,6 +168,29 @@ pub fn store_price_cell<'a>(price: &'a Option<f64>, is_best: bool) -> Container<
     })
 }
 
+pub fn game_sale_row<'a>(data: &'a StoreSale, idx: usize) -> Container<'a, Message>{
+    let handler = data.icon_handler.clone().unwrap_or_else(|| Handle::from_bytes(vec![]));
+    container(
+        row![
+            row![
+                container(Image::new(handler)
+                    .height(100)).align_y(Alignment::Center)
+                    .padding(10),
+                text(data.info.title.clone())
+            ]
+            .spacing(12)
+            .align_y(Alignment::Center)
+            .width(Length::FillPortion(2)),
+            container(text(data.store.get_name())).width(Length::FillPortion(1)),
+                container(text(data.info.current_price)).width(Length::FillPortion(1))
+        ]
+        .spacing(20)
+        .padding(12)
+        .align_y(Alignment::Center)
+    )
+    .style(cmp_row_style(idx))
+}
+
 pub fn game_comparison_row<'a>(data: &'a SaleInfoCompare, idx: usize) -> Container<'a, Message>{
     
     // Retrieve image handler from struct

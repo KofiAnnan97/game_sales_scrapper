@@ -1,6 +1,7 @@
 pub mod internal {
     pub mod data;
     pub mod store;
+    pub mod filtering;
 }
 
 pub mod response {

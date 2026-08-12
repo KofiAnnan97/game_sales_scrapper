@@ -2,6 +2,7 @@ use iced::widget::{Button, Radio, Scrollable, TextInput, column, container, row,
 use iced::{Element, Length};
 
 use file_ops::{settings, thresholds};
+use constants::icons::{LEFT_ARROW, RIGHT_ARROW};
 
 use crate::{LOADING_FRAMES_SIZE, Message};
 use crate::components::custom_widgets;
@@ -94,22 +95,22 @@ pub fn search_tab(app: &crate::App) -> Element<'_, Message> {
             row![
                 text(progress).size(18),
                 if app.current_store_search_idx > 0 {
-                    Button::new(text("←").center())
+                    Button::new(text(LEFT_ARROW).center())
                         .on_press(Message::PreviousStore)
                         .height(18)
                         .padding(4)
                 } else {
-                    Button::new(text("←").center())
+                    Button::new(text(LEFT_ARROW).center())
                         .height(18)
                         .padding(4)
                 },
                 if app.current_store_search_idx < app.search_results_by_store.len() - 1 {
-                    Button::new(text("→").center())
+                    Button::new(text(RIGHT_ARROW).center())
                         .on_press(Message::NextStore)
                         .height(18)
                         .padding(4)
                 } else {
-                    Button::new(text("→").center())
+                    Button::new(text(RIGHT_ARROW).center())
                         .height(18)
                         .padding(4)
                 },

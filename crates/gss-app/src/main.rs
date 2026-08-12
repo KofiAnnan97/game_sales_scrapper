@@ -18,6 +18,7 @@ use file_ops::{settings, thresholds};
 use properties;
 use types::internal::data::{GameThreshold, SimpleGameThreshold};
 use types::internal::store::GameStore;
+use types::internal::filtering::*;
 
 // App specific modules
 mod views;
@@ -36,6 +37,7 @@ use utils::log_utils::{self, LogLevel};
 
 use crate::components::custom_widgets::message_dialog;
 use crate::utils::pricing_utils::{SalesCache, StoreSale,  compare_prices, get_sales};
+use crate::views::preview::{PreviewDisplayed, price_filter, sale_preview_view as sprvw_view, sort_by_filter, store_filter};
 
 const LOADING_FRAMES_SIZE : usize = 4;
 
@@ -67,6 +69,7 @@ enum Tab {
 enum View {
     Base,
     Settings,
+    Preview
 }
 
 #[derive(Debug, Clone)]
@@ -105,6 +108,8 @@ enum Message {
     ViewSelected(View),
     OpenMoreSettings,
     CloseSettings,
+    OpenSalesPreview,
+    CloseSalesPreview,
     ToggleStore(GameStore, bool),
     ToggleAliasEnabled(bool),
     ToggleAliasReuse(bool),
@@ -155,6 +160,15 @@ enum Message {
     Refresh,
     AppClosing,
     HideDialog,
+    PreviewStoreChanged(StoreOptions),
+    PreviewPriceChanged(PriceOptions),
+    PreviewSortByChanged(SortOptions),
+    PreviewCustomLowerPriceChanged(String),
+    PreviewCustomUpperPriceChanged(String),
+    PreviewApplyFilters,
+    PreviewResetFilters,
+    ExitEmailPreview,
+    RefreshSales,
 }
 
 impl StoreSearchResult {
@@ -189,6 +203,7 @@ struct App {
     tab: Tab,
     active_view: View,
     settings_view_open: bool,
+    preview_view_open: bool,
     available_stores: Vec<GameStore>,
     selected_stores: Vec<GameStore>,
     alias_enabled: bool,
@@ -227,14 +242,21 @@ struct App {
     threshold_sort_column: Option<SortColumn>,
     threshold_sort_order: SortOrder,
     status_message: String,
-    error_message: String,
+    message_details: String,
     log_batch: String,
     current_log_file: String,
     action_displayed: ActionDisplayed,
+    preview_displayed: PreviewDisplayed,
     sales_cache: SalesCache,
     cmp_sales_mode: bool,
     show_dialog: bool,
     copied_link: Option<String>,
+    preview_selected_store: Option<StoreOptions>,
+    preview_price_filter: Option<PriceOptions>,
+    preview_custom_price_lower: String,
+    preview_custom_price_higher: String,
+    preview_sort_by: Option<SortOptions>,
+    filtered_sale_idxs: Vec<usize>,
 }
 
 impl App {
@@ -243,6 +265,7 @@ impl App {
             tab: Tab::Search,
             active_view: View::Base,
             settings_view_open: false,
+            preview_view_open: false,
             available_stores: settings::get_available_stores(),
             selected_stores: settings::get_selected_stores(),
             alias_enabled: settings::get_alias_state(),
@@ -281,14 +304,21 @@ impl App {
             threshold_sort_column: None,
             threshold_sort_order: SortOrder::Original,
             status_message: String::from("Ready"),
-            error_message: String::new(),
+            message_details: String::new(),
             log_batch: String::new(),
             current_log_file: log_file,
             action_displayed: ActionDisplayed::NoAction,
+            preview_displayed: PreviewDisplayed::Sales,
             sales_cache: SalesCache::new(),
             cmp_sales_mode: false,
             show_dialog: false,
             copied_link: None,
+            preview_selected_store: Some(StoreOptions::All),
+            preview_price_filter: Some(PriceOptions::None),
+            preview_custom_price_lower: String::new(),
+            preview_custom_price_higher: String::new(),
+            preview_sort_by: Some(SortOptions::None),
+            filtered_sale_idxs: Vec::new(),
         };
         app.sync_threshold_edits();
         app
@@ -363,6 +393,24 @@ impl App {
                 self.show_dialog = false;
                 let status_str = String::from("Closed settings tab");
                 self.log_batch.push_str(&log_utils::message_builder(&status_str, LogLevel::INFO));
+                Task::none()
+            }
+            Message::OpenSalesPreview => {
+                self.active_view = View::Preview;
+                self.preview_view_open = true;
+                self.show_dialog = false;
+                self.preview_displayed = PreviewDisplayed::Sales;
+                if self.sales_cache.store_sales.is_empty() {
+                    self.is_price_check_in_progress = true;
+                    self.price_check_loading_frame = 0;
+                    Task::perform(get_sales(), Message::GetSales)
+                } else {
+                    Task::none()
+                }
+            }
+            Message::CloseSalesPreview => {
+                self.active_view = View::Base;
+                self.preview_view_open = false;
                 Task::none()
             }
             Message::SortThresholds(column) => {
@@ -699,27 +747,20 @@ impl App {
             }
             Message::CheckPrices => {
                 self.show_dialog = false;
-                self.search_results_by_store.clear();
                 if self.cmp_sales_mode {
-                    self.action_displayed = ActionDisplayed::ComparePrices;
+                    self.preview_displayed = PreviewDisplayed::SalesCompare;
                 } else {
-                    self.action_displayed = ActionDisplayed::CheckPrices;
+                    self.preview_displayed = PreviewDisplayed::EmailPreview;
                 }
-                self.is_price_check_in_progress = true;
-                self.price_check_loading_frame = 0;
-
-                // New data
-                self.sales_cache.clear();
-
                 self.log_batch.push_str(&log_utils::message_builder("Fetching sales info...", LogLevel::INFO));
-                Task::perform(get_sales(), Message::GetSales)
+                Task::none()
             }
             Message::ComparePrices(toggled) => {
                 self.cmp_sales_mode = toggled;
                 if toggled {
-                    self.action_displayed = ActionDisplayed::ComparePrices;
+                    self.preview_displayed = PreviewDisplayed::SalesCompare;
                 } else {
-                    self.action_displayed = ActionDisplayed::CheckPrices;
+                    self.preview_displayed = PreviewDisplayed::EmailPreview;
                 }
                 Task::none()
             }
@@ -753,12 +794,13 @@ impl App {
                 match cache_result {
                     Ok(new_sales_cache) => {
                         self.sales_cache = new_sales_cache;
+                        self.filtered_sale_idxs = (0..self.sales_cache.store_sales.len()).collect();
                         self.log_batch.push_str(&log_utils::message_builder("Sales information was successfully retrieved.", LogLevel::ERROR));
                     },
                     Err(err_msg) => {
                         self.show_dialog = true;
                         self.status_message = STATUS_ERR.into();
-                        self.error_message = "An issue occured trying looking for game sales. Plese check your internet connection or try again later.".into(); //format!("ERROR: {}", &err_msg);
+                        self.message_details = "An issue occured trying looking for game sales. Plese check your internet connection or try again later.".into();
                         self.log_batch.push_str(&log_utils::message_builder(&err_msg, LogLevel::ERROR));
                     }
                 }
@@ -770,7 +812,6 @@ impl App {
                 Task::none()
             }
             Message::SendEmail => {
-                self.action_displayed = ActionDisplayed::TestEmail;
                 let status_str = String::from("Sending email...");
                 self.status_message = status_str.clone();
                 self.log_batch.push_str(&log_utils::message_builder(&status_str, LogLevel::INFO));
@@ -780,15 +821,18 @@ impl App {
                 match result {
                     Ok(output) => {
                         self.log_batch.push_str(&log_utils::message_builder(&output, LogLevel::INFO));
-                        let status_str = String::from("Email request complete");
-                        self.status_message = status_str.clone();
-                        self.log_batch.push_str(&log_utils::message_builder(&status_str, LogLevel::INFO));
+                        self.status_message = "INFO".into();
+                        self.message_details = "Email request has been successfully sent.".into();
+                        self.show_dialog = true;
+                        self.log_batch.push_str(&log_utils::message_builder("Email request complete", LogLevel::INFO));
                     }
                     Err(err) => {
                         self.log_batch.push_str(&log_utils::message_builder(&err, LogLevel::ERROR));
-                        let status_str = String::from("Email failed");
-                        self.status_message = status_str.clone();
-                        self.log_batch.push_str(&log_utils::message_builder(&status_str, LogLevel::ERROR));
+                        let log_msg = format!("Email failed due to {}", err);
+                        self.status_message = STATUS_ERR.into();
+                        self.message_details = "An issue occured trying send an email. Please check your email settings or connection.".into();
+                        self.show_dialog = true;
+                        self.log_batch.push_str(&log_utils::message_builder(&log_msg, LogLevel::ERROR));
                     }
                 }
                 Task::none()
@@ -816,7 +860,7 @@ impl App {
                         self.log_batch.push_str(&log_utils::message_builder(&err, LogLevel::ERROR));
                         let err_msg = format!("Cache update failed, {:?}", err);
                         self.status_message = STATUS_ERR.into();
-                        self.error_message = "An issue occurred trying to cache game titles. Please check your internet connection or try again later.".into();
+                        self.message_details = "An issue occurred trying to cache game titles. Please check your internet connection or try again later.".into();
                         self.show_dialog = true;
                         self.log_batch.push_str(&log_utils::message_builder(&err_msg, LogLevel::ERROR));
                     }
@@ -898,10 +942,64 @@ impl App {
             Message::HideDialog => { 
                 self.show_dialog = false; 
                 if self.status_message.eq_ignore_ascii_case(STATUS_ERR) {
-                    self.error_message.clear();
+                    self.message_details.clear();
                     self.status_message.clear();
                 }
                 Task::none() 
+            }
+            Message::PreviewStoreChanged(choice) => {
+                self.preview_selected_store = Some(choice);
+                Task::none()
+            }
+            Message::PreviewPriceChanged(choice) => {
+                self.preview_price_filter = Some(choice);
+                Task::none()
+            }
+            Message::PreviewSortByChanged(choice) => {
+                self.preview_sort_by = Some(choice);
+                Task::none()
+            }
+            Message::PreviewCustomLowerPriceChanged(lower) => {
+                self.preview_custom_price_lower = lower;
+                Task::none()
+            }
+            Message::PreviewCustomUpperPriceChanged(upper) => {
+                self.preview_custom_price_higher = upper;
+                Task::none()
+            }
+            Message::PreviewApplyFilters => {
+                let mut filtered_idxs = store_filter(&self.sales_cache.store_sales, self.preview_selected_store.unwrap());
+                let low_price= match self.preview_custom_price_lower.parse::<f64>() {
+                    Ok(val) => Some(val),
+                    Err(_) => None,
+                };
+                let high_price = match self.preview_custom_price_higher.parse::<f64>(){
+                    Ok(val) => Some(val),
+                    Err(_) => None,
+                };
+                filtered_idxs = price_filter(&self.sales_cache.store_sales, filtered_idxs, self.preview_price_filter.unwrap(), low_price, high_price);
+                filtered_idxs = sort_by_filter(&self.sales_cache.store_sales, filtered_idxs, self.preview_sort_by.unwrap());
+                self.filtered_sale_idxs = filtered_idxs;
+                Task::none()
+            }
+            Message::PreviewResetFilters => {
+                self.preview_selected_store = Some(StoreOptions::All);
+                self.preview_price_filter = Some(PriceOptions::None);
+                self.preview_sort_by = Some(SortOptions::None);
+                self.preview_custom_price_lower = String::new();
+                self.preview_custom_price_higher = String::new();
+                self.filtered_sale_idxs = (0..self.sales_cache.store_sales.len()).collect();
+                Task::none()
+            }
+            Message::ExitEmailPreview => {
+                self.preview_displayed = PreviewDisplayed::Sales;
+                Task::none()
+            }
+            Message::RefreshSales => {
+                self.is_price_check_in_progress = true;
+                self.price_check_loading_frame = 0;
+                self.sales_cache.clear();
+                Task::perform(get_sales(), Message::GetSales)
             }
         }
     }
@@ -958,17 +1056,17 @@ impl App {
         //     (text("Font size")),
         //     (text("Themes..."))
         // )).width(320.0);
-        // let actions_menu = Menu::new(menu_items!(
-        //     (custom_widgets::menu_text_button("Preview Sales", Message::OpenMoreSettings)),
-        //     (text!("Alerting")),
-        //     (text("Update cache")),
-        //     (text("Logs"))
-        // )).width(320.0);
+        let actions_menu = Menu::new(menu_items!(
+            (custom_widgets::menu_text_button("Preview Sales", Message::OpenSalesPreview)),
+            // (text!("Alerting")),
+            // (text("Update cache")),
+            // (text("Logs"))
+        )).width(320.0);
 
         let menu_bar = menu_bar!(
             // (container(text("Customize")), customize_menu),
             (container(text("Settings")), settings_menu),
-            // (container(text("Actions")), actions_menu)
+            (container(text("Actions")), actions_menu)
         )
         .spacing(5.0)
         .padding(Padding::new(4.0))
@@ -1011,7 +1109,7 @@ impl App {
                             container(text("Settings")).padding(8),
                             Button::new(text("×"))
                                 .on_press(Message::CloseSettings)
-                                .padding(8),
+                                .padding(6),
                         ]
                         .spacing(4)
                         .align_y(iced::Alignment::Center)
@@ -1019,9 +1117,24 @@ impl App {
                 } else {
                     bar = bar.push(Button::new(text("Settings")).on_press(Message::ViewSelected(View::Settings)).padding(8));
                 }
+            } else if self.preview_view_open {
+                if self.active_view == View::Preview {
+                    bar = bar.push(
+                        row![
+                            container(text("Preview")).padding(8),
+                            Button::new(text("×"))
+                                .on_press(Message::CloseSalesPreview)
+                                .padding(6),
+                        ]
+                        .spacing(4)
+                        .align_y(iced::Alignment::Center)
+                    )
+                } else {
+                    bar = bar.push(Button::new(text("Preview")).on_press(Message::ViewSelected(View::Preview)).padding(8));
+                }
             }
 
-            bar.spacing(10).padding(10)
+            bar.spacing(10).padding(4)
         };
 
         let settings_window: Element<'_, Message> = if self.show_dialog && self.active_view == View::Settings{
@@ -1039,15 +1152,29 @@ impl App {
             sttngs_view::settings_window(self).into()
         };
 
+        let preview_window: Element<'_, Message> = if self.show_dialog && self.active_view == View::Preview {
+            stack![
+                sprvw_view(self),
+                custom_styles::backdrop(Message::HideDialog),
+                center(message_dialog(
+                    &self.status_message,
+                    &self.message_details,
+                    Message::HideDialog
+                ))
+            ].into()
+        } else {
+            sprvw_view(self).into()
+        };
+
         let right_pane = match self.active_view {
             View::Base => {
-                if self.show_dialog && self.tab == Tab::Actions {
+                if self.show_dialog && self.tab == Tab::Actions  {
                     stack![
                         base_view,
                         custom_styles::backdrop(Message::HideDialog),
                         center(message_dialog(
                             &self.status_message,
-                            &self.error_message,
+                            &self.message_details,
                             Message::HideDialog
                         ))
                     ]
@@ -1057,6 +1184,7 @@ impl App {
                 }
             }
             View::Settings => settings_window,
+            View::Preview => preview_window,
         };
 
         let content = column![
@@ -1364,7 +1492,7 @@ mod tests {
             let mut app = App::new(String::new());
             let _ = app.update(Message::UpdateCacheResult(Err("cache update failed".to_string())));
             assert!(app.show_dialog);
-            assert_eq!(app.error_message, "An issue occurred trying to cache game titles. Please check your internet connection or try again later.");
+            assert_eq!(app.message_details, "An issue occurred trying to cache game titles. Please check your internet connection or try again later.");
         }
 
         #[test]
@@ -1372,7 +1500,7 @@ mod tests {
             let mut app = App::new(String::new());
             let _ = app.update(Message::GetSalesUpdated(Err("Could not find sales data".to_string())));
             assert!(app.show_dialog);
-            assert_eq!(app.error_message, "An issue occured trying looking for game sales. Plese check your internet connection or try again later.");
+            assert_eq!(app.message_details, "An issue occured trying looking for game sales. Plese check your internet connection or try again later.");
         }
     }
 }

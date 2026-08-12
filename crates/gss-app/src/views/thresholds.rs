@@ -1,6 +1,8 @@
 use iced::widget::{column, row, container, text, TextInput, Button, Scrollable, button};
 use iced::{Element, Length};
 
+use constants::icons::{CHECK_MARK, DOWN_ARROW, FLOPPY_DISK, TRASH_BIN, UP_ARROW};
+
 use crate::{Message, SortColumn, SortOrder};
 
 pub fn thresholds_tab(app: &crate::App) -> Element<'_, Message> {
@@ -95,16 +97,16 @@ pub fn thresholds_tab(app: &crate::App) -> Element<'_, Message> {
                         .on_input(move |value| Message::ThresholdAliasChanged(index, value))
                         .width(Length::FillPortion(2))
                         .padding(5),
-                    container(text(if threshold.steam_id != 0 { "✔" } else { "" })).center_x(Length::Fixed(100.0)).padding(8),
-                    container(text(if threshold.gog_id != 0 { "✔" } else { "" })).center_x(Length::Fixed(100.0)).padding(8),
-                    container(text(if threshold.microsoft_store_id.is_empty() { "" } else { "✔" })).center_x(Length::Fixed(140.0)).padding(8),
+                    container(text(if threshold.steam_id != 0 { CHECK_MARK } else { "" })).center_x(Length::Fixed(100.0)).padding(8),
+                    container(text(if threshold.gog_id != 0 { CHECK_MARK } else { "" })).center_x(Length::Fixed(100.0)).padding(8),
+                    container(text(if threshold.microsoft_store_id.is_empty() { "" } else { CHECK_MARK })).center_x(Length::Fixed(140.0)).padding(8),
                     TextInput::new("price", &price_value)
                         .on_input(move |value| Message::ThresholdPriceChanged(index, value))
                         .width(Length::FillPortion(1))
                         .padding(5),
                     row![
-                        Button::new(text("💾")).on_press(Message::UpdateThresholdRow(index)).padding(6),
-                        Button::new(text("🗑️")).on_press(Message::RemoveThresholdRow(index)).padding(6),
+                        Button::new(text(FLOPPY_DISK)).on_press(Message::UpdateThresholdRow(index)).padding(6),
+                        Button::new(text(TRASH_BIN)).on_press(Message::RemoveThresholdRow(index)).padding(6),
                     ]
                     .spacing(4)
                     .width(Length::FillPortion(1)),
@@ -146,8 +148,8 @@ pub fn thresholds_tab(app: &crate::App) -> Element<'_, Message> {
 fn header_sort_indicator(app: &crate::App, column: SortColumn) -> &'static str {
     if app.threshold_sort_column == Some(column) {
         match app.threshold_sort_order {
-            SortOrder::Ascending => "▲",
-            SortOrder::Descending => "▼",
+            SortOrder::Ascending => UP_ARROW,
+            SortOrder::Descending => DOWN_ARROW,
             SortOrder::Original => "",
         }
     } else { "" }

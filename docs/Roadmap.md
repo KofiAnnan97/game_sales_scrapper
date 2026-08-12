@@ -13,11 +13,13 @@
       - [X] User can copy store page link to clipboard
       - [X] Noitify user that copy to clipboard was successful
     - [x] In window overlay presented to user when settings are saved successfully before settings are closed
-    - [ ] Implement Preview Window
-      - [ ] Move Check price display here as the main functionality
-      - [ ] Move "Send test email" here and rename to "Send Manual Email" 
-      - [ ] Link to email Settings
+    - [ ] Implement Sales Preview Window
+      - [X] Move Check Price and Send Email functionality here 
+        - [ ] Propagate send email error to app for message dialog
+      - [ ] Link/create to email settings
       - [X] Add a compare stores checkbox that restructures the sales data to compare prices between stores (highlight the ones with the lowest price unless all options are the same)
+      - [X] Add filter for sales based on store and price
+      - [X] Add sort functionality by price and title
     - [ ] Implement a logging window (separate from Actions Tab)
       - [ ] Filtering logs by all, lowest severity, and exact match when displayed (move to separate window)
       - [ ] include the ability to prune logs

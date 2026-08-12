@@ -18,3 +18,5 @@ pub mod stores {
 pub mod alerting {
     pub mod email;
 }
+
+pub mod icons;
