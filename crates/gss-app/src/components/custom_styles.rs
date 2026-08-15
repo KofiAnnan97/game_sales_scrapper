@@ -1,4 +1,4 @@
-use iced::widget::{ MouseArea, Text, text, mouse_area, container};
+use iced::widget::{ MouseArea, Text, button, container, mouse_area, text};
 use iced::{Background, Border, Color, Font, Length, Shadow, Theme, font};
 
 use crate::Message;
@@ -98,4 +98,14 @@ pub fn cmp_row_style(index: usize) -> impl Fn(&Theme) -> container::Style {
             snap: false,
         }
     }
+}
+
+pub fn highlight_on_click_style(theme: &iced::Theme, status: button::Status, selected: bool) -> button::Style {
+    let mut style = button::text(theme, status);
+    if selected {
+        style.background = Some(iced::Background::Color(
+            iced::Color::from_rgb8(51, 128, 255),
+        ));
+    }
+    style
 }

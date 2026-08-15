@@ -148,7 +148,7 @@ pub fn create_html_body(sales_info_html: &str) -> String {
     html_body
 }
 
-pub fn send_html_msg(recipient: &str, subject: &str, body: &str) {
+pub fn send_html_msg(recipient: &str, subject: &str, body: &str) -> Result<String, String>{
     let smtp_host = properties::get_smtp_host();
     let smtp_port : u16 = properties::get_smtp_port();
     let smtp_email = properties::get_smtp_email();
@@ -174,7 +174,7 @@ pub fn send_html_msg(recipient: &str, subject: &str, body: &str) {
         .build();
 
     match mailer.send(&email) {
-        Ok(_) => println!("Email sent successfully"),
-        Err(e) => eprintln!("Failed to send email: {e}"),
+        Ok(_) => Ok("Email send attempt completed successfully".into()),
+        Err(e) => Err(format!("Failed to send email - {}", e)),
     }
 }

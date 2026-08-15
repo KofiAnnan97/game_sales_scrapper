@@ -39,9 +39,6 @@ pub fn view_actions(app: &crate::App) -> Element<'_, Message> {
 
     column![
         row![
-            Button::new(text("Send Test Email"))
-                .on_press(Message::SendEmail)
-                .padding(10),
             Button::new(text("Update Game Cache"))
                 .on_press(Message::UpdateCache)
                 .padding(10),

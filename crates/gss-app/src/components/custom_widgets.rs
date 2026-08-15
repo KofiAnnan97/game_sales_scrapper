@@ -95,7 +95,7 @@ fn price_change<'a>(old_price: f64, new_price: f64) -> Element<'a, Message> {
 
 // Tables
 
-pub fn create_sales_table<'a>(sales_info: &'a Vec<SaleInfo>) -> Table<'a, Message>{
+pub fn _create_sales_table<'a>(sales_info: &'a Vec<SaleInfo>) -> Table<'a, Message>{
     let columns = [
         table::column(bold_text("Title"), |game: &SaleInfo| text(&game.title))
             .width(Length::FillPortion(2)),

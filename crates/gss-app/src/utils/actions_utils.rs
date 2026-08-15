@@ -18,7 +18,7 @@ pub async fn send_sales_email() -> Result<String, String> {
             else {
                 println!("Sending email...");
                 let to_address = &properties::get_recipient();
-                email::send_html_msg(to_address, "Check Out Which Games Are On Sale", &html_body);
+                let _ = email::send_html_msg(to_address, "Check Out Which Games Are On Sale", &html_body)?;
             }
             Ok(String::from("Email sent (or send attempt completed)."))
         },

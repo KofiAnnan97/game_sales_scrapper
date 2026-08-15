@@ -81,7 +81,7 @@ impl std::fmt::Display for SortOptions {
         match self {
             SortOptions::None => write!(f,"None"),
             SortOptions::AToZ => write!(f,"Title (A - Z)"),
-            SortOptions::ZToA => write!(f,"Title (Z - A"),
+            SortOptions::ZToA => write!(f,"Title (Z - A)"),
             SortOptions::LowToHigh => write!(f,"Price (Low - High)"),
             SortOptions::HighToLow => write!(f,"Price (High - Low)"),
         }

@@ -532,7 +532,10 @@ async fn main(){
                 else {
                     println!("Sending email...");
                     let to_address = &properties::get_recipient();
-                    email::send_html_msg(to_address, "Check Out Which Games Are On Sale", &html_body);
+                    match email::send_html_msg(to_address, "Check Out Which Games Are On Sale", &html_body){
+                        Ok(success) => println!("{}", success),
+                        Err(err) => eprintln!("{}", err),
+                    };
                 }
             }
             else { println!("No/incorrect command given. Use \'--help\' for assistance."); }

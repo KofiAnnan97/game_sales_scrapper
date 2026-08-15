@@ -15,14 +15,16 @@
     - [x] In window overlay presented to user when settings are saved successfully before settings are closed
     - [ ] Implement Sales Preview Window
       - [X] Move Check Price and Send Email functionality here 
-        - [ ] Propagate send email error to app for message dialog
-      - [ ] Link/create to email settings
+        - [X] Propagate send email error to app for message dialog
+      - [X] Link/create to email settings
       - [X] Add a compare stores checkbox that restructures the sales data to compare prices between stores (highlight the ones with the lowest price unless all options are the same)
       - [X] Add filter for sales based on store and price
       - [X] Add sort functionality by price and title
     - [ ] Implement a logging window (separate from Actions Tab)
       - [ ] Filtering logs by all, lowest severity, and exact match when displayed (move to separate window)
       - [ ] include the ability to prune logs
+    - [ ] Implement support for multiple closable views (i.e. opening settings then sales preview should result in two closable views) 
+    - [X] Settings are saved based on the page displayed
     - New Features
       - [ ] Add auto advance to the next store as a toggable option when a radial button is selected
       - [ ] User customization

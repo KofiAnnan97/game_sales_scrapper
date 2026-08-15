@@ -10,6 +10,7 @@ use crate::components::custom_styles::bold_text;
 use crate::components::custom_widgets::{game_comparison_row, game_sale_row, game_store_card};
 use crate::components::{custom_widgets};
 use crate::utils::pricing_utils::StoreSale;
+use crate::views::settings::SettingsPage;
 use crate::{LOADING_FRAMES_SIZE, Message, STATUS_ERR};
 
 #[derive(PartialEq)]
@@ -83,7 +84,7 @@ pub fn sale_preview_view(app: &crate::App) -> Element<'_, Message> {
             .align_y(Alignment::Center)
         ]
     )
-    .padding(15)
+    .padding(5)
     .width(Length::Fill);
 
     let sales_header = container(
@@ -93,7 +94,7 @@ pub fn sale_preview_view(app: &crate::App) -> Element<'_, Message> {
             text("Price").width(Length::FillPortion(1)),
         ]
     )
-    .padding(8);
+    .padding(5);
 
     let mut sales_rows = column![];
     if !app.message_details.is_empty() && app.status_message == STATUS_ERR {
@@ -124,7 +125,7 @@ pub fn sale_preview_view(app: &crate::App) -> Element<'_, Message> {
                     .height(Length::Fill)
             ]
         )
-        .padding(15)
+        .padding(5)
         .width(Length::Fill)
     };
 
@@ -132,24 +133,25 @@ pub fn sale_preview_view(app: &crate::App) -> Element<'_, Message> {
         row![
             button("Email Preview")
                 .on_press(Message::CheckPrices)
-                .padding(8),
+                .padding(6),
             button("Close")
                 .on_press(Message::CloseSalesPreview)
-                .padding(8),
+                .padding(6),
         ]
         .spacing(10)
     )
-    .padding(5)
+    .padding(2)
     .width(Length::Fill);
 
     let preview_space = container(
         column![
             filters,
             product_list,
-            footer.height(60),
+            footer.height(50),
         ]
         .spacing(5)
     )
+    .height(Length::Fill)
     .width(Length::Fill)
     .padding(10);
 
@@ -169,7 +171,7 @@ pub fn sale_preview_view(app: &crate::App) -> Element<'_, Message> {
         for (store, sale_idxs) in &app.sales_cache.by_store {
             if sale_idxs.is_empty() { continue; }
             sales_by_store = sales_by_store.push(
-                container(text(store.get_name()).size(32.0)
+                container(text(store.get_name()).size(24.0)
                     .font(Font{
                         weight: font::Weight::Bold,
                         ..Font::DEFAULT
@@ -222,7 +224,14 @@ pub fn sale_preview_view(app: &crate::App) -> Element<'_, Message> {
     
     let email_space = container(
         column![
-            bold_text("Email Preview").size(36),
+            row![
+                bold_text("Email Preview").size(36),
+                Button::new("(Go to email settings)")
+                    .on_press(Message::SettingsPageSelected(SettingsPage::Email))
+                    .style(button::text)
+            ]
+            .align_y(Alignment::Center)
+            .spacing(10),
             Checkbox::new(app.cmp_sales_mode)
                 .label("Compare Sales")
                 .on_toggle(Message::ComparePrices)
@@ -236,14 +245,16 @@ pub fn sale_preview_view(app: &crate::App) -> Element<'_, Message> {
                 row![
                     Button::new("Send Manual Email")
                         .on_press(Message::SendEmail)
-                        .padding(8),
+                        .padding(6),
                     Button::new("Exit Email Preview")
                         .on_press(Message::ExitEmailPreview)
-                        .padding(8),
+                        .padding(6),
                 ]
                 .spacing(10)
+                .padding(8)
             )
-            .height(60)
+            .align_right(Length::Fill)
+            .height(50)
         ]
     );
 
@@ -257,7 +268,8 @@ pub fn sale_preview_view(app: &crate::App) -> Element<'_, Message> {
             button(text(format!("Refresh Sales {}", RETRY)))
                 .on_press(Message::RefreshSales)
         )
-        .align_right(Length::Fill),
+        .align_right(Length::Fill)
+        .padding(5),
         screen_displayed
     ]
     .height(Length::Fill)

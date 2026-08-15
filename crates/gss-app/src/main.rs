@@ -1,5 +1,5 @@
 use iced::widget::{
-    Button, Checkbox, column, container, row, text, stack, center
+    Button, column, container, row, text, stack, center
 };
 use iced::{Element, Length, Padding, Subscription, Task, clipboard, application, window, exit};
 use iced::time::{self, Duration};
@@ -38,6 +38,7 @@ use utils::log_utils::{self, LogLevel};
 use crate::components::custom_widgets::message_dialog;
 use crate::utils::pricing_utils::{SalesCache, StoreSale,  compare_prices, get_sales};
 use crate::views::preview::{PreviewDisplayed, price_filter, sale_preview_view as sprvw_view, sort_by_filter, store_filter};
+use crate::views::settings::{SettingsPage, store_selection, alias_settings};
 
 const LOADING_FRAMES_SIZE : usize = 4;
 
@@ -106,7 +107,7 @@ pub enum Error {
 enum Message {
     TabSelected(Tab),
     ViewSelected(View),
-    OpenMoreSettings,
+    OpenSettings,
     CloseSettings,
     OpenSalesPreview,
     CloseSalesPreview,
@@ -160,6 +161,7 @@ enum Message {
     Refresh,
     AppClosing,
     HideDialog,
+    // Preview Messages
     PreviewStoreChanged(StoreOptions),
     PreviewPriceChanged(PriceOptions),
     PreviewSortByChanged(SortOptions),
@@ -169,6 +171,9 @@ enum Message {
     PreviewResetFilters,
     ExitEmailPreview,
     RefreshSales,
+    //Settings Messages
+    StoreSettingsExpanded(bool),
+    SettingsPageSelected(SettingsPage),
 }
 
 impl StoreSearchResult {
@@ -246,10 +251,11 @@ struct App {
     log_batch: String,
     current_log_file: String,
     action_displayed: ActionDisplayed,
+    show_dialog: bool,
+    // Preview variables
     preview_displayed: PreviewDisplayed,
     sales_cache: SalesCache,
     cmp_sales_mode: bool,
-    show_dialog: bool,
     copied_link: Option<String>,
     preview_selected_store: Option<StoreOptions>,
     preview_price_filter: Option<PriceOptions>,
@@ -257,6 +263,9 @@ struct App {
     preview_custom_price_higher: String,
     preview_sort_by: Option<SortOptions>,
     filtered_sale_idxs: Vec<usize>,
+    // Settings variables
+    settings_page: SettingsPage,
+    store_settings_expanded: bool,
 }
 
 impl App {
@@ -308,10 +317,11 @@ impl App {
             log_batch: String::new(),
             current_log_file: log_file,
             action_displayed: ActionDisplayed::NoAction,
+            show_dialog: false,
+            // Preview variables
             preview_displayed: PreviewDisplayed::Sales,
             sales_cache: SalesCache::new(),
             cmp_sales_mode: false,
-            show_dialog: false,
             copied_link: None,
             preview_selected_store: Some(StoreOptions::All),
             preview_price_filter: Some(PriceOptions::None),
@@ -319,6 +329,9 @@ impl App {
             preview_custom_price_higher: String::new(),
             preview_sort_by: Some(SortOptions::None),
             filtered_sale_idxs: Vec::new(),
+            // Settings variables
+            settings_page: SettingsPage::General,
+            store_settings_expanded: false,
         };
         app.sync_threshold_edits();
         app
@@ -380,9 +393,10 @@ impl App {
                 self.log_batch.push_str(&log_utils::message_builder(&status_str, LogLevel::INFO));
                 Task::none()
             }
-            Message::OpenMoreSettings => {
+            Message::OpenSettings => {
                 self.settings_view_open = true;
                 self.active_view = View::Settings;
+                self.settings_page = SettingsPage::General;
                 let status_str = String::from("Opened more settings view");
                 self.log_batch.push_str(&log_utils::message_builder(&status_str, LogLevel::INFO));
                 Task::none()
@@ -717,31 +731,37 @@ impl App {
                 Task::none()
             }
             Message::SaveSettings => {
-                if !self.project_path.is_empty() && Path::new(&self.project_path).is_dir() {
-                    properties::set_project_path(&self.project_path);
+                if self.settings_page == SettingsPage::General {
+                    if !self.project_path.is_empty() && Path::new(&self.project_path).is_dir() {
+                        properties::set_project_path(&self.project_path);
+                    }
+                    if !self.test_path.is_empty() && Path::new(&self.test_path).is_dir() {
+                        properties::set_test_path(&self.test_path);
+                    }
+                    properties::set_test_mode(self.test_mode);
+                    self.log_batch.push_str(&log_utils::message_builder("Saving general settings", LogLevel::INFO));
+                } else if self.settings_page == SettingsPage::Email {  
+                    if !self.recipient_email.is_empty() {
+                        properties::set_recipient(&self.recipient_email);
+                    }
+                    let smtp_port = self.smtp_port.parse::<u16>().unwrap_or(0);
+                    if smtp_port != 0 || !self.smtp_host.is_empty() || !self.smtp_email.is_empty() || !self.smtp_user.is_empty() || !self.smtp_password.is_empty() {
+                        properties::set_stmp_vars(
+                            self.smtp_host.clone(),
+                            smtp_port,
+                            self.smtp_email.clone(),
+                            self.smtp_user.clone(),
+                            if self.reveal_sensitive_data { self.smtp_password.clone() } else { String::new() },
+                        );
+                    }
+                    self.log_batch.push_str(&log_utils::message_builder("Saving email settings", LogLevel::INFO));
+                } else if self.settings_page == SettingsPage::Stores(GameStore::STEAM) {
+                    if self.reveal_sensitive_data && !self.steam_api_key.is_empty() {
+                        properties::set_steam_api_key(self.steam_api_key.clone());
+                    }
+                    self.log_batch.push_str(&log_utils::message_builder("Saving steam settings", LogLevel::INFO));
                 }
-                if !self.test_path.is_empty() && Path::new(&self.test_path).is_dir() {
-                    properties::set_test_path(&self.test_path);
-                }
-                if self.reveal_sensitive_data && !self.steam_api_key.is_empty() {
-                    properties::set_steam_api_key(self.steam_api_key.clone());
-                }
-                if !self.recipient_email.is_empty() {
-                    properties::set_recipient(&self.recipient_email);
-                }
-                let smtp_port = self.smtp_port.parse::<u16>().unwrap_or(0);
-                if smtp_port != 0 || !self.smtp_host.is_empty() || !self.smtp_email.is_empty() || !self.smtp_user.is_empty() || !self.smtp_password.is_empty() {
-                    properties::set_stmp_vars(
-                        self.smtp_host.clone(),
-                        smtp_port,
-                        self.smtp_email.clone(),
-                        self.smtp_user.clone(),
-                        if self.reveal_sensitive_data { self.smtp_password.clone() } else { String::new() },
-                    );
-                }
-                properties::set_test_mode(self.test_mode);
-                let status_str = String::from("Saved settings");
-                self.log_batch.push_str(&log_utils::message_builder(&status_str, LogLevel::INFO));
+
                 self.show_dialog = true;
                 Task::none()
             }
@@ -998,25 +1018,33 @@ impl App {
             Message::RefreshSales => {
                 self.is_price_check_in_progress = true;
                 self.price_check_loading_frame = 0;
+                self.preview_selected_store = Some(StoreOptions::All);
+                self.preview_price_filter = Some(PriceOptions::None);
+                self.preview_sort_by = Some(SortOptions::None);
+                self.preview_custom_price_lower = String::new();
+                self.preview_custom_price_higher = String::new();
                 self.sales_cache.clear();
                 Task::perform(get_sales(), Message::GetSales)
+            }
+            Message::StoreSettingsExpanded(is_expanded) => {
+                self.store_settings_expanded = is_expanded;
+                Task::none()
+            }
+            Message::SettingsPageSelected(selected_page) => {
+                if self.active_view != View::Settings {
+                    self.settings_view_open = true;
+                    self.active_view = View::Settings;
+                }
+                self.settings_page = selected_page;
+                Task::none()
             }
         }
     }
 
     fn view(&self) -> Element<'_, Message> {       
-        let store_menu_items = self.available_stores.iter().fold(column![], |column, game_store| {
-            let label = game_store.get_name();
-            column.push(
-                Checkbox::new(self.selected_stores.contains(game_store))
-                    .label(label)
-                    .on_toggle(move |enabled| Message::ToggleStore(game_store.clone(), enabled))
-                    .width(Length::Fill),
-            )
-        });
-
-        let store_selection_menu = Menu::new(menu_items!(
-            (container(store_menu_items).width(Length::Fill)),
+        let quick_file_menu = Menu::new(menu_items!(
+            (text("Selected Stores").size(20)),
+            (store_selection(self)),
             (row![
                 Button::new(text("Select None"))
                     .on_press(Message::SelectNoStores)
@@ -1024,31 +1052,15 @@ impl App {
                 Button::new(text("Select All"))
                     .on_press(Message::SelectAllStores)
                     .padding(4),
-            ])
+            ].spacing(10)),
+            (text("Alias Settings").size(20)),
+            (alias_settings(self)),
         ))
         .width(280.0);
 
-        let alias_options_menu = Menu::new(menu_items!(
-            (
-                Checkbox::new(self.alias_enabled)
-                    .label("Enable aliases")
-                    .on_toggle(Message::ToggleAliasEnabled)
-                    .width(Length::Fill)
-            ),
-            (
-                Checkbox::new(self.alias_reuse_enabled)
-                    .label("Enable alias reuse")
-                    .on_toggle(Message::ToggleAliasReuse)
-                    .width(Length::Fill)
-            ),
-        ))
-        .width(280.0);
-        // .close_on_item_click(true);
-
-        let settings_menu = Menu::new(menu_items!(
-            (custom_widgets::submenu_button("Selected Stores"), store_selection_menu),
-            (custom_widgets::submenu_button("Alias Options"), alias_options_menu),
-            (custom_widgets::menu_text_button("More Settings...", Message::OpenMoreSettings)),
+        let file_menu = Menu::new(menu_items!(
+            (custom_widgets::submenu_button("Quick Settings..."), quick_file_menu),
+            (custom_widgets::menu_text_button("Settings", Message::OpenSettings)),
         ))
         .width(320.0);
 
@@ -1058,14 +1070,16 @@ impl App {
         // )).width(320.0);
         let actions_menu = Menu::new(menu_items!(
             (custom_widgets::menu_text_button("Preview Sales", Message::OpenSalesPreview)),
-            // (text!("Alerting")),
+            // (text!("Edit Schedule")),
             // (text("Update cache")),
             // (text("Logs"))
-        )).width(320.0);
+        ))
+        .width(320.0)
+        .close_on_item_click(true);
 
         let menu_bar = menu_bar!(
             // (container(text("Customize")), customize_menu),
-            (container(text("Settings")), settings_menu),
+            (container(text("File")), file_menu),
             (container(text("Actions")), actions_menu)
         )
         .spacing(5.0)
@@ -1139,7 +1153,7 @@ impl App {
 
         let settings_window: Element<'_, Message> = if self.show_dialog && self.active_view == View::Settings{
             stack![
-                sttngs_view::settings_window(self),
+                sttngs_view::main_settings(self),
                 custom_styles::backdrop(Message::HideDialog),
                 center(message_dialog(
                     "INFO",
@@ -1149,7 +1163,7 @@ impl App {
             ]
             .into()
         } else {
-            sttngs_view::settings_window(self).into()
+            sttngs_view::main_settings(self).into()
         };
 
         let preview_window: Element<'_, Message> = if self.show_dialog && self.active_view == View::Preview {
