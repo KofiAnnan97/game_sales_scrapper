@@ -4,8 +4,8 @@ use iced::{Element, Length};
 use file_ops::{settings, thresholds};
 use constants::icons::{LEFT_ARROW_LONG, RIGHT_ARROW_LONG};
 
-use crate::{LOADING_FRAMES_SIZE, Message};
-use crate::components::custom_widgets;
+use crate::{LOADING_FRAMES_SIZE, Message, MainMessage};
+use crate::components::custom_widgets as cw;
 
 pub const SKIP_STORE_SELECTION: usize = usize::MAX;
 
@@ -19,7 +19,7 @@ pub fn search_tab(app: &crate::App) -> Element<'_, Message> {
         app.selected_stores.len()
     );
 
-    let search_loading = custom_widgets::text_loading_indicator(&search_index, app.search_loading_frame, LOADING_FRAMES_SIZE);
+    let search_loading = cw::text_loading_indicator(&search_index, app.search_loading_frame, LOADING_FRAMES_SIZE);
 
     let store_selection = if app.selected_stores.is_empty() {
         column![text("No stores selected. Please go to 'Settings'.")]
@@ -53,7 +53,7 @@ pub fn search_tab(app: &crate::App) -> Element<'_, Message> {
                     String::from("Skip this store"),
                     SKIP_STORE_SELECTION,
                     selected_index_opt,
-                    Message::SearchResultSelected,
+                    |idx| MainMessage::SearchResultSelected(idx).into(),
                 ).width(Length::Fill)
             ].spacing(5);
         } else {
@@ -62,7 +62,7 @@ pub fn search_tab(app: &crate::App) -> Element<'_, Message> {
                     String::from("Skip this store"),
                     SKIP_STORE_SELECTION,
                     selected_index_opt,
-                    Message::SearchResultSelected,
+                    |idx| MainMessage::SearchResultSelected(idx).into(),
                 )
                 .width(Length::Fill)
                 .spacing(5),
@@ -73,7 +73,7 @@ pub fn search_tab(app: &crate::App) -> Element<'_, Message> {
                         result.title().to_string(),
                         index,
                         selected_index_opt,
-                        Message::SearchResultSelected,
+                        |idx| MainMessage::SearchResultSelected(idx).into(),
                     )
                     .width(Length::Fill)
                     .spacing(5),
@@ -84,7 +84,7 @@ pub fn search_tab(app: &crate::App) -> Element<'_, Message> {
         let add_reqs_meet = app.search_results_by_store.iter().all(|(id, _)| app.selected_results_by_store.contains_key(id)) && !app.add_price.is_empty();
         let add_threshold_button = if add_reqs_meet {
             Button::new(text("Add Threshold"))
-                .on_press(Message::AddThreshold)
+                .on_press(MainMessage::AddThreshold.into())
                 .padding(8)
         } else {
             Button::new(text("Add Threshold"))
@@ -96,7 +96,7 @@ pub fn search_tab(app: &crate::App) -> Element<'_, Message> {
                 text(progress).size(18),
                 if app.current_store_search_idx > 0 {
                     Button::new(text(LEFT_ARROW_LONG).center())
-                        .on_press(Message::PreviousStore)
+                        .on_press(MainMessage::PreviousStore.into())
                         .height(18)
                         .padding(4)
                 } else {
@@ -106,7 +106,7 @@ pub fn search_tab(app: &crate::App) -> Element<'_, Message> {
                 },
                 if app.current_store_search_idx < app.search_results_by_store.len() - 1 {
                     Button::new(text(RIGHT_ARROW_LONG).center())
-                        .on_press(Message::NextStore)
+                        .on_press(MainMessage::NextStore.into())
                         .height(18)
                         .padding(4)
                 } else {
@@ -127,13 +127,13 @@ pub fn search_tab(app: &crate::App) -> Element<'_, Message> {
     let bulk_insert_button = if app.bulk_simple_threshs.is_empty() {
         let mut button = Button::new(text("Load Multiple Searches")).padding(6);
         if !app.is_search_in_progress {
-            button = button.on_press(Message::OpenCsv);
+            button = button.on_press(MainMessage::OpenCsv.into());
         }
         button
     } else {
         let mut button = Button::new(text("Search All")).padding(6);
         if !app.is_search_in_progress {
-            button = button.on_press(Message::ExecuteBulkInsert);
+            button = button.on_press(MainMessage::ExecuteBulkInsert.into());
         }
         button
     };
@@ -143,14 +143,14 @@ pub fn search_tab(app: &crate::App) -> Element<'_, Message> {
     } else {
         let mut button = Button::new(text("Search")).padding(6);
         if !app.is_search_in_progress {
-            button = button.on_press(Message::StartSearch);
+            button = button.on_press(MainMessage::StartSearch.into());
         }
         button
     };
 
     let reset_button = if !app.is_search_in_progress {
         Button::new(text("Reset"))
-            .on_press(Message::SearchReset)
+            .on_press(MainMessage::SearchReset.into())
             .padding(6)
     } else {
         Button::new(text("Reset"))
@@ -160,8 +160,8 @@ pub fn search_tab(app: &crate::App) -> Element<'_, Message> {
     let search_controls = column![
         row![
             TextInput::new("Search games", &app.search_query)
-                .on_input(Message::SearchQueryChanged)
-                .on_submit(Message::StartSearch)
+                .on_input(|input| MainMessage::SearchQueryChanged(input).into())
+                .on_submit(MainMessage::StartSearch.into())
                 .padding(5)
                 .width(Length::Fill),
             search_button,
@@ -171,11 +171,11 @@ pub fn search_tab(app: &crate::App) -> Element<'_, Message> {
         if settings::get_alias_state() {
             row![
                 TextInput::new("Add alias for game", &app.add_alias)
-                    .on_input(|value| Message::ThresholdAliasChanged(usize::MAX, value))
+                    .on_input(|value| MainMessage::ThresholdAliasChanged(usize::MAX, value).into())
                     .padding(5)
                     .width(Length::Fixed(400.0)),
                 TextInput::new("Desired price", &app.add_price)
-                    .on_input(|value| Message::ThresholdPriceChanged(usize::MAX, value))
+                    .on_input(|value| MainMessage::ThresholdPriceChanged(usize::MAX, value).into())
                     .padding(5)
                     .width(Length::Fixed(150.0)),
                 bulk_insert_button
@@ -184,7 +184,7 @@ pub fn search_tab(app: &crate::App) -> Element<'_, Message> {
         } else {
             row![
                 TextInput::new("Desired price", &app.add_price)
-                    .on_input(|value| Message::ThresholdPriceChanged(usize::MAX, value))
+                    .on_input(|value| MainMessage::ThresholdPriceChanged(usize::MAX, value).into())
                     .padding(5)
                     .width(Length::Fixed(150.0)),
                 bulk_insert_button

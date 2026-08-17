@@ -3,8 +3,8 @@ use iced::{Element,Length};
 
 use files::general;
 
-use crate::components::{custom_widgets};
-use crate::{LOADING_FRAMES_SIZE, Message, STATUS_ERR};
+use crate::components::custom_widgets as cw;
+use crate::{LOADING_FRAMES_SIZE, MainMessage, Message, STATUS_ERR};
 // use crate::utils::log_utils;
 
 pub enum ActionDisplayed{
@@ -14,7 +14,7 @@ pub enum ActionDisplayed{
 }
 
 pub fn view_actions(app: &crate::App) -> Element<'_, Message> {
-    let cache_loading = custom_widgets::text_loading_indicator("Retrieve games to cache", app.caching_loading_frame, LOADING_FRAMES_SIZE);
+    let cache_loading = cw::text_loading_indicator("Retrieve games to cache", app.caching_loading_frame, LOADING_FRAMES_SIZE);
 
     let complete_logs = general::get_contents(&app.current_log_file) + &app.log_batch;
     let logs_display = Scrollable::new(text(complete_logs))
@@ -40,10 +40,10 @@ pub fn view_actions(app: &crate::App) -> Element<'_, Message> {
     column![
         row![
             Button::new(text("Update Game Cache"))
-                .on_press(Message::UpdateCache)
+                .on_press(MainMessage::UpdateCache.into())
                 .padding(10),
             Button::new(text("Show Logs"))
-                .on_press(Message::LogsShown)
+                .on_press(MainMessage::LogsShown.into())
                 .padding(10)
         ]
         .spacing(10),

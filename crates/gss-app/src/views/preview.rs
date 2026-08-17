@@ -1,376 +1,671 @@
-use iced::widget::{Button, Checkbox, Scrollable, TextInput, column, container, row, text, pick_list, button, scrollable};
-use iced::{Alignment, Element, Font, Length, font};
+use std::time::Duration;
+
+use iced::widget::{
+    Button, Checkbox, Column, Container, Scrollable, TextInput, button, center, column, container, pick_list, row, scrollable, stack, text,
+};
+use iced::{Alignment, Element, Font, Length, Task, clipboard, font};
 
 use constants::icons::RETRY;
-use constants::operations::settings::{STEAM_STORE_NAME, GOG_STORE_NAME, MICROSOFT_STORE_NAME};
-use types::internal::filtering::{PriceOptions, SortOptions, StoreOptions};
+use constants::operations::settings::{GOG_STORE_NAME,MICROSOFT_STORE_NAME,STEAM_STORE_NAME};
+use types::internal::filtering::*;
 use types::internal::store::GameStore;
 
-use crate::components::custom_styles::bold_text;
-use crate::components::custom_widgets::{game_comparison_row, game_sale_row, game_store_card};
-use crate::components::{custom_widgets};
-use crate::utils::pricing_utils::StoreSale;
-use crate::views::settings::SettingsPage;
-use crate::{LOADING_FRAMES_SIZE, Message, STATUS_ERR};
+use crate::components::custom_styles::{self as cs, bold_text};
+use crate::components::custom_widgets::{self as cw, game_comparison_row, game_sale_row, game_store_card};
+use crate::utils::log_utils::LogLevel;
+use crate::utils::pricing_utils::{SalesCache, StoreSale, check_prices_for_display, compare_prices, get_sales};
+use crate::log_utils::message_builder;
+use crate::{STATUS_ERR, LOADING_FRAMES_SIZE};
 
-#[derive(PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PreviewDisplayed {
     Sales,
     SalesCompare,
     EmailPreview,
 }
 
-pub fn sale_preview_view(app: &crate::App) -> Element<'_, Message> {
-    let get_sales_loading = custom_widgets::text_loading_indicator("Retrieving sales", app.price_check_loading_frame, LOADING_FRAMES_SIZE);
-    let price_check_loading = custom_widgets::text_loading_indicator("Checking prices", app.price_check_loading_frame, LOADING_FRAMES_SIZE);
-    let cmp_check_loading = custom_widgets::text_loading_indicator("Checking prices for comparison", app.price_check_loading_frame, LOADING_FRAMES_SIZE);
+impl std::fmt::Display for PreviewDisplayed {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            PreviewDisplayed::Sales => write!(f, "Sales"),
+            PreviewDisplayed::SalesCompare => write!(f, "Sales Comparison"),
+            PreviewDisplayed::EmailPreview => write!(f, "Email Preview"),
+        }
+    }
+}
 
-    // Sales Preview
+impl Default for PreviewDisplayed {
+    fn default() -> Self {
+        Self::Sales
+    }
+}
 
-    let filters = container(
-        column![
+impl Default for SalesCache {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum PreviewMessage {
+    CheckPrices,
+    ComparePrices(bool),
+    PreviewStoreChanged(StoreOptions),
+    PreviewPriceChanged(PriceOptions),
+    PreviewSortByChanged(SortOptions),
+    PreviewCustomLowerPriceChanged(String),
+    PreviewCustomUpperPriceChanged(String),
+    PreviewApplyFilters,
+    PreviewResetFilters,
+    RefreshSales,
+    Tick,
+    GetSales(Result<Vec<StoreSale>, String>),
+    GetSalesUpdated(Result<SalesCache, String>),
+    CopyLinkToClipboard(String, String),
+    ResetCopyMessage,
+    ResetToSales,
+    // Message(s) to communicate up to App
+    Exit,
+    SendEmail,
+    SendLogEvent,
+    OpenEmailSettings,
+    HideDialog,
+}
+pub struct PreviewView {
+    active_view: PreviewDisplayed,
+    sales_cache: SalesCache,
+    cmp_sales_mode: bool,
+    copied_link: Option<String>,
+    preview_selected_store: Option<StoreOptions>,
+    preview_price_filter: Option<PriceOptions>,
+    preview_custom_price_lower: String,
+    preview_custom_price_higher: String,
+    preview_sort_by: Option<SortOptions>,
+    filtered_sale_idxs: Vec<usize>,
+    is_price_check_in_progress: bool,
+    price_check_loading_frame: usize,
+    status_message: String,
+    pub message_details: String,
+    pub show_dialog: bool,
+    pub log_msg: String,
+}
+
+impl Default for PreviewView {
+    fn default() -> Self {
+        Self {
+            active_view: PreviewDisplayed::Sales,
+            sales_cache: SalesCache::default(),
+            cmp_sales_mode: false,
+            copied_link: None,
+            preview_selected_store: Some(StoreOptions::All),
+            preview_price_filter: Some(PriceOptions::None),
+            preview_custom_price_lower: String::new(),
+            preview_custom_price_higher: String::new(),
+            preview_sort_by: Some(SortOptions::None),
+            filtered_sale_idxs: Vec::new(),
+            is_price_check_in_progress: false,
+            price_check_loading_frame: 0,
+            status_message: String::new(),
+            message_details: String::new(),
+            show_dialog: false,
+            log_msg: String::new(),
+        }
+    }
+}
+
+impl PreviewView {
+    pub fn update(&mut self, message: PreviewMessage) -> Task<PreviewMessage> {
+        match message {
+            PreviewMessage::CheckPrices => {
+                self.show_dialog = false;
+                if self.cmp_sales_mode {
+                    self.active_view = PreviewDisplayed::SalesCompare;
+                } else {
+                    self.active_view = PreviewDisplayed::EmailPreview;
+                }
+                self.log_msg = message_builder(&format!("Viewing {}", self.active_view), LogLevel::DEBUG);
+                Task::done(PreviewMessage::SendLogEvent)
+            }
+            PreviewMessage::ComparePrices(toggled) => {
+                self.show_dialog = false;
+                self.cmp_sales_mode = toggled;
+                self.log_msg = message_builder(&format!("Comparison toggle set to {}", self.cmp_sales_mode), LogLevel::DEBUG);
+                if toggled {
+                    self.active_view = PreviewDisplayed::SalesCompare;
+                } else {
+                    self.active_view = PreviewDisplayed::EmailPreview;
+                }
+                Task::done(PreviewMessage::SendLogEvent)
+            }
+            PreviewMessage::GetSales(sales_results) => {
+                Task::perform(
+                    async move {
+                        match sales_results {
+                            Ok(store_sales) => {
+                                let by_store = check_prices_for_display(&store_sales);
+                                let comparisons = compare_prices(&store_sales);
+                                Ok(SalesCache {
+                                    store_sales,
+                                    comparisons,
+                                    by_store,
+                                })
+                            }
+                            Err(error) => Err(error),
+                        }
+                    },
+                    PreviewMessage::GetSalesUpdated,
+                )
+            }
+            PreviewMessage::GetSalesUpdated(cache_result) => {
+                self.is_price_check_in_progress = false;
+                self.price_check_loading_frame = 0;
+                match cache_result {
+                    Ok(new_sales_cache) => {
+                        self.sales_cache = new_sales_cache;
+                        self.filter_games();
+                        self.status_message.clear();
+                        self.message_details.clear();
+                        self.log_msg = message_builder(&format!("Game(s) found on sale: {}", self.sales_cache.store_sales.len()), LogLevel::INFO);
+                    }
+                    Err(err_msg) => {
+                        self.log_msg = message_builder(&format!("An error occurred while updating sales: {}", err_msg), LogLevel::ERROR);
+                        self.show_dialog = true;
+                        self.status_message = STATUS_ERR.into();
+                        self.message_details = "An issue occurred while looking for game sales. \
+                            Please check your internet connection or try again later.".into();
+                    }
+                }
+                Task::done(PreviewMessage::SendLogEvent)
+            }
+            PreviewMessage::ResetToSales => {
+                self.active_view = PreviewDisplayed::Sales;
+                if self.sales_cache.store_sales.is_empty() {
+                    self.is_price_check_in_progress = true;
+                    self.price_check_loading_frame = 0;
+                    self.log_msg = message_builder("Check games for potential sales", LogLevel::INFO);
+                    Task::batch(vec![
+                        Task::perform(get_sales(),PreviewMessage::GetSales),
+                        Task::done(PreviewMessage::SendLogEvent)
+                    ])
+                } else {
+                    Task::none()
+                }
+                // Task::none()
+            }
+            PreviewMessage::PreviewStoreChanged(choice) => {
+                self.preview_selected_store = Some(choice);
+                Task::none()
+            }
+            PreviewMessage::PreviewPriceChanged(choice) => {
+                self.preview_price_filter = Some(choice);
+                Task::none()
+            }
+            PreviewMessage::PreviewSortByChanged(choice) => {
+                self.preview_sort_by = Some(choice);
+                Task::none()
+            }
+            PreviewMessage::PreviewCustomLowerPriceChanged(lower) => {
+                self.preview_custom_price_lower = lower;
+                Task::none()
+            }
+            PreviewMessage::PreviewCustomUpperPriceChanged(upper) => {
+                self.preview_custom_price_higher = upper;
+                Task::none()
+            }
+            PreviewMessage::PreviewApplyFilters => {
+                self.filter_games();
+                Task::done(PreviewMessage::SendLogEvent)
+            }
+            PreviewMessage::PreviewResetFilters => {
+                self.reset_sales_page();
+                self.filtered_sale_idxs = (0..self.sales_cache.store_sales.len()).collect();
+                self.log_msg = message_builder("Reset filters", LogLevel::DEBUG);
+                Task::done(PreviewMessage::SendLogEvent)
+            }
+            PreviewMessage::RefreshSales => {
+                self.is_price_check_in_progress = true;
+                self.price_check_loading_frame = 0;
+                self.sales_cache.clear();
+                Task::batch(vec![
+                    Task::perform(get_sales(),PreviewMessage::GetSales),
+                    Task::done(PreviewMessage::SendLogEvent)
+                ])
+            }
+            PreviewMessage::Tick => {
+                if self.is_price_check_in_progress {
+                    self.price_check_loading_frame = (self.price_check_loading_frame + 1) % LOADING_FRAMES_SIZE;
+                }
+                Task::none()
+            }
+            PreviewMessage::CopyLinkToClipboard(id, url) => {
+                self.copied_link = Some(id);
+                Task::batch([
+                    clipboard::write(url),
+                    Task::perform(
+                        async {
+                            tokio::time::sleep(Duration::from_secs(2)).await;
+                        },
+                        |_| PreviewMessage::ResetCopyMessage,
+                    ),
+                ])
+            }
+            PreviewMessage::ResetCopyMessage => {
+                self.copied_link = None;
+                Task::none()
+            }
+            PreviewMessage::HideDialog => {
+                self.show_dialog = false;
+                if self.status_message.eq_ignore_ascii_case(STATUS_ERR) {
+                    self.status_message.clear();
+                    self.message_details.clear();
+                }
+                Task::none()
+            }
+            PreviewMessage::SendLogEvent => Task::none(),
+            PreviewMessage::Exit => Task::none(),
+            PreviewMessage::SendEmail => Task::none(),
+            PreviewMessage::OpenEmailSettings => Task::none(),
+        }
+    }
+
+    pub fn view<'a>(&'a self) -> Element<'a, PreviewMessage> {
+        let get_sales_loading = cw::text_loading_indicator("Retrieving sales",self.price_check_loading_frame,LOADING_FRAMES_SIZE);
+        let price_check_loading = cw::text_loading_indicator("Checking prices",self.price_check_loading_frame,LOADING_FRAMES_SIZE);
+        let cmp_check_loading = cw::text_loading_indicator("Checking prices for comparison",self.price_check_loading_frame,LOADING_FRAMES_SIZE);
+
+        let filters = container(
             row![
                 bold_text("Filters: "),
                 text("Store:"),
                 pick_list(
                     &StoreOptions::LIST[..],
-                    app.preview_selected_store.clone(),
-                    Message::PreviewStoreChanged
+                    self.preview_selected_store.clone(),
+                    PreviewMessage::PreviewStoreChanged,
                 ),
                 text("Price:"),
-                if app.preview_price_filter != Some(PriceOptions::Custom) {
+                if self.preview_price_filter != Some(PriceOptions::Custom) {
                     column![
                         pick_list(
                             &PriceOptions::LIST[..],
-                            app.preview_price_filter.clone(),
-                            Message::PreviewPriceChanged
-                        ),
+                            self.preview_price_filter.clone(),
+                            PreviewMessage::PreviewPriceChanged,
+                        )
                     ]
                 } else {
                     column![
                         pick_list(
                             &PriceOptions::LIST[..],
-                            app.preview_price_filter.clone(),
-                            Message::PreviewPriceChanged
+                            self.preview_price_filter.clone(),
+                            PreviewMessage::PreviewPriceChanged,
                         ),
                         row![
-                            TextInput::new("25.00", &app.preview_custom_price_lower)
-                                .on_input(Message::PreviewCustomLowerPriceChanged)
-                                .width(Length::Fixed(50.))
-                                .padding(5), 
-                            TextInput::new("80.00", &app.preview_custom_price_higher)
-                                .on_input(Message::PreviewCustomUpperPriceChanged)
-                                .width(Length::Fixed(50.))
+                            TextInput::new("25.00", &self.preview_custom_price_lower)
+                                .on_input(PreviewMessage::PreviewCustomLowerPriceChanged)
+                                .width(Length::Fixed(70.0))
+                                .padding(5),
+                            TextInput::new("80.00", &self.preview_custom_price_higher)
+                                .on_input(PreviewMessage::PreviewCustomUpperPriceChanged)
+                                .width(Length::Fixed(70.0))
                                 .padding(5),
                         ]
                     ]
-                },   
+                },
                 text("Sort by:"),
                 pick_list(
                     &SortOptions::LIST[..],
-                    app.preview_sort_by.clone(),
-                    Message::PreviewSortByChanged
+                    self.preview_sort_by.clone(),
+                    PreviewMessage::PreviewSortByChanged,
                 ),
-
                 button("Apply")
-                    .on_press(Message::PreviewApplyFilters)
+                    .on_press(PreviewMessage::PreviewApplyFilters)
                     .padding(6),
-
                 button("Reset")
-                    .on_press(Message::PreviewResetFilters)
+                    .on_press(PreviewMessage::PreviewResetFilters)
                     .padding(6),
             ]
             .spacing(10)
-            .align_y(Alignment::Center)
-        ]
-    )
-    .padding(5)
-    .width(Length::Fill);
-
-    let sales_header = container(
-        row![
-            text("Game").width(Length::FillPortion(2)),
-            text("Store").width(Length::FillPortion(1)),
-            text("Price").width(Length::FillPortion(1)),
-        ]
-    )
-    .padding(5);
-
-    let mut sales_rows = column![];
-    if !app.message_details.is_empty() && app.status_message == STATUS_ERR {
-        sales_rows = sales_rows.push(text("Retrieving sales failed."));
-    } else if app.sales_cache.store_sales.is_empty() {
-        sales_rows = sales_rows.push(text("No games are on sale for your desired prices."));
-    } else if app.filtered_sale_idxs.is_empty() {
-        sales_rows = sales_rows.push(text("No games could be found with applied filters."));
-    } else {
-        // if app.filtered_sale_idxs.is_empty() {
-        // for (idx, sale) in app.sales_cache.store_sales.iter().enumerate() {
-        //     sales_rows = sales_rows.push(game_sale_row(sale, idx));
-        // }
-        //}
-        for idx in app.filtered_sale_idxs.clone() {
-            sales_rows = sales_rows.push(game_sale_row(&app.sales_cache.store_sales[idx], idx));
-        }
-    }
-
-    let product_list = if app.is_price_check_in_progress {
-        container(get_sales_loading)
-            .height(Length::Fill)
-    } else {
-        container(
-            column![
-                sales_header,
-                scrollable(sales_rows)
-                    .height(Length::Fill)
-            ]
+            .align_y(Alignment::Center),
         )
         .padding(5)
-        .width(Length::Fill)
-    };
+        .width(Length::Fill);
 
-    let footer = container(
-        row![
-            button("Email Preview")
-                .on_press(Message::CheckPrices)
-                .padding(6),
-            button("Close")
-                .on_press(Message::CloseSalesPreview)
-                .padding(6),
-        ]
-        .spacing(10)
-    )
-    .padding(2)
-    .width(Length::Fill);
+        let sales_header: Container<'_, PreviewMessage> = container(
+            row![
+                text("Game").width(Length::FillPortion(2)),
+                text("Store").width(Length::FillPortion(1)),
+                text("Price").width(Length::FillPortion(1)),
+            ]
+        )
+        .padding(5);
 
-    let preview_space = container(
-        column![
-            filters,
-            product_list,
-            footer.height(50),
-        ]
-        .spacing(5)
-    )
-    .height(Length::Fill)
-    .width(Length::Fill)
-    .padding(10);
+        let mut sales_rows: Column<'_, PreviewMessage> = column![];
 
-    // Email Preview
-
-    let mut sales_by_store = column![];
-    let current_sales: Vec<_> = app.sales_cache.by_store
-        .iter()
-        .filter(|(_, sales)| sales.len() > 0)
-        .map(|(store_front,_)| store_front)
-        .collect();
-    if !app.message_details.is_empty() && app.status_message == STATUS_ERR {
-        sales_by_store = sales_by_store.push(text("Retrieving sales failed."));
-    } else if current_sales.is_empty() {
-        sales_by_store = sales_by_store.push(text("No games are on sale for your desired prices."));
-    } else {
-        for (store, sale_idxs) in &app.sales_cache.by_store {
-            if sale_idxs.is_empty() { continue; }
-            sales_by_store = sales_by_store.push(
-                container(text(store.get_name()).size(24.0)
-                    .font(Font{
-                        weight: font::Weight::Bold,
-                        ..Font::DEFAULT
-                    }))
-                    .padding(10.0)
-            );
-            for idx in sale_idxs {
-                let game_sale = &app.sales_cache.store_sales[*idx];
-                sales_by_store = sales_by_store.push(game_store_card(&app.copied_link, &game_sale));
+        if self.status_message.contains(STATUS_ERR) {
+            sales_rows = sales_rows.push(text("Retrieving sales failed."));
+        } else if self.sales_cache.store_sales.is_empty() {
+            sales_rows = sales_rows.push(text("No games are on sale for your desired prices."));
+        } else if self.filtered_sale_idxs.is_empty() {
+            sales_rows = sales_rows.push(text("No games could be found with applied filters."));
+        } else {
+            // if self.filtered_sale_idxs.is_empty() {
+            // for (idx, sale) in self.sales_cache.store_sales.iter().enumerate() {
+            //     sales_rows = sales_rows.push(game_sale_row(sale, idx));
+            // }
+            //}
+            for idx in &self.filtered_sale_idxs {
+                let sale = &self.sales_cache.store_sales[*idx];
+                sales_rows = sales_rows.push(game_sale_row(sale,*idx));
             }
         }
-    }
 
-    let price_check_scrollable = Scrollable::new(
-        if app.is_price_check_in_progress {
-            column![price_check_loading]
-        } else {
-            column![sales_by_store]
-        }
-    )
-    .width(Length::Fill)
-    .height(Length::Fill);
-
-    let mut sales_comparisons = column![];
-    if !app.message_details.is_empty() && app.status_message == STATUS_ERR  {
-        sales_comparisons = sales_comparisons.push(text("Retrieving sales failed."));
-    } else if current_sales.is_empty() {
-        sales_comparisons = sales_comparisons.push(text("No games to compare sale prices against."));
-    } else {
-        let cmp_header = row![
-            bold_text("Game").size(20).width(Length::FillPortion(2)),
-            bold_text(STEAM_STORE_NAME).size(20).width(Length::FillPortion(1)).center(),
-            bold_text(GOG_STORE_NAME).size(20).width(Length::FillPortion(1)).center(),
-            bold_text(MICROSOFT_STORE_NAME).size(20).width(Length::FillPortion(1)).center(),
-        ];
-        sales_comparisons = sales_comparisons.push(container(cmp_header).width(Length::Fill));
-        for idx in 0..app.sales_cache.comparisons.len() {
-            let game = &app.sales_cache.comparisons[idx];
-            sales_comparisons = sales_comparisons.push(game_comparison_row(game, idx).width(Length::Fill));
-        }
-    }
-
-    let sales_comparisons_scrollable = Scrollable::new(
-        if app.is_price_check_in_progress {
-            column![cmp_check_loading]
-        } else {
-            column![sales_comparisons]
-        }
-    ).height(Length::Fill);
-    
-    let email_space = container(
-        column![
-            row![
-                bold_text("Email Preview").size(36),
-                Button::new("(Go to email settings)")
-                    .on_press(Message::SettingsPageSelected(SettingsPage::Email))
-                    .style(button::text)
-            ]
-            .align_y(Alignment::Center)
-            .spacing(10),
-            Checkbox::new(app.cmp_sales_mode)
-                .label("Compare Sales")
-                .on_toggle(Message::ComparePrices)
-                .spacing(10),
-            if app.preview_displayed == PreviewDisplayed::SalesCompare {
-                sales_comparisons_scrollable
+        let product_list =
+            if self.is_price_check_in_progress {
+                container(get_sales_loading).height(Length::Fill)
             } else {
-                price_check_scrollable
-            },
-            container(
+                container(
+                    column![
+                        sales_header,
+                        scrollable(sales_rows).height(Length::Fill),
+                    ]
+                )
+                .padding(5)
+                .width(Length::Fill)
+            };
+
+        let footer = container(
+            row![
+                button("Email Preview")
+                    .on_press(PreviewMessage::CheckPrices)
+                    .padding(6),
+                button("Close")
+                    .on_press(PreviewMessage::Exit)
+                    .padding(6),
+            ]
+            .spacing(10)
+        )
+        .padding(2)
+        .width(Length::Fill);
+
+        let preview_space = container(
+            column![
+                filters,
+                product_list,
+                footer.height(50),
+            ]
+            .spacing(5)
+        )
+        .height(Length::Fill)
+        .width(Length::Fill)
+        .padding(10);
+
+        // EMAIL PREVIEW
+
+        let mut sales_by_store: Column<'_, PreviewMessage> = column![];
+
+        let current_sales_exist = self.sales_cache.by_store.values()
+            .any(|sales| !sales.is_empty());
+
+        if self.status_message.contains(STATUS_ERR) {
+            sales_by_store = sales_by_store.push(text("Retrieving sales failed."));
+        } else if !current_sales_exist {
+            sales_by_store = sales_by_store.push(text("No games are on sale for your desired prices."));
+        } else {
+            for (store, sale_idxs) in &self.sales_cache.by_store {
+                sales_by_store = sales_by_store.push(
+                    container(
+                        text(store.get_name())
+                            .size(24.0)
+                            .font(Font {
+                                weight: font::Weight::Bold,
+                                ..Font::DEFAULT
+                            })
+                    )
+                    .padding(10.0)
+                );
+
+                for idx in sale_idxs {
+                    let game_sale = &self.sales_cache.store_sales[*idx];
+                    sales_by_store = sales_by_store.push(game_store_card(&self.copied_link,game_sale, PreviewMessage::CopyLinkToClipboard));
+                }
+            }
+        }
+
+        let price_check_scrollable =
+            Scrollable::new(
+                if self.is_price_check_in_progress {
+                    column![price_check_loading]
+                } else {
+                    column![sales_by_store]
+                }
+            )
+            .width(Length::Fill)
+            .height(Length::Fill);
+
+        // COMPARISON PREVIEW
+
+        let mut sales_comparisons: Column<'_, PreviewMessage> = column![];
+
+        if self.status_message.contains(STATUS_ERR) {
+            sales_comparisons = sales_comparisons.push(text("Retrieving sales failed."));
+        } else if !current_sales_exist {
+            sales_comparisons =
+                sales_comparisons.push(text("No games to compare sale prices against."));
+        } else {
+            let cmp_header = row![
+                bold_text("Game")
+                    .size(20)
+                    .width(Length::FillPortion(2)),
+                bold_text(STEAM_STORE_NAME)
+                    .size(20)
+                    .width(Length::FillPortion(1))
+                    .center(),
+                bold_text(GOG_STORE_NAME)
+                    .size(20)
+                    .width(Length::FillPortion(1))
+                    .center(),
+                bold_text(MICROSOFT_STORE_NAME)
+                    .size(20)
+                    .width(Length::FillPortion(1))
+                    .center(),
+            ];
+
+            sales_comparisons = sales_comparisons.push(container(cmp_header).width(Length::Fill));
+            for (idx, game) in self.sales_cache.comparisons.iter().enumerate() {
+                sales_comparisons = sales_comparisons.push(game_comparison_row(game,idx).width(Length::Fill));
+            }
+        }
+
+        let sales_comparisons_scrollable = Scrollable::new(
+            if self.is_price_check_in_progress {
+                column![cmp_check_loading]
+            } else {
+                column![sales_comparisons]
+            }
+        )
+        .height(Length::Fill);
+
+        // EMAIL SPACE
+
+        let email_space = container(
+            column![
                 row![
-                    Button::new("Send Manual Email")
-                        .on_press(Message::SendEmail)
-                        .padding(6),
-                    Button::new("Exit Email Preview")
-                        .on_press(Message::ExitEmailPreview)
-                        .padding(6),
+                    bold_text("Email Preview").size(36),
+                    Button::new("(Go to email settings)")
+                        .on_press(PreviewMessage::OpenEmailSettings)
+                        .style(button::text),
                 ]
-                .spacing(10)
-                .padding(8)
+                .align_y(Alignment::Center)
+                .spacing(10),
+                Checkbox::new(self.cmp_sales_mode)
+                    .label("Compare Sales")
+                    .on_toggle(PreviewMessage::ComparePrices)
+                    .spacing(10),
+                if self.active_view == PreviewDisplayed::SalesCompare {
+                    sales_comparisons_scrollable
+                } else {
+                    price_check_scrollable
+                },
+                container(
+                    row![
+                        Button::new("Send Manual Email")
+                            .on_press(PreviewMessage::SendEmail)
+                            .padding(6),
+                        Button::new("Exit Email Preview")
+                            .on_press(PreviewMessage::ResetToSales)
+                            .padding(6),
+                    ]
+                    .spacing(10)
+                    .padding(8)
+                )
+                .align_right(Length::Fill)
+                .height(50),
+            ]
+        );
+
+        let screen = match self.active_view {
+            PreviewDisplayed::Sales => preview_space,
+            PreviewDisplayed::SalesCompare | PreviewDisplayed::EmailPreview => email_space,
+        };
+
+        let content = column![
+            container(
+                button(text(format!("Refresh Sales {}", RETRY)))
+                    .on_press(PreviewMessage::RefreshSales)
             )
             .align_right(Length::Fill)
-            .height(50)
+            .padding(5),
+            screen,
         ]
-    );
+        .height(Length::Fill)
+        .spacing(5)
+        .padding(5);
 
-    let screen_displayed = match app.preview_displayed {
-        PreviewDisplayed::Sales => preview_space,
-        _ => email_space
-    };
+        if self.show_dialog {
+            stack![
+                content,
+                cs::backdrop(PreviewMessage::HideDialog),
+                center(
+                    cw::message_dialog(
+                        &self.status_message,
+                        &self.message_details,
+                        PreviewMessage::HideDialog
+                    )
+                )
+            ]
+            .into()
+        } else {
+            content.into()
+        }
+    }
+    
+    fn reset_sales_page(&mut self) {
+        self.preview_selected_store = Some(StoreOptions::All);
+        self.preview_price_filter = Some(PriceOptions::None);
+        self.preview_sort_by = Some(SortOptions::None);
+        self.preview_custom_price_lower.clear();
+        self.preview_custom_price_higher.clear();
+    }
 
-    column![
-        container(
-            button(text(format!("Refresh Sales {}", RETRY)))
-                .on_press(Message::RefreshSales)
-        )
-        .align_right(Length::Fill)
-        .padding(5),
-        screen_displayed
-    ]
-    .height(Length::Fill)
-    .spacing(5)
-    .padding(5)
-    .into()
+    fn filter_games(&mut self) {
+        let store_filter_type = self.preview_selected_store.unwrap_or(StoreOptions::All);
+        let price_filter_type = self.preview_price_filter.unwrap_or(PriceOptions::None);
+        let sort_filter_type = self.preview_sort_by.unwrap_or(SortOptions::None);
+
+        if store_filter_type == StoreOptions::All && price_filter_type == PriceOptions::None && sort_filter_type == SortOptions::None {
+            self.filtered_sale_idxs = (0..self.sales_cache.store_sales.len()).collect();
+        } else {
+            self.log_msg = message_builder(
+                &format!("Apply Filters -( {}, {}, {})", &store_filter_type, &price_filter_type, &sort_filter_type), 
+                LogLevel::DEBUG
+            );
+            let mut filtered_idxs = store_filter(&self.sales_cache.store_sales, store_filter_type);
+            let low_price =  self.preview_custom_price_lower.parse::<f64>().ok();
+            let high_price = self.preview_custom_price_higher.parse::<f64>().ok();
+            filtered_idxs = price_filter(&self.sales_cache.store_sales, filtered_idxs, price_filter_type, low_price, high_price);
+            filtered_idxs = sort_by_filter(&self.sales_cache.store_sales, filtered_idxs, sort_filter_type);
+            self.filtered_sale_idxs = filtered_idxs;
+        }        
+    }
 }
 
-
-pub fn store_filter(games: &Vec<StoreSale>, filter_type: StoreOptions) -> Vec<usize> {
-    let mut filtered: Vec<usize> = Vec::new();
+pub fn store_filter(games: &[StoreSale],filter_type: StoreOptions) -> Vec<usize> {
     match filter_type {
-        StoreOptions::Steam => {
-            for (idx, game) in games.iter().enumerate() {
-                if game.store == GameStore::STEAM {
-                    filtered.push(idx);
-                }
-            }
-        },
-        StoreOptions::GOG => {
-            for (idx, game) in games.iter().enumerate() {
-                if game.store == GameStore::GOOD_OLD_GAMES {
-                    filtered.push(idx);
-                }
-            }
-        },
-        StoreOptions::MicrosoftStore => {
-            for (idx, game) in games.iter().enumerate() {
-                if game.store == GameStore::MICROSOFT_STORE_PC {
-                    filtered.push(idx);
-                }
-            }
-        },
-        StoreOptions::All => filtered = (0..games.len()).collect(),
-    };
-    filtered
+        StoreOptions::Steam => games.iter().enumerate().filter_map(|(idx, game)| {
+            (game.store == GameStore::STEAM).then_some(idx)
+        })
+        .collect(),
+        StoreOptions::GOG => games.iter().enumerate().filter_map(|(idx, game)| {
+            (game.store == GameStore::GOOD_OLD_GAMES).then_some(idx)
+        })
+        .collect(),
+        StoreOptions::MicrosoftStore => games.iter().enumerate().filter_map(|(idx, game)| {
+            (game.store == GameStore::MICROSOFT_STORE_PC).then_some(idx)
+        })
+        .collect(),
+        StoreOptions::All => (0..games.len()).collect(),
+    }
 }
 
-pub fn price_filter(games: &Vec<StoreSale>, idxs: Vec<usize>, filter_type: PriceOptions, low_price: Option<f64>, high_price: Option<f64>) -> Vec<usize> {
-    let mut filtered: Vec<usize> = Vec::new();
+pub fn price_filter(games: &[StoreSale], idxs: Vec<usize>, filter_type: PriceOptions, low_price: Option<f64>, high_price: Option<f64>) -> Vec<usize> {
     match filter_type {
-        PriceOptions::None => filtered = idxs,
-        PriceOptions::Under5 => {
-            for i in idxs {
-                if games[i].info.current_price < 5. {
-                    filtered.push(i);
-                }
-            }
-        },
-        PriceOptions::Under10 => {
-            for i in idxs {
-                if games[i].info.current_price < 10. {
-                    filtered.push(i);
-                }
-            }
-        },
-        PriceOptions::Under25 => {
-            for i in idxs {
-                if games[i].info.current_price < 25. {
-                    filtered.push(i);
-                }
-            }
-        },
+        PriceOptions::None => idxs,
+        PriceOptions::Under5 => idxs.into_iter().filter(|&i| {
+            games[i].info.current_price < 5.0
+        })
+        .collect(),
+        PriceOptions::Under10 => idxs.into_iter().filter(|&i| {
+            games[i].info.current_price < 10.0
+        })
+        .collect(),
+        PriceOptions::Under25 => idxs.into_iter().filter(|&i| {
+            games[i].info.current_price < 25.0
+        })
+        .collect(),
         PriceOptions::Custom => {
-            let lowest_price = low_price.unwrap_or(0.);
-            let highest_price = high_price.unwrap_or(0.);
-            for i in idxs {
-                if games[i].info.current_price >= lowest_price && 
-                    games[i].info.current_price < highest_price {
-                        filtered.push(i);
-                }
-            }
-        },
+            let lowest = low_price.unwrap_or(0.);
+            let highest = high_price.unwrap_or(0.);
+            idxs.into_iter().filter(|&i| {
+                let price = games[i].info.current_price;
+                price >= lowest && price < highest
+            })
+            .collect()
+        }
     }
-    filtered
 }
 
-pub fn sort_by_filter(games: &Vec<StoreSale>, idxs: Vec<usize>, filter_type: SortOptions) -> Vec<usize> {
-    let filtered;
-    let mut tmp: Vec<(StoreSale, usize)> = Vec::new();
-    for i in idxs.iter() {
-        tmp.push((games[*i].clone(),*i));
+pub fn sort_by_filter(games: &[StoreSale],idxs: Vec<usize>,filter_type: SortOptions) -> Vec<usize> {
+    if filter_type == SortOptions::None {
+        return idxs;
     }
+
+    let mut tmp: Vec<(usize, &StoreSale)> =idxs.iter().map(|&idx| {
+        (idx, &games[idx])
+    })
+    .collect();
+
     match filter_type {
-        SortOptions::None => filtered = idxs,
+        SortOptions::None => {},
         SortOptions::AToZ => {
-            tmp.sort_by(|a, b| a.0.info.title.cmp(&b.0.info.title));
-            filtered = tmp.iter().map(|(_, idx)|  *idx).collect();
+            tmp.sort_by(|a, b| {
+                a.1.info.title.cmp(&b.1.info.title)
+            });
         },
         SortOptions::ZToA => {
-            tmp.sort_by(|a, b| a.0.info.title.cmp(&b.0.info.title));
-            filtered = tmp.iter().rev().map(|(_, idx)|  *idx).collect();
+            tmp.sort_by(|a, b| {
+                b.1.info.title.cmp(&a.1.info.title)
+            });
         },
         SortOptions::LowToHigh => {
-            tmp.sort_by(|a, b| a.0.info.current_price.total_cmp(&b.0.info.current_price));
-            filtered = tmp.iter().map(|(_, idx)|  *idx).collect();
+            tmp.sort_by(|a, b| {
+                a.1.info.current_price.total_cmp(&b.1.info.current_price)
+            });
         },
         SortOptions::HighToLow => {
-            tmp.sort_by(|a, b| a.0.info.current_price.total_cmp(&b.0.info.current_price));
-            filtered = tmp.iter().rev().map(|(_, idx)|  *idx).collect();
-        },
+            tmp.sort_by(|a, b| {
+                b.1.info.current_price.total_cmp(&a.1.info.current_price)
+            });
+        }
     }
-    filtered
+
+    tmp.into_iter().map(|(idx, _)| idx).collect()
 }

@@ -42,19 +42,21 @@ pub fn menu_text_button<'a>(label: &'a str, message: Message) -> Element<'a, Mes
     .into()
 }
 
-fn store_link<'a>(label: &'a str, id: &'a str, url: String,) -> iced::Element<'a, Message> {
-    text::Rich::<String, Message, Theme, Renderer>::with_spans([
+fn store_link<'a, M: Clone + 'static>(label: &'a str, id: &'a str, url: String, 
+    on_link_click: impl Fn(String, String) -> M + 'static
+) -> iced::Element<'a, M> {
+    text::Rich::<String, M, Theme, Renderer>::with_spans([
         text::Span::new(label)
             .link(&url)
     ])
-    .on_link_click(move |_| Message::CopyLinkToClipboard(String::from(id), url.clone()))
+    .on_link_click(move |_| on_link_click(id.into(), url.clone()))
     .size(16)
     .into()
 }
 
 // Badges
 
-fn colored_badge(value: String, font_size: u32, color: Color) -> iced::Element<'static ,Message> {
+fn colored_badge<M: Clone + 'static>(value: String, font_size: u32, color: Color) -> iced::Element<'static ,M> {
     container(
         text(value)
             .size(font_size)
@@ -75,7 +77,7 @@ fn colored_badge(value: String, font_size: u32, color: Color) -> iced::Element<'
 
 // Text 
 
-fn price_change<'a>(old_price: f64, new_price: f64) -> Element<'a, Message> {
+fn price_change<'a, M: Clone + 'static>(old_price: f64, new_price: f64) -> Element<'a, M> {
     row![
         text::Rich::with_spans([
             text::Span::<()>::new(old_price)
@@ -116,7 +118,9 @@ pub fn _create_sales_table<'a>(sales_info: &'a Vec<SaleInfo>) -> Table<'a, Messa
 
 // Containers
 
-pub fn game_store_card<'a>(copied_link: &'a Option<String>, data: &'a StoreSale) -> Container<'a, Message> {
+pub fn game_store_card<'a, M: Clone + 'static>(copied_link: &'a Option<String>, data: &'a StoreSale, 
+    on_link_click: impl Fn(String, String) -> M + 'static
+) -> Container<'a, M> {
     let discount: String = format!("{}% OFF", &data.info.discount_percentage);
     let handler = data.icon_handler.clone().unwrap_or_else(|| Handle::from_bytes(vec![]));
     container(
@@ -137,7 +141,9 @@ pub fn game_store_card<'a>(copied_link: &'a Option<String>, data: &'a StoreSale)
                         "Copy Store Page Link"
                     },
                     &data.game_id, 
-                    data.info.store_page_link.clone())
+                    data.info.store_page_link.clone(), 
+                    on_link_click
+                )
             ]
         ]
         .spacing(4),
@@ -149,7 +155,7 @@ pub fn game_store_card<'a>(copied_link: &'a Option<String>, data: &'a StoreSale)
     })
 }
 
-pub fn store_price_cell<'a>(price: &'a Option<f64>, is_best: bool) -> Container<'a, Message> {
+pub fn store_price_cell<'a, M: Clone + 'static>(price: &'a Option<f64>, is_best: bool) -> Container<'a, M> {
     let price_str;
     if let Some(price_val) = price {
         price_str = format!("{}", price_val);
@@ -168,7 +174,7 @@ pub fn store_price_cell<'a>(price: &'a Option<f64>, is_best: bool) -> Container<
     })
 }
 
-pub fn game_sale_row<'a>(data: &'a StoreSale, idx: usize) -> Container<'a, Message>{
+pub fn game_sale_row<'a, M: Clone + 'static>(data: &'a StoreSale, idx: usize) -> Container<'a, M>{
     let handler = data.icon_handler.clone().unwrap_or_else(|| Handle::from_bytes(vec![]));
     container(
         row![
@@ -191,7 +197,7 @@ pub fn game_sale_row<'a>(data: &'a StoreSale, idx: usize) -> Container<'a, Messa
     .style(cmp_row_style(idx))
 }
 
-pub fn game_comparison_row<'a>(data: &'a SaleInfoCompare, idx: usize) -> Container<'a, Message>{
+pub fn game_comparison_row<'a, M: Clone + 'static>(data: &'a SaleInfoCompare, idx: usize) -> Container<'a, M>{
     
     // Retrieve image handler from struct
     let handler = data.icon_handler.clone().unwrap_or_else(|| Handle::from_bytes(vec![]));
@@ -239,7 +245,7 @@ pub fn game_comparison_row<'a>(data: &'a SaleInfoCompare, idx: usize) -> Contain
     .style(cmp_row_style(idx))
 }
 
-pub fn message_dialog<'a>(title: &'a str, body: &'a str, message: Message) -> Container<'a, Message>{
+pub fn message_dialog<'a, M: Clone + 'static>(title: &'a str, body: &'a str, message: M) -> Container<'a, M>{
     container(
         column![
             text(title).size(24),

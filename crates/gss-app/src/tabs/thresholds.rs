@@ -3,7 +3,7 @@ use iced::{Element, Length};
 
 use constants::icons::{CHECK_MARK, DOWN_ARROW, FLOPPY_DISK, TRASH_BIN, UP_ARROW};
 
-use crate::{Message, SortColumn, SortOrder};
+use crate::{Message, MainMessage, SortColumn, SortOrder};
 
 pub fn thresholds_tab(app: &crate::App) -> Element<'_, Message> {
     let ignore_case_query = app.search_query.to_lowercase();
@@ -38,18 +38,18 @@ pub fn thresholds_tab(app: &crate::App) -> Element<'_, Message> {
 
     let header_row = row![
         Button::new(text(format!("Title {}", header_sort_indicator(app, SortColumn::Title))))
-            .on_press(Message::SortThresholds(SortColumn::Title))
+            .on_press(MainMessage::SortThresholds(SortColumn::Title).into())
             .style(button::text)
             .width(Length::FillPortion(2))
             .padding(8),
         Button::new(text(format!("Alias {}", header_sort_indicator(app, SortColumn::Alias))))
-            .on_press(Message::SortThresholds(SortColumn::Alias))
+            .on_press(MainMessage::SortThresholds(SortColumn::Alias).into())
             .style(button::text)
             .width(Length::FillPortion(2))
             .padding(8),
         container(
             Button::new(text(format!("Steam {}", header_sort_indicator(app, SortColumn::SteamId))))
-                .on_press(Message::SortThresholds(SortColumn::SteamId))
+                .on_press(MainMessage::SortThresholds(SortColumn::SteamId).into())
                 .style(button::text)
                 .width(Length::Fill)
                 .padding(8),
@@ -57,7 +57,7 @@ pub fn thresholds_tab(app: &crate::App) -> Element<'_, Message> {
         .width(Length::Fixed(100.0)),
         container(
             Button::new(text(format!("GOG {}", header_sort_indicator(app, SortColumn::GogId))))
-                .on_press(Message::SortThresholds(SortColumn::GogId))
+                .on_press(MainMessage::SortThresholds(SortColumn::GogId).into())
                 .style(button::text)
                 .width(Length::Fill)
                 .padding(8),
@@ -65,14 +65,14 @@ pub fn thresholds_tab(app: &crate::App) -> Element<'_, Message> {
         .width(Length::Fixed(100.0)),
         container(
             Button::new(text(format!("Microsoft(PC) {}", header_sort_indicator(app, SortColumn::MicrosoftId))))
-                .on_press(Message::SortThresholds(SortColumn::MicrosoftId))
+                .on_press(MainMessage::SortThresholds(SortColumn::MicrosoftId).into())
                 .style(button::text)
                 .width(Length::Fill)
                 .padding(8),
         )
         .width(Length::Fixed(140.0)),
         Button::new(text(format!("Price {}", header_sort_indicator(app, SortColumn::DesiredPrice))))
-            .on_press(Message::SortThresholds(SortColumn::DesiredPrice))
+            .on_press(MainMessage::SortThresholds(SortColumn::DesiredPrice).into())
             .style(button::text)
                 .width(Length::Fill)
             .padding(8),
@@ -94,19 +94,19 @@ pub fn thresholds_tab(app: &crate::App) -> Element<'_, Message> {
                 row![
                     container(text(threshold.title.clone())).width(Length::FillPortion(2)).padding(8),
                     TextInput::new("alias", alias_value)
-                        .on_input(move |value| Message::ThresholdAliasChanged(index, value))
+                        .on_input(move |value| MainMessage::ThresholdAliasChanged(index, value).into())
                         .width(Length::FillPortion(2))
                         .padding(5),
                     container(text(if threshold.steam_id != 0 { CHECK_MARK } else { "" })).center_x(Length::Fixed(100.0)).padding(8),
                     container(text(if threshold.gog_id != 0 { CHECK_MARK } else { "" })).center_x(Length::Fixed(100.0)).padding(8),
                     container(text(if threshold.microsoft_store_id.is_empty() { "" } else { CHECK_MARK })).center_x(Length::Fixed(140.0)).padding(8),
                     TextInput::new("price", &price_value)
-                        .on_input(move |value| Message::ThresholdPriceChanged(index, value))
+                        .on_input(move |value| MainMessage::ThresholdPriceChanged(index, value).into())
                         .width(Length::FillPortion(1))
                         .padding(5),
                     row![
-                        Button::new(text(FLOPPY_DISK)).on_press(Message::UpdateThresholdRow(index)).padding(6),
-                        Button::new(text(TRASH_BIN)).on_press(Message::RemoveThresholdRow(index)).padding(6),
+                        Button::new(text(FLOPPY_DISK)).on_press(MainMessage::UpdateThresholdRow(index).into()).padding(6),
+                        Button::new(text(TRASH_BIN)).on_press(MainMessage::RemoveThresholdRow(index).into()).padding(6),
                     ]
                     .spacing(4)
                     .width(Length::FillPortion(1)),
@@ -118,12 +118,12 @@ pub fn thresholds_tab(app: &crate::App) -> Element<'_, Message> {
 
     let threshold_controls = column![
         TextInput::new("Search thresholds", &app.search_query)
-            .on_input(Message::SearchQueryChanged)
+            .on_input(|input| MainMessage::SearchQueryChanged(input).into())
             .padding(5)
             .width(Length::Fill),
         row![
-            Button::new(text("Reset search")).on_press(Message::SearchQueryChanged(String::new())).padding(6),
-            Button::new(text("Refresh list")).on_press(Message::Refresh).padding(6),
+            Button::new(text("Reset search")).on_press(MainMessage::SearchQueryChanged(String::new()).into()).padding(6),
+            Button::new(text("Refresh list")).on_press(MainMessage::Refresh.into()).padding(6),
         ]
         .spacing(8),
     ]
@@ -142,7 +142,9 @@ pub fn thresholds_tab(app: &crate::App) -> Element<'_, Message> {
                 Scrollable::new(threshold_rows).height(Length::Fill)
             ]
         }
-    ].spacing(12).into()
+    ]
+    .spacing(12)
+    .into()
 }
 
 fn header_sort_indicator(app: &crate::App, column: SortColumn) -> &'static str {

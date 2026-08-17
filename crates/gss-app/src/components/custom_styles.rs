@@ -1,8 +1,6 @@
 use iced::widget::{ MouseArea, Text, button, container, mouse_area, text};
 use iced::{Background, Border, Color, Font, Length, Shadow, Theme, font};
 
-use crate::Message;
-
 pub fn bold_text<'a>(data: &'a str) -> Text<'a>{
     text(data).font(Font{
             weight: font::Weight::Bold,
@@ -10,7 +8,7 @@ pub fn bold_text<'a>(data: &'a str) -> Text<'a>{
     })
 }
 
-pub fn backdrop<'a>(message: Message) -> MouseArea<'a, Message>{
+pub fn backdrop<'a, M: Clone + 'static>(message: M) -> MouseArea<'a, M>{
     mouse_area(
         container("")
             .width(Length::Fill)
