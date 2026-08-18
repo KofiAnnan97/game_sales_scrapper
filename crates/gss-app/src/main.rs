@@ -713,24 +713,30 @@ impl App {
                 Task::none()
             }
             MainMessage::SendEmailResult(result) => {
-                match result {
-                    Ok(output) => {
-                        self.log_batch.push_str(&log_utils::message_builder(&output, LogLevel::INFO));
-                        self.status_message = "INFO".into();
-                        self.message_details = "Email request has been successfully sent.".into();
-                        self.show_dialog = true;
-                        self.log_batch.push_str(&log_utils::message_builder("Email request complete", LogLevel::INFO));
+                let level;
+                let details;
+                let (level, details) = match result {
+                    Ok(success) => {
+                        self.log_batch.push_str(&log_utils::message_builder(&success, LogLevel::INFO));
+                        level = "INFO".into();
+                        details = "Email request has been successfully sent.".into();
+                        (level, details)
                     }
                     Err(err) => {
                         self.log_batch.push_str(&log_utils::message_builder(&err, LogLevel::ERROR));
-                        let log_msg = format!("Email failed due to {}", err);
-                        self.status_message = STATUS_ERR.into();
-                        self.message_details = "An issue occured trying send an email. Please check your email settings or connection.".into();
-                        self.show_dialog = true;
-                        self.log_batch.push_str(&log_utils::message_builder(&log_msg, LogLevel::ERROR));
+                        level = STATUS_ERR.into();
+                        details = "An issue occured trying send an email. Please check your email settings or connection.".into();
+                        (level, details)
                     }
+                };
+                if self.active_view == View::Preview {
+                    Task::done(PreviewMessage::GetEmailResult(level, details).into())
+                } else {
+                    self.show_dialog = true;
+                    self.status_message = level;
+                    self.message_details = details;
+                    Task::none()
                 }
-                Task::none()
             }
             MainMessage::UpdateCache => {
                 self.show_dialog = false;
@@ -912,16 +918,18 @@ impl App {
         ))
         .width(280.0);
 
-        let file_menu = Menu::new(menu_items!(
-            (custom_widgets::submenu_button("Quick Settings..."), quick_file_menu),
-            (custom_widgets::menu_text_button("Settings", MainMessage::OpenSettings.into())),
-        ))
-        .width(320.0);
-
         // let customize_menu = Menu::new(menu_items!(
         //     (text("Font size")),
         //     (text("Themes..."))
         // )).width(320.0);
+
+        let file_menu = Menu::new(menu_items!(
+            // (custom_widgets::submenu_button("Customize"), customize_menu),
+            (custom_widgets::submenu_button("Quick Settings..."), quick_file_menu),
+            (custom_widgets::menu_text_button("Settings", MainMessage::OpenSettings.into())),
+        ))
+        .width(320.0);
+        
         let actions_menu = Menu::new(menu_items!(
             (custom_widgets::menu_text_button("Preview Sales", MainMessage::OpenSalesPreview.into())),
             // (text!("Edit Schedule")),
@@ -932,7 +940,6 @@ impl App {
         .close_on_item_click(true);
 
         let menu_bar = menu_bar!(
-            // (container(text("Customize")), customize_menu),
             (container(text("File")), file_menu),
             (container(text("Actions")), actions_menu)
         )

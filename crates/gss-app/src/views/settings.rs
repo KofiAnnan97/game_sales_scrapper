@@ -3,9 +3,9 @@ use iced::widget::{Button, Checkbox, Column, Scrollable, TextInput, button, cent
 use iced::{Element, Length};
 use types::internal::store::GameStore;
 
-use crate::{Message, MainMessage};
+use crate::{Message, MainMessage, LOADING_FRAMES_SIZE};
 use crate::components::custom_styles::{highlight_on_click_style, backdrop};
-use crate::components::custom_widgets::message_dialog;
+use crate::components::custom_widgets::{message_dialog, text_loading_indicator};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Page {
@@ -176,12 +176,20 @@ fn general_settings(app: &crate::App) -> Element<'_, Message>{
     let scrollable_content = Scrollable::new(content).height(Length::Fill);
         
     column![
-        text("General Settings").size(18),
         scrollable_content
             .height(Length::Fill),
-        Button::new(text("Save Settings"))
-            .on_press(MainMessage::SaveSettings.into())
-            .padding(10),
+        container(
+            row![
+                Button::new(text("Save"))
+                    .on_press(MainMessage::SaveSettings.into())
+                    .padding(10),
+                Button::new(text("Close"))
+                    .on_press(MainMessage::CloseSettings.into())  
+                    .padding(10)
+            ]
+            .spacing(10)
+        )
+        .align_right(Length::Fill)
     ].into()
 }
 
@@ -267,12 +275,20 @@ fn email_settings(app: &crate::App) -> Element<'_, Message> {
     let scrollable_content = Scrollable::new(content).height(Length::Fill);
         
     column![
-        text("Email Settings").size(18),
         scrollable_content
             .height(Length::Fill),
-        Button::new(text("Save Settings"))
-            .on_press(MainMessage::SaveSettings.into())
-            .padding(10),
+        container(
+            row![
+                Button::new(text("Save"))
+                    .on_press(MainMessage::SaveSettings.into())
+                    .padding(10),
+                Button::new(text("Close"))
+                    .on_press(MainMessage::CloseSettings.into())  
+                    .padding(10)
+            ]
+            .spacing(10)
+        )
+        .align_right(Length::Fill)
     ].into()
 }
 
@@ -282,20 +298,24 @@ fn customize_settings(_app: &crate::App) -> Element<'_, Message> {
 }
 
 fn steam_settings(app: &crate::App) -> Element<'_, Message> {
-    let mut cache_button =  Button::new(text("Update Game Cache"))
-        .padding(8);
-    if !app.is_caching_in_progress {
-        cache_button = cache_button
-           .on_press(MainMessage::UpdateCache.into())
-    } 
+    let cache_loading = text_loading_indicator("Retrieve games to cache", app.caching_loading_frame, LOADING_FRAMES_SIZE);
 
-    let content = column![
+    let cache_button_with_msg = if !app.is_caching_in_progress {
         row![
-            Checkbox::new(app.reveal_sensitive_data)
-                .label("Reveal sensitive data")
-                .on_toggle(|toggle| MainMessage::ToggleSensitiveData(toggle).into())
-                .spacing(10)
-        ].padding(10),
+            Button::new(text("Update Game Cache"))
+                .on_press(MainMessage::UpdateCache.into())
+                .padding(8)
+        ]
+    } else {
+        row![
+            Button::new(text("Update Game Cache"))
+                .padding(8),
+            cache_loading
+        ]
+        .spacing(10)
+    };
+
+    let content = column![  
         column![
             text("Steam API key"),
             if app.reveal_sensitive_data {
@@ -307,25 +327,33 @@ fn steam_settings(app: &crate::App) -> Element<'_, Message> {
                 TextInput::new("Enter Steam API key", &app.steam_api_key)
                     .padding(5)
                     .width(Length::Fill)
-            }
+            },
+            Checkbox::new(app.reveal_sensitive_data)
+                .label("Reveal sensitive data")
+                .on_toggle(|toggle| MainMessage::ToggleSensitiveData(toggle).into())
+                .spacing(10)
         ]
         .spacing(4),
-        row![
-            cache_button,
-            text("[Placeholder for cache update status]")
-        ]
-        .spacing(10)
+        cache_button_with_msg,
     ]
     .spacing(12);
 
     let scrollable_content = Scrollable::new(content).height(Length::Fill);
 
     column![
-        text("Steam Settings").size(18),
         scrollable_content
             .height(Length::Fill),
-        Button::new(text("Save Settings"))
-            .on_press(MainMessage::SaveSettings.into())
-            .padding(10),
+        container(
+            row![
+                Button::new(text("Save"))
+                    .on_press(MainMessage::SaveSettings.into())
+                    .padding(10),
+                Button::new(text("Close"))
+                    .on_press(MainMessage::CloseSettings.into())  
+                    .padding(10)
+            ]
+            .spacing(10)
+        )
+        .align_right(Length::Fill)
     ].into()
 }

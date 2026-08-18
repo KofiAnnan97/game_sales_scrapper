@@ -67,6 +67,7 @@ pub enum PreviewMessage {
     // Message(s) to communicate up to App
     Exit,
     SendEmail,
+    GetEmailResult(String, String),
     SendLogEvent,
     OpenEmailSettings,
     HideDialog,
@@ -264,6 +265,12 @@ impl PreviewView {
             PreviewMessage::SendLogEvent => Task::none(),
             PreviewMessage::Exit => Task::none(),
             PreviewMessage::SendEmail => Task::none(),
+            PreviewMessage::GetEmailResult(level, msg) => {
+                self.status_message = level;
+                self.message_details = msg;
+                self.show_dialog = true;
+                Task::none()
+            }
             PreviewMessage::OpenEmailSettings => Task::none(),
         }
     }
@@ -352,9 +359,9 @@ impl PreviewView {
             //     sales_rows = sales_rows.push(game_sale_row(sale, idx));
             // }
             //}
-            for idx in &self.filtered_sale_idxs {
-                let sale = &self.sales_cache.store_sales[*idx];
-                sales_rows = sales_rows.push(game_sale_row(sale,*idx));
+            for (i, sale_idx) in self.filtered_sale_idxs.iter().enumerate() {
+                let sale = &self.sales_cache.store_sales[*sale_idx];
+                sales_rows = sales_rows.push(game_sale_row(sale, i));
             }
         }
 
@@ -575,7 +582,7 @@ impl PreviewView {
             self.filtered_sale_idxs = (0..self.sales_cache.store_sales.len()).collect();
         } else {
             self.log_msg = message_builder(
-                &format!("Apply Filters -( {}, {}, {})", &store_filter_type, &price_filter_type, &sort_filter_type), 
+                &format!("Sales Preview - applying the following filters: {}, {}, {}", &store_filter_type, &price_filter_type, &sort_filter_type), 
                 LogLevel::DEBUG
             );
             let mut filtered_idxs = store_filter(&self.sales_cache.store_sales, store_filter_type);

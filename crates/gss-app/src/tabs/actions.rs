@@ -5,7 +5,6 @@ use files::general;
 
 use crate::components::custom_widgets as cw;
 use crate::{LOADING_FRAMES_SIZE, MainMessage, Message, STATUS_ERR};
-// use crate::utils::log_utils;
 
 pub enum ActionDisplayed{
     NoAction,
