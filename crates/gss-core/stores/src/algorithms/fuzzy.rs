@@ -120,7 +120,7 @@ pub fn smith_waterman(query: &str, reference: &str) -> f32 {
 
     let mut max_score = 0;
     #[allow(unused_variables)]
-    let mut max_pos = (0, 0);
+    let mut _max_pos = (0, 0);
 
     let query_chars: Vec<char> = query.chars().collect();
     let reference_chars: Vec<char> = reference.chars().collect();
@@ -146,15 +146,15 @@ pub fn smith_waterman(query: &str, reference: &str) -> f32 {
 
             if cmp_matrix[i][j] > max_score {
                 max_score = cmp_matrix[i][j];
-                max_pos = (i, j);
+                _max_pos = (i, j);
             }
         }
     }
     
     #[cfg(test)]
-    println!("{:?}", max_pos);
+    println!("{:?}", _max_pos);
     #[cfg(test)]
-    let alignments = sw_traceback(&query_chars, &reference_chars, &max_pos, match_score, gap_penalty, &cmp_matrix);
+    let alignments = sw_traceback(&query_chars, &reference_chars, &_max_pos, match_score, gap_penalty, &cmp_matrix);
     #[cfg(test)]
     print_digit_matrix("Smith–Waterman Matrix:", query, reference, &cmp_matrix);
     #[cfg(test)]

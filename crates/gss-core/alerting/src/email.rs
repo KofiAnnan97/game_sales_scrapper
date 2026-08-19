@@ -2,7 +2,7 @@ use lettre::{Message, SmtpTransport, Transport};
 use lettre::message::{MultiPart, SinglePart};
 use lettre::transport::smtp::authentication::{Credentials, Mechanism};
 
-use structs::internal::data::SaleInfo;
+use types::internal::data::SaleInfo;
 use properties;
 use constants::operations::settings::{STEAM_STORE_NAME, GOG_STORE_NAME, MICROSOFT_STORE_NAME}; 
 use constants::operations::properties::{PROP_RECIPIENT_EMAIL, PROP_SMTP_HOST, PROP_SMTP_PORT, 
@@ -148,7 +148,7 @@ pub fn create_html_body(sales_info_html: &str) -> String {
     html_body
 }
 
-pub fn send_html_msg(recipient: &str, subject: &str, body: &str) {
+pub fn send_html_msg(recipient: &str, subject: &str, body: &str) -> Result<String, String>{
     let smtp_host = properties::get_smtp_host();
     let smtp_port : u16 = properties::get_smtp_port();
     let smtp_email = properties::get_smtp_email();
@@ -174,7 +174,7 @@ pub fn send_html_msg(recipient: &str, subject: &str, body: &str) {
         .build();
 
     match mailer.send(&email) {
-        Ok(_) => println!("Email sent successfully"),
-        Err(e) => eprintln!("Failed to send email: {e}"),
+        Ok(_) => Ok("Email send attempt completed successfully".into()),
+        Err(e) => Err(format!("Failed to send email - {}", e)),
     }
 }

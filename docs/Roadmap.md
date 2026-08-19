@@ -8,17 +8,37 @@
     - [X] Only show sensitive passwords when requested by user.
     - [ ] Deteremine if defaulting the path should be in getters for project and test path if properties and dot env file have an invalid/empty path
   - Application
-    - [ ] Add custom theme setup for user customization
-    - [ ] Add interface from custom email cron jobs (Windows and Linux). Might need to rework the current setup.
-    - [ ] Log filtering by all, lowest severity, and exact match when displayed (move to separate window)
-      - [ ] include the ability to prune logs
     - [X] Update check price display to look more modern
-      - [X] Make style similar to modernize email design (including image) 
+      - [X] Make style similar to updated email design (including image) 
       - [X] User can copy store page link to clipboard
-      - [X] Notiify user that copy to clipboard was successful
-    - [x] In window overlay when settings are saved successfully before settings are closed
-    - [ ] Only update settings if needed (currently always update)
-    - [ ] Add auto advance to the next store as a toggable option when a radial button is selected
+      - [X] Noitify user that copy to clipboard was successful
+    - [x] In window overlay presented to user when settings are saved successfully before settings are closed
+    - [ ] Implement Sales Preview Window
+      - [X] Move Check Price and Send Email functionality here 
+        - [X] Propagate send email error to app for message dialog
+      - [X] Link/create to email settings
+      - [X] Add a compare stores checkbox that restructures the sales data to compare prices between stores (highlight the ones with the lowest price unless all options are the same)
+      - [X] Add filter for sales based on store and price
+      - [X] Add sort functionality by price and title
+    - [ ] Implement a logging window (separate from Actions Tab)
+      - [ ] Filtering logs by all, lowest severity, and exact match when displayed (move to separate window)
+      - [ ] include the ability to prune logs
+    - [ ] Implement support for multiple closable views (i.e. opening settings then sales preview should result in two closable views) 
+    - [X] Settings are saved based on the page displayed
+    - New Features
+      - [ ] Add auto advance to the next store as a toggable option when a radial button is selected
+      - [ ] User customization
+        - [ ] Alow for custom color theme
+        - [ ] Add default options
+        - [ ] Update settings.json to include app.default_theme
+        - [ ] Create a new file called themes.json for user created themes
+      - [ ] Implement Alert Tab
+        - [ ] Move email settings in the Alert Settings sub menu
+        - [ ] Add interface from custom email cron jobs (Windows and Linux). Might need to rework the current setup.
+        - [ ] User modifiable schedule
+        - [ ] Update settings for alerts
+        - [ ] Check past runs (may need to added later on)
+        - [ ] In settings allow the user to send a test alert to confirm that the configuration works
 - Bugs/Fixes
   - General
     - [X] Added custom error handling for api calls
@@ -26,9 +46,15 @@
   - Application
     - [ ] Fix logic to support updating log file when application is prompted to close
     - [X] Fix store search to filter out any game with no price
+    - [ ] Only update settings if needed (currently always update)
+    - Add message dialog for the following 
+      - [X] Game cache cannot be updated
+      - [X] Checking pricing fails
+      - [ ] Calling storefronts fails  
 - Testing:
   - [ ] Add caching to Github actions
-
+  - [ ] Update each test to do clean up before execution. If one test fails that temp environment might cause other tests to fail. 
+ 
 ### Backlog
 - Features/Updates
   - General

@@ -31,8 +31,8 @@ async fn get_price_info() {
     match steam::get_price_details(GAME_ID, &client).await {
         Ok(info) => {
             assert_eq!(info.title, GAME_TITLE, "{} != {}", info.title, GAME_TITLE);
-            assert_ne!("", info.original_price, "Original price field is empty");
-            assert_ne!("", info.current_price, "Current price field is empty");
+            assert_ne!(f64::MAX, info.original_price, "Original price field is empty");
+            assert_ne!(f64::MAX, info.current_price, "Current price field is empty");
             assert_ne!("", info.discount_percentage, "Discount % field is empty");
             assert_ne!("", info.icon_link, "Icon link field is empty");
             //assert_ne!("", info.store_page_link, "Store page link field is empty");

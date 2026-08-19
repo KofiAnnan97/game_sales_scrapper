@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use file_ops::thresholds;
-use structs::{
+use types::{
     internal::data::GameThreshold, 
     response::{
         gog::{BaseMoney, FinalMoney, GameInfo as GOGGame, GameInfoBuilder as GOGGameBuilder, Price}, 

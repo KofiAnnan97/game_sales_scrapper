@@ -3,8 +3,7 @@ use std::io::Write;
 use std::process::{Command, Stdio};
 use regex::Regex;
 
-use file_ops::settings;
-use constants::operations::settings::{GOG_STORE_ID, MICROSOFT_STORE_ID, STEAM_STORE_ID};
+use types::internal::store::GameStore;
 // use constants::stores::microsoft_store::BASE_URL as MS_BASE_URL;
 // use stores::pc::microsoft_store::{self, MockMicrosoftStoreApi};
 // use stores::pc::gog::MockGogApi;
@@ -32,7 +31,7 @@ fn setup(){
 fn config_cmd() {
     setup();
     let _ = Command::new("cargo")
-        .args(["run","--release","-p","gss-cli","--","config","settings","-s","-g","-e","0"])
+        .args(["run","--profile","ci","-p","gss-cli","--","config","settings","-s","-g","-e","0"])
         .output()
         .expect("failed to execute process");
     let stores = file_operations::load_stores();
@@ -41,9 +40,9 @@ fn config_cmd() {
     let mut ms_present = false;
     //println!("{:?}", stores);
     for store_name in stores {
-        if store_name == STEAM_STORE_ID { steam_present = true; }
-        else if store_name == GOG_STORE_ID { gog_present = true; }
-        else if store_name == MICROSOFT_STORE_ID { ms_present = true; }
+        if store_name == GameStore::STEAM.get_id() { steam_present = true; }
+        else if store_name == GameStore::GOOD_OLD_GAMES.get_id(){ gog_present = true; }
+        else if store_name == GameStore::MICROSOFT_STORE_PC.get_id() { ms_present = true; }
     }
     assert_eq!(true, steam_present, "Steam should be a selected store");
     assert_eq!(true, gog_present, "Gog should be a selected store");
@@ -70,7 +69,7 @@ async fn add_cmd() {
 
     // Update settings
     let _ = Command::new("cargo")
-        .args(["run","--release","-p","gss-cli","--","config","settings","-a","-e","1"])
+        .args(["run","--profile","ci","-p","gss-cli","--","config","settings","-a","-e","1"])
         .output()
         .expect("failed to execute proces");
 
@@ -102,7 +101,7 @@ async fn bulk_insert_cmd() {
 
     // Update settings
     let _ = Command::new("cargo")
-        .args(["run","release","-p","gss-cli","--","config","settings","-a","-e","0"])
+        .args(["run","--profile","ci","-p","gss-cli","--","config","settings","-a","-e","0"])
         .output()
         .expect("failed to execute proces");
 
@@ -130,11 +129,11 @@ fn update_price_cmd() {
     let alias = "ASG";
     let price = 69.99;
     command_stubs::add_fake_threshold(alias, title, price);
-    
+
     // update threshold using game title
     let mut new_price = "19.99";
     let _ = Command::new("cargo")
-        .args(["run","--release","-p","gss-cli","--","update","price","-t",title,"-p",new_price])
+        .args(["run","--profile","ci","-p","gss-cli","--","update","price","-t",title,"-p",new_price])
         .output()
         .expect("failed to execute process");
     let mut thresholds = file_operations::load_thresholds();
@@ -145,7 +144,7 @@ fn update_price_cmd() {
     // update price using fuzzy matching
     new_price = "24.99";
     let mut fuzzy_output = Command::new("cargo")
-        .args(["run","--release","-p","gss-cli","--","update","price","-t",&title[0..title.len()-2],"-p",new_price])
+        .args(["run","--profile","ci","-p","gss-cli","--","update","price","-t",&title[0..title.len()-2],"-p",new_price])
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
@@ -165,7 +164,7 @@ fn update_price_cmd() {
     // update price using alias
     new_price = "34.99";
     let _ = Command::new("cargo")
-        .args(["run","--release","-p","gss-cli","--","update","price","-t",alias,"-p",new_price])
+        .args(["run","--profile","ci","-p","gss-cli","--","update","price","-t",alias,"-p",new_price])
         .output()
         .expect("failed to execute process");
     thresholds = file_operations::load_thresholds();
@@ -182,10 +181,10 @@ fn update_alias_cmd() {
     let price = 69.99;
     let mut new_alias = "New ASG";
     command_stubs::add_fake_threshold(alias, title, price);
-    
+
     // update threshold alias using game title
     let _ = Command::new("cargo")
-        .args(["run","--release","-p","gss-cli","--","update","alias","-t",title,"-a",new_alias])
+        .args(["run","--profile","ci","-p","gss-cli","--","update","alias","-t",title,"-a",new_alias])
         .output()
         .expect("failed to execute process");
     let mut thresholds = file_operations::load_thresholds();
@@ -196,7 +195,7 @@ fn update_alias_cmd() {
     // update threshold alias using fuzzy matching
     new_alias = "New New Alias";
     let mut fuzzy_output = Command::new("cargo")
-        .args(["run","--release","-p","gss-cli","--","update","alias","-t",&title[0..title.len()-2],"-a",new_alias])
+        .args(["run","--profile","ci","-p","gss-cli","--","update","alias","-t",&title[0..title.len()-2],"-a",new_alias])
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
@@ -224,7 +223,7 @@ fn remove_cmd() {
 
     // Remove threshold by title
     let _ = Command::new("cargo")
-        .args(["run","--release","-p","gss-cli","--","remove","-t", title])
+        .args(["run","--profile","ci","-p","gss-cli","--","remove","-t", title])
         .output()
         .expect("failed to execute process");
     let mut thresholds = file_operations::load_thresholds();
@@ -233,7 +232,7 @@ fn remove_cmd() {
     // Remove threshold using fuzzy matching
     command_stubs::add_fake_threshold(alias, title, price);
     let mut fuzzy_output = Command::new("cargo")
-        .args(["run","--release","-p","gss-cli","--","remove","-t", &title[0..title.len()-2]])
+        .args(["run","--profile","ci","-p","gss-cli","--","remove","-t", &title[0..title.len()-2]])
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
@@ -252,7 +251,7 @@ fn remove_cmd() {
     // Remove threshold by alias
     command_stubs::add_fake_threshold(alias, title, price);
     let _ = Command::new("cargo")
-        .args(["run","--release","-p","gss-cli","--","remove","-t", alias])
+        .args(["run","--profile","ci","-p","gss-cli","--","remove","-t", alias])
         .output()
         .expect("failed to execute process");
     thresholds = file_operations::load_thresholds();
@@ -264,12 +263,12 @@ fn remove_cmd() {
 fn list_selected_stores_cmd() {
     setup();
     let _ = Command::new("cargo")
-        .args(["run","--release","-p","gss-cli","--","config","settings","-m"])
+        .args(["run","--profile","ci","-p","gss-cli","--","config","settings","-m"])
         .output()
         .expect("failed to execute process");
 
     let ss_out = Command::new("cargo")
-        .args(["run","--release","-p","gss-cli","--","--list-selected-stores", "--test_flag"])
+        .args(["run","--profile","ci","-p","gss-cli","--","--list-selected-stores", "--test_flag"])
         .output()
         .expect("failed to execute process");
     println!("{:?}", ss_out);
@@ -280,9 +279,9 @@ fn list_selected_stores_cmd() {
         results.push((choice, store_name));
     }
     let expected = vec![
-        (" ", settings::get_proper_store_name(STEAM_STORE_ID).unwrap()),
-        (" ", settings::get_proper_store_name(GOG_STORE_ID).unwrap()),
-        ("X", settings::get_proper_store_name(MICROSOFT_STORE_ID).unwrap()),
+        (" ", GameStore::STEAM.get_name()),
+        (" ", GameStore::GOOD_OLD_GAMES.get_name()),
+        ("X", GameStore::MICROSOFT_STORE_PC.get_name()),
     ];
     for result in results {
         let idx = expected.iter().position(|threshold| result.1 == threshold.1);
@@ -305,7 +304,7 @@ fn list_thresholds_cmd() {
     command_stubs::add_fake_threshold(alias, title, price);
 
     let lt_out = Command::new("cargo")
-        .args(["run","--release","-p","gss-cli","--","--list-thresholds"])
+        .args(["run","--profile","ci","-p","gss-cli","--","--list-thresholds"])
         .output()
         .expect("failed to execute process");
     println!("{:?}", lt_out);
@@ -343,7 +342,7 @@ async fn check_prices() {
     //     .withf(|xbox_id| xbox_id == E33_MS_ID)
     //     .return_once(|_| Some(command_stubs::get_ms_price_check(E33_GAME_TITLE, 9999.99, 9.99)));
     let cp_out = Command::new("cargo")
-        .args(["run","--release","-p","gss-cli","--","--check-prices"])
+        .args(["run","--profile","ci","-p","gss-cli","--","--check-prices"])
         .output()
         .expect("failed to execute process");
     println!("{:?}", cp_out);
@@ -351,19 +350,19 @@ async fn check_prices() {
     let lines = output.split("\n").collect::<Vec<&str>>();
     let mut curr_store = "";
     let mut games_by_store: HashMap<&str, Vec<&str>> = HashMap::new();
-    let steam_proper = settings::get_proper_store_name(STEAM_STORE_ID).unwrap();
-    games_by_store.insert(&steam_proper, Vec::new());
-    let gog_proper = settings::get_proper_store_name(GOG_STORE_ID).unwrap();
-    games_by_store.insert(&gog_proper, Vec::new());
-    let ms_proper = settings::get_proper_store_name(MICROSOFT_STORE_ID).unwrap();
-    games_by_store.insert(&ms_proper, Vec::new());
+    let steam_name = GameStore::STEAM.get_name();
+    games_by_store.insert(steam_name, Vec::new());
+    let gog_name = GameStore::GOOD_OLD_GAMES.get_name();
+    games_by_store.insert(gog_name, Vec::new());
+    let ms_name = GameStore::MICROSOFT_STORE_PC.get_name();
+    games_by_store.insert(ms_name, Vec::new());
 
     let re = Regex::new(PRICE_CHECK_PTRN).unwrap();
 
     for i in 3..lines.len() {
-        if lines[i].contains(&steam_proper) { curr_store = &steam_proper; }
-        else if lines[i].contains(&gog_proper) { curr_store = &gog_proper; }
-        else if lines[i].contains(&ms_proper) { curr_store = &ms_proper; }
+        if lines[i].contains(steam_name) { curr_store = steam_name; }
+        else if lines[i].contains(gog_name) { curr_store = gog_name; }
+        else if lines[i].contains(ms_name) { curr_store = ms_name; }
         else if lines[i].is_empty() { continue; }
         else{
             for(_, [game_title]) in re.captures_iter(lines[i]).map(|c| c.extract() ){
@@ -376,19 +375,19 @@ async fn check_prices() {
     // print!("Games by store:{:?}", games_by_store);
 
     let expected = HashMap::from([
-        (steam_proper.as_str(), vec![E33_GAME_TITLE]),
-        (gog_proper.as_str(), vec![E33_GAME_TITLE]),
-        (ms_proper.as_str(), vec![E33_GAME_TITLE]),
+        (steam_name, vec![E33_GAME_TITLE]),
+        (gog_name, vec![E33_GAME_TITLE]),
+        (ms_name, vec![E33_GAME_TITLE]),
     ]);
 
-    let mut expected_title = expected.get(steam_proper.as_str()).unwrap()[0];
-    let mut actual_title = games_by_store.get(steam_proper.as_str()).unwrap()[0];
-    assert_eq!(expected_title, actual_title, "{} -> Game title should be {} not {}", steam_proper, expected_title, actual_title);
-    expected_title = expected.get(gog_proper.as_str()).unwrap()[0];
-    actual_title = games_by_store.get(gog_proper.as_str()).unwrap()[0];
-    assert_eq!(expected_title, actual_title, "{} -> Game title should be {} not {}", gog_proper, expected_title, actual_title);
-    expected_title = expected.get(ms_proper.as_str()).unwrap()[0];
-    actual_title = games_by_store.get(ms_proper.as_str()).unwrap()[0];
-    assert_eq!(expected_title, actual_title, "{} -> Game title should be {} not {}", ms_proper, expected_title, actual_title);
+    let mut expected_title = expected.get(steam_name).unwrap()[0];
+    let mut actual_title = games_by_store.get(steam_name).unwrap()[0];
+    assert_eq!(expected_title, actual_title, "{} -> Game title should be {} not {}", steam_name, expected_title, actual_title);
+    expected_title = expected.get(gog_name).unwrap()[0];
+    actual_title = games_by_store.get(gog_name).unwrap()[0];
+    assert_eq!(expected_title, actual_title, "{} -> Game title should be {} not {}", gog_name, expected_title, actual_title);
+    expected_title = expected.get(ms_name).unwrap()[0];
+    actual_title = games_by_store.get(ms_name).unwrap()[0];
+    assert_eq!(expected_title, actual_title, "{} -> Game title should be {} not {}", ms_name, expected_title, actual_title);
     file_operations::teardown();
 }

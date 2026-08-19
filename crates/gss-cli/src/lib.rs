@@ -1,15 +1,14 @@
 use std::io::{self, Write};
 
-use constants::operations::settings::{GOG_STORE_ID, MICROSOFT_STORE_ID, STEAM_STORE_ID};
 use constants::stores::gog::VERSION as GOG_VERSION;
 use stores::pc::{steam, gog, microsoft_store};
 use alerting::email;
 use file_ops::{settings, thresholds};
-use structs::internal::data::{SaleInfo};
-use structs::response::gog::{GameInfo as GOGGameInfo};
-use structs::response::microsoft_store::ProductInfo;
+use types::internal::{data::SaleInfo, store::GameStore};
+use types::response::gog::{GameInfo as GOGGameInfo};
+use types::response::microsoft_store::ProductInfo;
 
-pub fn storefront_check() -> Vec<String> {
+pub fn storefront_check() -> Vec<GameStore> {
     let selected_stores = settings::get_selected_stores();
     if selected_stores.len() == 0 {
         panic!("Please configure which stores to query. Run \'game_sales_scrapper config --help\' for more info.");
@@ -42,8 +41,7 @@ pub async fn check_prices(use_html: bool) -> String {
         if elem.steam_id != 0 {
             match steam::get_price_details(elem.steam_id, &http_client).await {
                 Ok(info) => {
-                    let current_price = info.current_price.parse::<f64>().unwrap();
-                    if elem.desired_price >= current_price {
+                    if elem.desired_price >= info.current_price {
                         steam_sales.push(info);
                     }
                 },
@@ -68,8 +66,7 @@ pub async fn check_prices(use_html: bool) -> String {
             else if GOG_VERSION == 2{
                 match gog::get_price_details_v2(&elem.title, &http_client).await {
                     Some(info) => {
-                        let current_price = info.current_price.parse::<f64>().unwrap();
-                        if elem.desired_price >= current_price {
+                        if elem.desired_price >= info.current_price {
                             gog_sales.push(info);
                         }
                     },
@@ -80,8 +77,7 @@ pub async fn check_prices(use_html: bool) -> String {
         if !elem.microsoft_store_id.is_empty() {
             match microsoft_store::get_price_details(&elem.microsoft_store_id, &http_client).await {
                 Some(info) => {
-                    let current_price = info.current_price.parse::<f64>().unwrap();
-                    if elem.desired_price >= current_price {
+                    if elem.desired_price >= info.current_price {
                         microsoft_store_sales.push(info);
                     }
                 },
@@ -90,19 +86,19 @@ pub async fn check_prices(use_html: bool) -> String {
         }
     }
     if !steam_sales.is_empty(){
-        let store_name = settings::get_proper_store_name(STEAM_STORE_ID).unwrap();
+        let store_name = GameStore::STEAM.get_name();
         if use_html { output.push_str(&email::create_store_cards(&store_name, steam_sales)); }
-        else { output.push_str(&get_simple_prices_str(&store_name, steam_sales)); }
+        else { output.push_str(&get_simple_prices_str(store_name, steam_sales)); }
     }
     if !gog_sales.is_empty(){
-        let store_name = settings::get_proper_store_name(GOG_STORE_ID).unwrap();
+        let store_name = GameStore::GOOD_OLD_GAMES.get_name();
         if use_html { output.push_str(&email::create_store_cards(&store_name, gog_sales)); }
-        else { output.push_str(&get_simple_prices_str(&store_name, gog_sales)); }
+        else { output.push_str(&get_simple_prices_str(store_name, gog_sales)); }
     }
     if !microsoft_store_sales.is_empty(){
-        let store_name = settings::get_proper_store_name(MICROSOFT_STORE_ID).unwrap();
+        let store_name = GameStore::MICROSOFT_STORE_PC.get_name();
         if use_html { output.push_str(&email::create_store_cards(&store_name, microsoft_store_sales)); }
-        else{ output.push_str(&get_simple_prices_str(&store_name, microsoft_store_sales)); }
+        else{ output.push_str(&get_simple_prices_str(store_name, microsoft_store_sales)); }
     }
     output
 }

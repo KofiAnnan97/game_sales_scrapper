@@ -2,7 +2,7 @@ use std::fs::File;
 use std::io::Read;
 use std::error::Error;
 
-use structs::internal::data::SimpleGameThreshold;
+use types::internal::data::SimpleGameThreshold;
 use crate::general;
 
 pub fn parse_game_prices_from_path(file_path: &str) -> Result<Vec<SimpleGameThreshold>, Box<dyn Error>>{

@@ -4,8 +4,8 @@ use serde::{Deserialize, Serialize};
 pub struct SaleInfo{
     pub icon_link: String,
     pub title: String,
-    pub original_price: String,
-    pub current_price: String,
+    pub original_price: f64,
+    pub current_price: f64,
     pub discount_percentage: String,
     pub store_page_link: String,
 }

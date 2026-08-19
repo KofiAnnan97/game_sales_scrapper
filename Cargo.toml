@@ -2,22 +2,30 @@
 resolver = "3"
 members = [
     "crates/gss-core/constants",
-    "crates/gss-core/structs",
-    "crates/gss-core/file_types",
+    "crates/gss-core/types",
+    "crates/gss-core/errors", 
+    "crates/gss-core/files",
     "crates/gss-core/properties",
     "crates/gss-core/file_ops",
     "crates/gss-core/stores",
     "crates/gss-core/alerting", 
-    "crates/gss-core/errors", 
     "crates/gss-app",
     "crates/gss-cli", 
     "crates/gss-tests"
 ]
 
 [workspace.package]
-version = "0.3.0"
+version = "0.3.1-beta"
 authors = ["Elinam Gbordzoe <elinamgbordzoe@gmail.com>"]
 edition = "2024"
+
+[profile.ci]
+inherits = "release"
+debug = "line-tables-only"
+opt-level = 3
+lto = false
+codegen-units = 16
+strip = "symbols"
 
 [workspace.dependencies]
 reqwest = { version = "0.12.15", features = ["json", "blocking", "cookies"] }

@@ -1,5 +1,5 @@
 [package]
-name = "file_types"
+name = "files"
 version.workspace = true
 authors.workspace = true
 edition.workspace = true
@@ -10,7 +10,7 @@ test = false
 
 [dependencies]
 # Internal crates
-structs = { path = "../structs" }
+types = { path = "../types" }
 
 # External crates
 csv.workspace = true

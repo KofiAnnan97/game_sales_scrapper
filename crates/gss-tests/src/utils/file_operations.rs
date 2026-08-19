@@ -2,14 +2,16 @@ use std::fs::{metadata, read_to_string};
 use std::path::{Path, PathBuf};
 use serde_json::{json, Result, Value};
 use properties;
-use file_types::general;
-use structs::internal::data::{GameThreshold};
+use files::general;
+use types::{
+    internal::data::GameThreshold,
+    response::steam::App
+};
 use constants::operations::thresholds::{ALIAS_MAP, THRESHOLDS, THRESHOLD_FILENAME};
 use constants::operations::settings::{ALIASES_ENABLED, ALLOW_ALIAS_REUSE_AFTER_CREATION, 
                                       SELECTED_STORES, SETTINGS_FILENAME};
 use constants::operations::properties::*;
 use constants::stores::steam::{CACHE_FILENAME};
-use structs::response::steam::App;
 
 pub fn get_data_path() -> String {
     if !properties::is_testing_enabled() { properties::set_test_mode(true); }

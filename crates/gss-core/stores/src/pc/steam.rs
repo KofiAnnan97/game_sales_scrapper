@@ -5,15 +5,15 @@ use std::fs::read_to_string;
 use regex::Regex;
 use std::io::{self, Write};
 use std::path::PathBuf;
-use mockall::automock;
+// use mockall::automock;
 use async_trait::async_trait;
 use tokio::time::{Duration};
 
-use file_types::general;
+use files::general;
 use properties;
 use constants::operations::properties::PROP_STEAM_API_KEY;
-use structs::internal::data::SaleInfo;
-use structs::response::steam::{App, AppDetails, PriceOverview};
+use types::internal::data::SaleInfo;
+use types::response::steam::{App, AppDetails, PriceOverview};
 use constants::stores::steam::*;
 use constants::operations::thresholds::{LEVENSTEIN_DIST_PERCENTAGE, SMITH_WATERMAN_DIST_PERCENTAGE};
 use errors::api::ApiError;
@@ -97,7 +97,7 @@ impl SteamApi for SteamClient {
     async fn search_by_keyphrase(&self, keyphrase: &str) -> Result<Vec<String>, ApiError> {
         let mut games_list : Vec<App> = load_cached_games().unwrap_or_default();
         if games_list.len() == 0 {
-            update_cached_games().await;
+            let _ = update_cached_games().await;
             games_list = load_cached_games().unwrap_or_default();
         }
         let mut search_list : Vec<String> = Vec::new();
@@ -153,7 +153,7 @@ impl SteamApi for SteamClient {
     async fn check_game(&self, name: &str) -> Option<App> {
         let mut games_list : Vec<App> = load_cached_games().unwrap_or_default();
         if games_list.is_empty() {
-            update_cached_games().await;
+            let _  = update_cached_games().await;
             games_list = load_cached_games().unwrap_or_default();
         }
         for elem in games_list.iter(){
@@ -203,8 +203,8 @@ impl SteamApi for SteamClient {
                         Ok(SaleInfo{
                             icon_link: data.header_image,
                             title: data.name,
-                            original_price: format!("{}", price_overview.initial/100.0),
-                            current_price: format!("{}", price_overview.final_price/100.0),
+                            original_price: price_overview.initial/100.0,
+                            current_price: price_overview.final_price/100.0,
                             discount_percentage: format!("{}", price_overview.discount_percent),
                             store_page_link: format!("{}{}", STORE_PAGE_URL, app_id),
                         })
@@ -277,30 +277,35 @@ fn add_entries_to_cache(new_games: &mut Vec<App>, cached_games: &mut Vec<App>){
     new_games.clear();
 }
 
-pub async fn update_cached_games(){
+// Updated to return a boolean and propgate error
+pub async fn update_cached_games() -> Result<String, ApiError>{
     let client = reqwest::Client::new();
     let mut games_list : Vec<App> = load_cached_games().unwrap_or_default();
     let last_appid = get_last_appid(&games_list);
-    let mut temp : Vec<App> = get_games(&client, NUM_OF_RESULTS, last_appid).await.unwrap_or_default();
+    let mut temp : Vec<App> = get_games(&client, NUM_OF_RESULTS, last_appid).await?;
     add_entries_to_cache(&mut temp, &mut games_list);
     let sliding_last_appid = properties::get_sliding_steam_appid();
-    if sliding_last_appid < last_appid  && games_list.len() > SLIDING_UPDATE_START_SIZE {
-        temp = get_games(&client, NUM_OF_RESULTS, sliding_last_appid).await.unwrap_or_default();
-        properties::set_sliding_steam_appid(temp.last().unwrap().app_id);
+    if temp.is_empty() || (sliding_last_appid < last_appid  && games_list.len() > SLIDING_UPDATE_START_SIZE) {
+        temp = get_games(&client, NUM_OF_RESULTS, sliding_last_appid).await?;
+        if let Some(last_app) = temp.last() {
+            properties::set_sliding_steam_appid(last_app.app_id);
+        } else {
+            properties::set_sliding_steam_appid(0);
+        }
         add_entries_to_cache(&mut temp, &mut games_list);
     }
     else{ properties::set_sliding_steam_appid(0); }
     println!("Sorting entries...");
     games_list.sort_by(|a, b| a.app_id.cmp(&b.app_id));
-    let data_str = serde_json::to_string_pretty(&games_list).unwrap();
+    let data_str = serde_json::to_string_pretty(&games_list)?;
     general::write_to_file(get_cache_path(), data_str);
-    println!("Cache update complete")
+    Ok("Cache update complete".into())
 }
 
 // API Functions 
 async fn get_games(client: &reqwest::Client, max_results: u32, last_appid: u32) -> Result<Vec<App>, ApiError> {
     let steam_api_key = properties::get_steam_api_key(false);
-    if steam_api_key.is_empty() { panic!("Missing '{}' property.", PROP_STEAM_API_KEY) }
+    if steam_api_key.is_empty() { return Err(ApiError::Message(format!("Missing '{}' property.", PROP_STEAM_API_KEY))); }
     let query_string = [
         ("key", steam_api_key.as_str()),
         ("max_results", &max_results.to_string()),
@@ -315,10 +320,12 @@ async fn get_games(client: &reqwest::Client, max_results: u32, last_appid: u32) 
         .await?
         .text()
         .await?;
-    // println!("Response: {:?}", resp);
+    // println!("Response: {:?}", &resp);
     let body : Value = serde_json::from_str(&resp)?;
-    let app_list_str = serde_json::to_string(&body["response"]["apps"])?;
-    let app_list = serde_json::from_str::<Vec<App>>(&app_list_str)?;
+    let app_list = match body.get("response").and_then(|response| response.get("apps")) {
+        Some(apps) if !apps.is_null() => serde_json::from_value::<Vec<App>>(apps.clone())?,
+        _ => Vec::new(),
+    };
     Ok(app_list)
 }
 
@@ -338,7 +345,8 @@ async fn get_game_data(app_id : u32, client: &reqwest::Client) -> Result<AppDeta
         .await?;
 
     let body: Value = serde_json::from_str(&resp)?;
-    let game_by_app_id = body.get(&app_id.to_string()).ok_or(ApiError::Message(format!("")))?;
+    let game_by_app_id = body.get(&app_id.to_string())
+        .ok_or(ApiError::Message(format!("An error occurred trying to retrieve Steam app data.")))?;
     let game: AppDetails = AppDetails::deserialize(game_by_app_id)?;
     Ok(game)
 }

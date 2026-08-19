@@ -10,8 +10,8 @@ test = false
 
 [dependencies]
 #Internal crates
-structs = { path = "../structs" }
-file_types = { path = "../file_types" }
+types = { path = "../types" }
+files = { path = "../files" }
 properties = { path = "../properties" }
 constants = { path = "../constants" }
 errors = { path = "../errors" }

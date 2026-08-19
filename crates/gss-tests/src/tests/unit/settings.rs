@@ -1,10 +1,8 @@
 use std::collections::HashMap;
 use file_ops::settings;
-use constants::operations::settings::{STEAM_STORE_ID, STEAM_STORE_NAME,
-                                      GOG_STORE_ID, GOG_STORE_NAME,
-                                      MICROSOFT_STORE_ID, MICROSOFT_STORE_NAME,
-                                      ENABLED_STATE, DISABLED_STATE, DEFAULT_ALIAS_STATE};
+use constants::operations::settings::{ENABLED_STATE, DISABLED_STATE, DEFAULT_ALIAS_STATE};
 use properties;
+use types::internal::store::GameStore;
 use crate::utils::{tmp_setup};
 
 static TMP_DIR_TITLE : &str = "settings";
@@ -16,23 +14,17 @@ fn get_available_stores() {
 
     let available_stores = settings::get_available_stores();
     let mut all_stores_valid = true;
-    let mut invalid_store = "";
     for store in &available_stores {
-        if store.as_str() != STEAM_STORE_ID &&
-            store.as_str() != GOG_STORE_ID &&
-            store.as_str() != MICROSOFT_STORE_ID {
-            invalid_store = store.as_str();
+        if store != &GameStore::STEAM &&
+            store != &GameStore::GOOD_OLD_GAMES &&
+            store!= &GameStore::MICROSOFT_STORE_PC {
             all_stores_valid = false;
             break;
         }
     }
-    assert_eq!(true, all_stores_valid, "Could not find store: {}", invalid_store);
-    invalid_store = "fake_store";
-    for store in available_stores {
-        assert_ne!(store, invalid_store, "\'{}\' should not be a valid store", invalid_store);
-    }
+    assert_eq!(true, all_stores_valid, "One of the follow are not valid: {:?}", &available_stores);
 
-     _tmp_env.tear_down();
+    _tmp_env.tear_down();
 }
 
 #[test]
@@ -40,16 +32,12 @@ fn get_proper_store_name() {
     let _tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, Vec::new());
     let _ = properties::load_properties();
 
-    // Test valid store ids
-    let mut store_name = settings::get_proper_store_name(STEAM_STORE_ID).unwrap();
-    assert_eq!(STEAM_STORE_NAME, store_name, "{} != {}", store_name, STEAM_STORE_NAME);
-    store_name = settings::get_proper_store_name(GOG_STORE_ID).unwrap();
-    assert_eq!(GOG_STORE_NAME, store_name, "{} != {}", GOG_STORE_NAME, store_name);
-    store_name = settings::get_proper_store_name(MICROSOFT_STORE_ID).unwrap();
-    assert_eq!(MICROSOFT_STORE_NAME, store_name, "{} != {}", MICROSOFT_STORE_NAME, store_name);
-    // Test invalid store id
-    store_name = settings::get_proper_store_name("fake_store").unwrap_or_default();
-    assert_eq!("", store_name, "\'{}\' is not a valid store id", store_name);
+    let mut store_name = GameStore::STEAM.get_name();
+    assert_eq!("Steam", store_name, "{} != {}", store_name, "Steam");
+    store_name = GameStore::GOOD_OLD_GAMES.get_name();
+    assert_eq!("Good Old Games (GOG)", store_name, "{} != {}", "Good Old Games (GOG)", store_name);
+    store_name = GameStore::MICROSOFT_STORE_PC.get_name();
+    assert_eq!("Microsoft Store (PC)", store_name, "{} != {}", "Microsoft Store (PC)", store_name);
 
     _tmp_env.tear_down();
 }
@@ -59,21 +47,20 @@ fn get_selected_stores() {
     let _tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, Vec::new());
     let _ = properties::load_properties();
     
-    let stores = vec![String::from(STEAM_STORE_ID),
-                                  String::from(GOG_STORE_ID)];
+    let stores = vec![GameStore::STEAM, GameStore::GOOD_OLD_GAMES];
     settings::update_selected_stores(stores);
     let selected_stores = settings::get_selected_stores();
     let mut is_steam_selected = false;
     let mut is_gog_selected = false;
     let mut is_ms_store_selected = false;
     for store in &selected_stores {
-        if store == STEAM_STORE_ID { is_steam_selected = true }
-        else if store == GOG_STORE_ID { is_gog_selected = true }
-        if store == MICROSOFT_STORE_ID { is_ms_store_selected = true }
+        if store == &GameStore::STEAM { is_steam_selected = true }
+        else if store == &GameStore::GOOD_OLD_GAMES { is_gog_selected = true }
+        if store == &GameStore::MICROSOFT_STORE_PC { is_ms_store_selected = true }
     }
-    assert_eq!(true, is_steam_selected, "{} should be selected", STEAM_STORE_ID);
-    assert_eq!(true, is_gog_selected, "{} should be selected", GOG_STORE_ID);
-    assert_eq!(false, is_ms_store_selected, "{} should not be selected", MICROSOFT_STORE_ID);
+    assert_eq!(true, is_steam_selected, "{} should be selected", GameStore::STEAM);
+    assert_eq!(true, is_gog_selected, "{} should be selected", GameStore::GOOD_OLD_GAMES);
+    assert_eq!(false, is_ms_store_selected, "{} should not be selected", GameStore::MICROSOFT_STORE_PC);
     
     _tmp_env.tear_down();
 }
@@ -97,23 +84,22 @@ fn update_selected_stores() {
     let mut selected_stores = settings::get_selected_stores();
     assert_eq!(0, selected_stores.len(), "No stores should be selected by default");
     // Check that stores are added to settings
-    settings::update_selected_stores(vec![String::from(STEAM_STORE_ID),
-                                                      String::from(GOG_STORE_ID)]);
+    settings::update_selected_stores(vec![GameStore::STEAM,GameStore::GOOD_OLD_GAMES]);
     selected_stores = settings::get_selected_stores();
     assert_eq!(2, selected_stores.len(), "The number of selected stores should be 2 not {}", selected_stores.len());
-    assert_eq!(STEAM_STORE_ID, selected_stores[0], "\'{}\' != \'{}\'", STEAM_STORE_ID, selected_stores[0]);
-    assert_eq!(GOG_STORE_ID, selected_stores[1], "\'{}\' != \'{}\'", GOG_STORE_ID, selected_stores[1]);
+    assert_eq!(GameStore::STEAM, selected_stores[0], "\'{}\' != \'{}\'", GameStore::STEAM, selected_stores[0]);
+    assert_eq!(GameStore::GOOD_OLD_GAMES, selected_stores[1], "\'{}\' != \'{}\'", GameStore::GOOD_OLD_GAMES, selected_stores[1]);
     // Check that no duplicates exist
-    settings::update_selected_stores(vec![String::from(STEAM_STORE_ID),
-                                          String::from(STEAM_STORE_ID),
-                                          String::from(STEAM_STORE_ID),
-                                          String::from(GOG_STORE_ID),
-                                          String::from(GOG_STORE_ID),
-                                          String::from(MICROSOFT_STORE_ID)]);
+    settings::update_selected_stores(vec![GameStore::STEAM,
+                                                    GameStore::STEAM,
+                                                    GameStore::STEAM,
+                                                    GameStore::GOOD_OLD_GAMES,
+                                                    GameStore::GOOD_OLD_GAMES,
+                                                    GameStore::MICROSOFT_STORE_PC]);
     selected_stores = settings::get_selected_stores();
     let mut store_count : HashMap<String, i32> = HashMap::new();
     for store in selected_stores {
-        let val = store_count.entry(store.clone()).or_insert(0);
+        let val = store_count.entry(store.to_string()).or_insert(0);
         *val += 1;
     }
     let store_limit = 1;

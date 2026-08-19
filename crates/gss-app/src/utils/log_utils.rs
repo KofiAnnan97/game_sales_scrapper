@@ -4,16 +4,28 @@ use chrono::offset::Utc;
 use chrono::DateTime;
 use std::panic::PanicHookInfo;
 
-use file_types::general;
+use files::general;
 use constants::operations::logging::*;
 use properties::get_log_path;
 
+#[derive(Debug, Clone)]
 #[allow(dead_code)]
 pub enum LogLevel {
     DEBUG,
     WARN,
     INFO,
     ERROR
+}
+
+impl std::fmt::Display for LogLevel {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            LogLevel::DEBUG => write!(f, "DEBUG"),
+            LogLevel::WARN => write!(f, "WARN"),
+            LogLevel::INFO => write!(f, "INFO"),
+            LogLevel::ERROR => write!(f, "ERROR"),
+        }
+    }
 }
 
 pub static FATAL : &str = "FATAL";
@@ -34,14 +46,8 @@ pub fn new_log() -> String {
 pub fn message_builder(msg: &str, log_level: LogLevel) -> String {
     let dt: DateTime<Utc> = SystemTime::now().into();
     dt.format("%Y-%m-%d %H:%M:%S").to_string();
-
-    let log_level_str = match log_level {
-        LogLevel::DEBUG => "DEBUG",
-        LogLevel::WARN => "WARN",
-        LogLevel::INFO => "INFO",
-        LogLevel::ERROR => "ERR",
-    };
-    format!("{{ timestamp: \"{}\", level: \"{}\", message: \"{}\"}}\n", dt, log_level_str, msg)
+    let msg = format!("{{ timestamp: \"{}\", level: \"{}\", message: \"{}\"}}\n", dt, log_level, msg);
+    msg
 }
 
 pub fn fatal_message_builder(panic_info: &PanicHookInfo<'_>) -> String {
@@ -61,5 +67,6 @@ pub fn fatal_message_builder(panic_info: &PanicHookInfo<'_>) -> String {
         .map(|loc| format!("{}:{}:{}", loc.file(), loc.line(), loc.column()))
         .unwrap_or_else(|| String::from("Unknown location"));
 
-    format!("{{timestamp: \"{}\", level: \"{}\", message: \"Application panicked with \'{}\'\", location:\"{}\"}}\n", dt, FATAL, msg, location)
+    let msg = format!("{{timestamp: \"{}\", level: \"{}\", message: \"Application panicked with \'{}\'\", location:\"{}\"}}\n", dt, FATAL, msg, location);
+    msg
 }

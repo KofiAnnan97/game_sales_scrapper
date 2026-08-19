@@ -1,6 +1,6 @@
 use file_ops::{thresholds};
 use properties;
-use constants::operations::settings::{GOG_STORE_ID, MICROSOFT_STORE_ID, STEAM_STORE_ID};
+use types::internal::store::GameStore;
 use crate::stubs::threshold_stubs;
 use crate::utils::{tmp_setup};
 
@@ -168,8 +168,8 @@ fn update_id(){
     // Check that new store ids are successfully updated
     let new_steam_id = 333;
     let new_gog_id = 456;
-    thresholds::update_id(&game_title, STEAM_STORE_ID, new_steam_id);
-    thresholds::update_id(&game_title, GOG_STORE_ID, new_gog_id);
+    thresholds::update_id(&game_title, GameStore::STEAM, new_steam_id);
+    thresholds::update_id(&game_title, GameStore::GOOD_OLD_GAMES, new_gog_id);
     match thresholds::load_thresholds(){
         Ok(thresholds) => {
             assert_eq!(new_steam_id, thresholds[0].steam_id, "Steam ID should be \'{}\' not \'{}\'.", new_steam_id, thresholds[0].steam_id);
@@ -193,7 +193,7 @@ fn update_id_str(){
 
     // Check that new store ids are successfully updated
     let new_ms_id = "cba";
-    thresholds::update_id_str(&game_title, MICROSOFT_STORE_ID, new_ms_id);
+    thresholds::update_id_str(&game_title, GameStore::MICROSOFT_STORE_PC, new_ms_id);
     match thresholds::load_thresholds(){
         Ok(thresholds) => {
             assert_eq!(new_ms_id, thresholds[0].microsoft_store_id, "Microsoft Store ID should be \'{}\' not \'{}\'.", new_ms_id, thresholds[0].microsoft_store_id);

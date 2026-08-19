@@ -1,12 +1,12 @@
 use serde_json::{self, Value};
 use serde::Deserialize;
 use async_trait::async_trait;
-use mockall::automock;
+// use mockall::automock;
 use tokio::time::{Duration};
 use std::result::Result;
 
-use structs::internal::data::SaleInfo;
-use structs::response::microsoft_store::{ProductInfo, GameInfo};
+use types::internal::data::SaleInfo;
+use types::response::microsoft_store::{ProductInfo, GameInfo};
 use constants::stores::microsoft_store::*;
 use errors::api::ApiError;
 
@@ -92,8 +92,8 @@ impl MicrosoftStoreApi for MSClient{
             return Some(SaleInfo{
                 icon_link: game.box_icon_url.clone(),
                 title: game.title.clone(),
-                original_price: format!("{}", game.price_info.msrp.unwrap_or_default()),
-                current_price: format!("{}", game.price_info.price.unwrap_or_default()),
+                original_price: game.price_info.msrp.unwrap_or_else(|| f64::MIN),
+                current_price: game.price_info.price.unwrap_or_else(|| f64::MAX),
                 discount_percentage: discount_str,
                 store_page_link: game.redirect_url.unwrap_or_default(),
             });
@@ -114,8 +114,8 @@ impl MicrosoftStoreApi for MSClient{
                 return Some(SaleInfo{
                     icon_link: game.box_icon_url.clone(),
                     title: game.title.clone(),
-                    original_price: format!("{}", game.price_info.msrp.unwrap_or_default()),
-                    current_price: format!("{}", game.price_info.price.unwrap_or_default()),
+                    original_price: game.price_info.msrp.unwrap_or_else(|| f64::MIN),
+                    current_price: game.price_info.price.unwrap_or_else(|| f64::MAX),
                     discount_percentage: discount_str,
                     store_page_link: game.redirect_url.unwrap_or_default(),
                 });

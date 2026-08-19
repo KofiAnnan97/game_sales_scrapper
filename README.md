@@ -46,7 +46,11 @@ A tool that monitors multiple game storefronts and sends email alerts when a gam
         ```
         Set-ExecutionPolicy RemoteSigned
         ```
-8. [Optional] Run tests locally `cargo test -- --test-threads=1`
+8. [Optional] Run tests locally 
+```
+gss-cli properties -z 1
+cargo test -- --test-threads=1
+```
 
 ## CLI
 Use the`--help` flag in command line to get more information on the supported commands. Here's a brief description and example of each command.
