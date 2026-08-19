@@ -11,7 +11,7 @@ use crate::components::custom_widgets::{message_dialog, text_loading_indicator};
 pub enum Page {
     General,
     Email,
-    Customize,
+    // Customize,
     Stores(GameStore),
 }
 
@@ -47,10 +47,10 @@ pub fn view(app: &crate::App) -> Element<'_, Message> {
             .on_press(MainMessage::PageSelected(Page::Email).into())
             .width(Length::Fill)
             .style(|theme, status| highlight_on_click_style(theme, status, app.settings_page == Page::Email)),
-        button(text("Customize"))
-            .on_press(MainMessage::PageSelected(Page::Customize).into())
-            .width(Length::Fill)
-            .style(|theme, status| highlight_on_click_style(theme, status, app.settings_page == Page::Customize)),
+        // button(text("Customize"))
+        //     .on_press(MainMessage::PageSelected(Page::Customize).into())
+        //     .width(Length::Fill)
+        //     .style(|theme, status| highlight_on_click_style(theme, status, app.settings_page == Page::Customize)),
         stores_subsection,
     ]
     .spacing(8)
@@ -60,7 +60,7 @@ pub fn view(app: &crate::App) -> Element<'_, Message> {
     let content: Element<'_, Message> = match app.settings_page {
         Page::General => general_settings(app),
         Page::Email => email_settings(app),
-        Page::Customize => customize_settings(app),
+        // Page::Customize => customize_settings(app),
         Page::Stores(store_page) => {
             match store_page {
                 GameStore::STEAM => steam_settings(app),
@@ -292,10 +292,10 @@ fn email_settings(app: &crate::App) -> Element<'_, Message> {
     ].into()
 }
 
-fn customize_settings(_app: &crate::App) -> Element<'_, Message> {
-    text("Customize Settings").size(18)
-        .into()
-}
+// fn customize_settings(_app: &crate::App) -> Element<'_, Message> {
+//     text("Customize Settings").size(18)
+//         .into()
+// }
 
 fn steam_settings(app: &crate::App) -> Element<'_, Message> {
     let cache_loading = text_loading_indicator("Retrieve games to cache", app.caching_loading_frame, LOADING_FRAMES_SIZE);

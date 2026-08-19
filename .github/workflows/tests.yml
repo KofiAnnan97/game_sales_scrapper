@@ -26,16 +26,16 @@ jobs:
     - name: Configure project
       run: |
         # Set properties
-        cargo run --release -p gss-cli -- config properties -f
+        cargo run --profile ci -p gss-cli -- config properties -f
         # Set test mode
-        cargo run --release -p gss-cli -- config properties --test_mode 1
+        cargo run --profile ci -p gss-cli -- config properties --test_mode 1
         # Set store fronts
-        cargo run --release -p gss-cli -- config settings -a  
+        cargo run --profile ci -p gss-cli -- config settings -a  
       shell: bash
     - name: Cache Steam games
-      run: cargo run --release -p gss-cli -- --update-cache
+      run: cargo run --profile ci -p gss-cli -- --update-cache
     - name: Run tests
-      run: cargo test --release -- --test-threads=1 --show-output
+      run: cargo test --profile ci -- --test-threads=1 --show-output
   windows:
     needs: linux
     if: always()
@@ -57,13 +57,13 @@ jobs:
       - name: Configure project
         run: |
           # Set properties
-          cargo run --release -p gss-cli -- config properties -f
+          cargo run --profile ci -p gss-cli -- config properties -f
           # Set test mode
-          cargo run --release -p gss-cli -- config properties --test_mode 1
+          cargo run --profile ci -p gss-cli -- config properties --test_mode 1
           # Set store fronts
-          cargo run --release -p gss-cli -- config settings -a 
+          cargo run --profile ci -p gss-cli -- config settings -a 
         shell: pwsh
       - name: Cache Steam games
-        run: cargo run --release -p gss-cli -- --update-cache
+        run: cargo run --profile ci -p gss-cli -- --update-cache
       - name: Run tests
-        run: cargo test --release -- --test-threads=1 --show-output
+        run: cargo test --profile ci -- --test-threads=1 --show-output
