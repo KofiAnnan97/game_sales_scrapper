@@ -30,15 +30,20 @@ impl std::fmt::Display for LogLevel {
 
 pub static FATAL : &str = "FATAL";
 
-pub fn new_log() -> String {
+pub fn get_app_logs_path() -> String {
     let path_buf: PathBuf = [get_log_path(), APP_SUBDIR.to_string()].iter().collect();
-    let app_log_path = path_buf.display().to_string();
-    let _ = general::create_dir(&app_log_path);
+    let app_logs_path = path_buf.display().to_string();
+    let _ = general::create_dir(&app_logs_path);
+    app_logs_path
+}
+
+pub fn new_log() -> String {
+    let app_logs_path = get_app_logs_path();
     let dt: DateTime<Utc> = SystemTime::now().into();
     let timestamp = dt.format("%Y_%m_%d_%H_%M_%T").to_string();
     let filename = format!("{}_app.log", timestamp).replace(":", "_");
-    general::write_file(&path_buf, &filename, "");
-    let filepath = Path::new(&app_log_path).join(&filename);
+    general::write_file(Path::new(&app_logs_path), &filename, "");
+    let filepath = Path::new(&app_logs_path).join(&filename);
     filepath.display().to_string()
 }
 
@@ -46,7 +51,7 @@ pub fn new_log() -> String {
 pub fn message_builder(msg: &str, log_level: LogLevel) -> String {
     let dt: DateTime<Utc> = SystemTime::now().into();
     dt.format("%Y-%m-%d %H:%M:%S").to_string();
-    let msg = format!("{{ timestamp: \"{}\", level: \"{}\", message: \"{}\"}}\n", dt, log_level, msg);
+    let msg = format!("{{\"timestamp\": \"{}\", \"level\": \"{}\", \"message\": \"{}\"}}\n", dt, log_level, msg);
     msg
 }
 
@@ -67,6 +72,6 @@ pub fn fatal_message_builder(panic_info: &PanicHookInfo<'_>) -> String {
         .map(|loc| format!("{}:{}:{}", loc.file(), loc.line(), loc.column()))
         .unwrap_or_else(|| String::from("Unknown location"));
 
-    let msg = format!("{{timestamp: \"{}\", level: \"{}\", message: \"Application panicked with \'{}\'\", location:\"{}\"}}\n", dt, FATAL, msg, location);
+    let msg = format!("{{\"timestamp\": \"{}\", \"level\": \"{}\", \"message\": \"Application panicked at {} with \'{}\'\"}}\n", dt, FATAL, location, msg);
     msg
 }

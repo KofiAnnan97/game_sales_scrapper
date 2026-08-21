@@ -1,9 +1,7 @@
 use constants::operations::settings::{STEAM_STORE_ID, GOG_STORE_ID, MICROSOFT_STORE_ID};
 use iced::widget::image::Handle;
-use iced::{Alignment, alignment::Horizontal, Color, Theme, Renderer};
-use iced::widget::{
-    Container, Text, button, container, row, column, table, text, Image
-};
+use iced::{Alignment, alignment::Horizontal, Color, Theme, Renderer, Background};
+use iced::widget::{Container, Text, button, container, row, column, table, text, Image};
 use iced::widget::table::Table;
 use iced::{Element, Length, alignment, Alignment::Center};
 use iced_aw::{iced_aw_font};
@@ -11,12 +9,12 @@ use iced_aw::{iced_aw_font};
 use types::internal::data::SaleInfo;
 
 use crate::Message;
-use crate::components::custom_styles::{bold_text, cmp_row_style, dialog_style, normal_price_style, best_price_style};
+use crate::components::custom_styles::{bold_text, cmp_row_style, dialog_style, normal_price_style, best_price_style, rounded_background, custom_button_style};
 use crate::utils::pricing_utils::{SaleInfoCompare, StoreSale};
 
 // Butttons
 
-pub fn submenu_button<'a>(label: &'a str) -> Element<'a, Message> {
+pub fn submenu_button(label: &str) -> Element<'_, Message> {
     row![
         text(label)
             .width(Length::Fill)
@@ -29,7 +27,7 @@ pub fn submenu_button<'a>(label: &'a str) -> Element<'a, Message> {
     .into()
 }
 
-pub fn menu_text_button<'a>(label: &'a str, message: Message) -> Element<'a, Message> {
+pub fn menu_text_button(label: &str, message: Message) -> Element<'_, Message> {
     button(
         container(text(label))
             .width(Length::Fill)
@@ -42,16 +40,68 @@ pub fn menu_text_button<'a>(label: &'a str, message: Message) -> Element<'a, Mes
     .into()
 }
 
-fn store_link<'a, M: Clone + 'static>(label: &'a str, id: &'a str, url: String, 
-    on_link_click: impl Fn(String, String) -> M + 'static
-) -> iced::Element<'a, M> {
-    text::Rich::<String, M, Theme, Renderer>::with_spans([
-        text::Span::new(label)
-            .link(&url)
-    ])
-    .on_link_click(move |_| on_link_click(id.into(), url.clone()))
-    .size(16)
-    .into()
+pub fn closable_window_button(label: &str, click_msg: Message, close_msg: Message, is_clicked: bool) -> Element<'_, Message> {
+    let unclicked_color = Color::from_rgb8(20, 60, 120);
+    let clicked_color = Color::from_rgb8(30, 100, 200);
+    let hover_color = Color::from_rgb8(40, 120, 220);
+
+    let background = if is_clicked {
+        clicked_color
+    } else {
+        unclicked_color
+    };
+
+    let label_button = button(
+        text(label)
+            .width(Length::Fill)
+            .align_x(alignment::Horizontal::Left),
+    )
+    .on_press(click_msg)
+    .padding([6, 8])
+    .style(move |_, status| {
+        let bg = if is_clicked {
+            background
+        } else {
+            match status {
+                button::Status::Hovered => hover_color.clone(),
+                _ => background,
+            }
+        };
+        custom_button_style(Some(Background::Color(bg)), Color::WHITE, 0.0)
+    });
+
+    let content = if is_clicked {
+        row![
+            label_button,
+            button(
+                text("×")
+                    .size(16)
+                    .align_x(alignment::Horizontal::Center),
+            )
+            .on_press(close_msg)
+            .padding([4, 6])
+            .style(move |_, status| {
+                let background = match status {
+                    button::Status::Hovered => {
+                        Some(Background::Color(hover_color.clone()))
+                    }
+                    _ => None,
+                };
+                custom_button_style(background, Color::WHITE, 4.0)
+            })
+        ]
+        .spacing(2)
+        .align_y(alignment::Vertical::Center)
+    } else {
+        row![label_button]
+            .align_y(alignment::Vertical::Center)
+    };
+
+    container(content)
+        .width(Length::Shrink)
+        .padding(2)
+        .style(move |_| rounded_background(background, 6.0))
+        .into()
 }
 
 // Badges
@@ -93,6 +143,18 @@ fn price_change<'a, M: Clone + 'static>(old_price: f64, new_price: f64) -> Eleme
     .spacing(10)
     .padding(10)
     .into()
+}
+
+fn store_link<'a, M: Clone + 'static>(label: &'a str, id: &'a str, url: String,
+                                      on_link_click: impl Fn(String, String) -> M + 'static
+) -> iced::Element<'a, M> {
+    text::Rich::<String, M, Theme, Renderer>::with_spans([
+        text::Span::new(label)
+            .link(&url)
+    ])
+        .on_link_click(move |_| on_link_click(id.into(), url.clone()))
+        .size(16)
+        .into()
 }
 
 // Tables
@@ -155,7 +217,7 @@ pub fn game_store_card<'a, M: Clone + 'static>(copied_link: &'a Option<String>, 
     })
 }
 
-pub fn store_price_cell<'a, M: Clone + 'static>(price: &'a Option<f64>, is_best: bool) -> Container<'a, M> {
+pub fn store_price_cell<M: Clone + 'static>(price: &Option<f64>, is_best: bool) -> Container<'_, M> {
     let price_str;
     if let Some(price_val) = price {
         price_str = format!("{}", price_val);
@@ -174,7 +236,7 @@ pub fn store_price_cell<'a, M: Clone + 'static>(price: &'a Option<f64>, is_best:
     })
 }
 
-pub fn game_sale_row<'a, M: Clone + 'static>(data: &'a StoreSale, idx: usize) -> Container<'a, M>{
+pub fn game_sale_row<M: Clone + 'static>(data: &StoreSale, idx: usize) -> Container<'_, M> {
     let handler = data.icon_handler.clone().unwrap_or_else(|| Handle::from_bytes(vec![]));
     container(
         row![
@@ -197,7 +259,7 @@ pub fn game_sale_row<'a, M: Clone + 'static>(data: &'a StoreSale, idx: usize) ->
     .style(cmp_row_style(idx))
 }
 
-pub fn game_comparison_row<'a, M: Clone + 'static>(data: &'a SaleInfoCompare, idx: usize) -> Container<'a, M>{
+pub fn game_comparison_row<M: Clone + 'static>(data: &SaleInfoCompare, idx: usize) -> Container<'_, M> {
     
     // Retrieve image handler from struct
     let handler = data.icon_handler.clone().unwrap_or_else(|| Handle::from_bytes(vec![]));

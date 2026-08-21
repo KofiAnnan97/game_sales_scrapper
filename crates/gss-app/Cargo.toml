@@ -20,5 +20,7 @@ iced.features = ["canvas", "tokio", "debug"]
 iced_aw = { workspace = true, features = [ "full" ] } 
 tokio = { workspace = true, features = ["full"] }
 reqwest = { workspace = true, features = ["json"] }
+serde_json.workspace = true
+serde.workspace = true
 chrono.workspace = true
 rfd.workspace = true

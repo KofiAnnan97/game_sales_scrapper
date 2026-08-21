@@ -6,14 +6,14 @@
     - ~~[ ] Configure Steam API call to not send steam key as plain text~~
     - [X] Modernize email html
     - [X] Only show sensitive passwords when requested by user.
-    - [ ] Deteremine if defaulting the path should be in getters for project and test path if properties and dot env file have an invalid/empty path
+    - [ ] Determine if defaulting the path should be in getters for project and test path if properties and dot env file have an invalid/empty path
   - Application
     - [X] Update check price display to look more modern
       - [X] Make style similar to updated email design (including image) 
       - [X] User can copy store page link to clipboard
-      - [X] Noitify user that copy to clipboard was successful
-    - [x] In window overlay presented to user when settings are saved successfully before settings are closed
-    - [ ] Implement Sales Preview Window
+      - [X] Notify user that copy to clipboard was successful
+    - [X] In window overlay presented to user when settings are saved successfully before settings are closed
+    - [X] Implement Sales Preview Window
       - [X] Move Check Price and Send Email functionality here 
         - [X] Propagate send email error to app for message dialog
       - [X] Link/create to email settings
@@ -21,14 +21,16 @@
       - [X] Add filter for sales based on store and price
       - [X] Add sort functionality by price and title
     - [ ] Implement a logging window (separate from Actions Tab)
+      - [X] Move logic to a separate window 
       - [ ] Filtering logs by all, lowest severity, and exact match when displayed (move to separate window)
       - [ ] include the ability to prune logs
-    - [ ] Implement support for multiple closable views (i.e. opening settings then sales preview should result in two closable views) 
+    - [X] Implement support for multiple closable views (i.e. opening settings then sales preview should result in two closable views) 
     - [X] Settings are saved based on the page displayed
+    - [X] Updated closable view button design to resemble Firefox tabs
     - New Features
-      - [ ] Add auto advance to the next store as a toggable option when a radial button is selected
+      - [ ] Add auto advance to the next store as a togglable option when a radial button is selected
       - [ ] User customization
-        - [ ] Alow for custom color theme
+        - [ ] Allow for custom color theme
         - [ ] Add default options
         - [ ] Update settings.json to include app.default_theme
         - [ ] Create a new file called themes.json for user created themes
@@ -42,7 +44,7 @@
 - Bugs/Fixes
   - General
     - [X] Added custom error handling for api calls
-    - [ ] Handle games thresholds with corrupted or incorrect data (try run search on fake query with incorret store ids)
+    - [ ] Handle games thresholds with corrupted or incorrect data (try to run search on fake query with incorrect store ids)
   - Application
     - [ ] Fix logic to support updating log file when application is prompted to close
     - [X] Fix store search to filter out any game with no price

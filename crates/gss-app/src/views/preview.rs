@@ -275,7 +275,7 @@ impl PreviewView {
         }
     }
 
-    pub fn view<'a>(&'a self) -> Element<'a, PreviewMessage> {
+    pub fn view(&self) -> Element<'_, PreviewMessage> {
         let get_sales_loading = cw::text_loading_indicator("Retrieving sales",self.price_check_loading_frame,LOADING_FRAMES_SIZE);
         let price_check_loading = cw::text_loading_indicator("Checking prices",self.price_check_loading_frame,LOADING_FRAMES_SIZE);
         let cmp_check_loading = cw::text_loading_indicator("Checking prices for comparison",self.price_check_loading_frame,LOADING_FRAMES_SIZE);

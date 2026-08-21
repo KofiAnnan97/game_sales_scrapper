@@ -27,13 +27,13 @@ mod utils;
 
 use tabs::{thresholds as thrshlds_view, search::SKIP_STORE_SELECTION, actions::ActionDisplayed};
 use views::settings as sttngs_view;
-use components::{custom_widgets, custom_styles};
+use components::{custom_widgets as cw, custom_styles as cs};
 use utils::actions_utils::{send_sales_email, update_cache};
 use utils::search_utils::perform_store_search;
 use utils::file_utils::open_file;
 use utils::log_utils::{self, LogLevel};
-
-use crate::components::custom_widgets::message_dialog;
+use crate::views::logs as logs_view;
+use cw::message_dialog;
 use crate::views::preview::{PreviewMessage, PreviewView};
 use crate::views::settings::{Page, alias_settings, store_selection};
 
@@ -67,7 +67,8 @@ enum Tab {
 enum View {
     Base,
     Settings,
-    Preview
+    Preview,
+    Logs,
 }
 
 #[derive(Debug, Clone)]
@@ -103,7 +104,7 @@ pub enum Error {
 #[derive(Debug, Clone)]
 pub(crate) enum MainMessage {
     TabSelected(Tab),
-    ViewSelected(View),
+    // ViewSelected(View),
     OpenSettings,
     CloseSettings,
     OpenSalesPreview,
@@ -144,8 +145,6 @@ pub(crate) enum MainMessage {
     SendEmailResult(Result<String, String>),
     UpdateCache,
     UpdateCacheResult(Result<String, String>),
-    LogsShown,
-    UpdateLogFile,
     Tick,
     Refresh,
     AppClosing,
@@ -153,6 +152,11 @@ pub(crate) enum MainMessage {
     //Settings Messages
     StoreSettingsExpanded(bool),
     PageSelected(Page),
+    // Log Messages
+    // LogsShown,
+    UpdateLogFile,
+    OpenLogsView,
+    CloseLogsView
 }
 
 #[derive(Debug, Clone)]
@@ -241,16 +245,18 @@ struct App {
     threshold_price_edits: Vec<String>,
     threshold_sort_column: Option<SortColumn>,
     threshold_sort_order: SortOrder,
-    status_message: String,
-    message_details: String,
-    log_batch: String,
-    current_log_file: String,
     action_displayed: ActionDisplayed,
     show_dialog: bool,
     preview_view: PreviewView,
     // Settings variables
     settings_page: Page,
     store_settings_expanded: bool,
+    // Logging variables
+    status_message: String,
+    message_details: String,
+    log_batch: String,
+    current_log_file: String,
+    logs_view_open: bool,
 }
 
 impl App {
@@ -295,16 +301,18 @@ impl App {
             threshold_price_edits: Vec::new(),
             threshold_sort_column: None,
             threshold_sort_order: SortOrder::Original,
-            status_message: String::from("Ready"),
-            message_details: String::new(),
-            log_batch: String::new(),
-            current_log_file: log_file,
             action_displayed: ActionDisplayed::NoAction,
             show_dialog: false,
             preview_view: PreviewView::default(),
             // Settings variables
             settings_page: Page::General,
             store_settings_expanded: false,
+            //Logging variables
+            status_message: String::from("Ready"),
+            message_details: String::new(),
+            log_batch: String::new(),
+            current_log_file: log_file,
+            logs_view_open: false,
         };
         app.sync_threshold_edits();
         app
@@ -335,12 +343,12 @@ impl App {
                 self.log_batch.push_str(log_utils::message_builder(&status_str, LogLevel::DEBUG).as_str());
                 Task::none()
             }
-            MainMessage::ViewSelected(view) => {
-                self.active_view = view;
-                let status_str = format!("Switched to {:?}", view);
-                self.log_batch.push_str(log_utils::message_builder(&status_str, LogLevel::DEBUG).as_str());
-                Task::none()
-            }
+            // MainMessage::ViewSelected(view) => {
+            //     self.active_view = view;
+            //     let status_str = format!("Switched to {:?}", view);
+            //     self.log_batch.push_str(log_utils::message_builder(&status_str, LogLevel::DEBUG).as_str());
+            //     Task::none()
+            // }
             MainMessage::ToggleStore(store, enabled) => {
                 if enabled {
                     if !self.selected_stores.contains(&store) {
@@ -372,26 +380,26 @@ impl App {
                 self.settings_view_open = true;
                 self.active_view = View::Settings;
                 self.settings_page = Page::General;
-                let status_str = String::from("Opened more settings view");
-                self.log_batch.push_str(&log_utils::message_builder(&status_str, LogLevel::INFO));
+                self.log_batch.push_str(&log_utils::message_builder("Opened Settings view", LogLevel::INFO));
                 Task::none()
             }
             MainMessage::CloseSettings => {
                 self.settings_view_open = false;
                 self.active_view = View::Base;
                 self.show_dialog = false;
-                let status_str = String::from("Closed settings tab");
-                self.log_batch.push_str(&log_utils::message_builder(&status_str, LogLevel::INFO));
+                self.log_batch.push_str(&log_utils::message_builder("Closed Settings view", LogLevel::INFO));
                 Task::none()
             }
             MainMessage::OpenSalesPreview => {
                 self.active_view = View::Preview;
                 self.preview_view_open = true;
+                self.log_batch.push_str(&log_utils::message_builder("Open Sales view", LogLevel::INFO));
                 Task::done(Message::Preview(PreviewMessage::ResetToSales))
             }
             MainMessage::CloseSalesPreview => {
                 self.active_view = View::Base;
                 self.preview_view_open = false;
+                self.log_batch.push_str(&log_utils::message_builder("Closed Sales view", LogLevel::INFO));
                 Task::none()
             }
             MainMessage::SortThresholds(column) => {
@@ -820,10 +828,10 @@ impl App {
                 self.log_batch.push_str(&log_utils::message_builder(&status_str, LogLevel::DEBUG));
                 Task::none()
             }
-            MainMessage::LogsShown => {
-                self.action_displayed = ActionDisplayed::Logs;
-                Task::none()
-            }
+            // MainMessage::LogsShown => {
+            //     self.action_displayed = ActionDisplayed::Logs;
+            //     Task::none()
+            // }
             MainMessage::UpdateLogFile => {
                 if !self.log_batch.is_empty() && !self.current_log_file.is_empty() {
                     general::append_to_file(&self.current_log_file, &self.log_batch);
@@ -850,13 +858,25 @@ impl App {
             MainMessage::StoreSettingsExpanded(is_expanded) => {
                 self.store_settings_expanded = is_expanded;
                 Task::none()
-            },
+            }
             MainMessage::PageSelected(selected) => {
                 if self.active_view != View::Settings {
                     self.settings_view_open = true;
                     self.active_view = View::Settings;
                 }
                 self.settings_page = selected;
+                Task::none()
+            }
+            MainMessage::OpenLogsView => {
+                self.active_view = View::Logs;
+                self.logs_view_open = true;
+                self.log_batch.push_str(&log_utils::message_builder("Open Logs view", LogLevel::INFO));
+                Task::none()
+            }
+            MainMessage::CloseLogsView => {
+                self.active_view = View::Base;
+                self.logs_view_open = false;
+                self.log_batch.push_str(&log_utils::message_builder("Closed Logs view", LogLevel::INFO));
                 Task::none()
             }
         }
@@ -924,17 +944,17 @@ impl App {
         // )).width(320.0);
 
         let file_menu = Menu::new(menu_items!(
-            // (custom_widgets::submenu_button("Customize"), customize_menu),
-            (custom_widgets::submenu_button("Quick Settings..."), quick_file_menu),
-            (custom_widgets::menu_text_button("Settings", MainMessage::OpenSettings.into())),
+            // (cw::submenu_button("Customize"), customize_menu),
+            (cw::submenu_button("Quick Settings..."), quick_file_menu),
+            (cw::menu_text_button("Settings", MainMessage::OpenSettings.into())),
         ))
         .width(320.0);
         
         let actions_menu = Menu::new(menu_items!(
-            (custom_widgets::menu_text_button("Preview Sales", MainMessage::OpenSalesPreview.into())),
-            // (text!("Edit Schedule")),
+            (cw::menu_text_button("Preview Sales", MainMessage::OpenSalesPreview.into())),
+            // (text!("Edit Alert Schedule")),
             // (text("Update cache")),
-            // (text("Logs"))
+            (cw::menu_text_button("Logs", MainMessage::OpenLogsView.into())),
         ))
         .width(320.0)
         .close_on_item_click(true);
@@ -978,50 +998,48 @@ impl App {
             let mut bar = row![];
 
             if self.settings_view_open {
-                if self.active_view == View::Settings {
-                    bar = bar.push(
-                        row![
-                            container(text("Settings")).padding(8),
-                            Button::new(text("×"))
-                                .on_press(MainMessage::CloseSettings.into())
-                                .padding(6),
-                        ]
-                        .spacing(4)
-                        .align_y(iced::Alignment::Center)
-                    );
-                } else {
-                    bar = bar.push(Button::new(text("Settings")).on_press(MainMessage::ViewSelected(View::Settings).into()).padding(8));
-                }
-            } else if self.preview_view_open {
-                if self.active_view == View::Preview {
-                    bar = bar.push(
-                        row![
-                            container(text("Preview")).padding(8),
-                            Button::new(text("×"))
-                                .on_press(MainMessage::CloseSalesPreview.into())
-                                .padding(6),
-                        ]
-                        .spacing(4)
-                        .align_y(iced::Alignment::Center)
+                bar = bar.push(
+                    cw::closable_window_button(
+                        "Settings",
+                        MainMessage::OpenSettings.into(),
+                        MainMessage::CloseSettings.into(),
+                        self.active_view == View::Settings
                     )
-                } else {
-                    bar = bar.push(Button::new(text("Preview")).on_press(MainMessage::ViewSelected(View::Preview).into()).padding(8));
-                }
+                );
             }
-
-            bar.spacing(10).padding(4)
+            if self.preview_view_open {
+                bar = bar.push(
+                    cw::closable_window_button(
+                        "Preview",
+                        MainMessage::OpenSalesPreview.into(),
+                        MainMessage::CloseSalesPreview.into(),
+                        self.active_view == View::Preview
+                    )
+                );
+            }
+            if self.logs_view_open {
+                bar = bar.push(
+                    cw::closable_window_button(
+                        "Logs",
+                        MainMessage::OpenLogsView.into(),
+                        MainMessage::CloseLogsView.into(),
+                        self.active_view == View::Logs
+                    )
+                );
+            }
+            bar.padding(4)
         };
 
         let settings_window: Element<'_, Message> = sttngs_view::view(self).into();
-
         let preview_window: Element<'_, Message> = self.preview_view.view().map(Message::Preview);
+        let logs_window: Element<'_, Message> = logs_view::view(self).into();
 
         let right_pane = match self.active_view {
             View::Base => {
                 if self.show_dialog && self.tab == Tab::Actions  {
                     stack![
                         base_view,
-                        custom_styles::backdrop(MainMessage::HideDialog.into()),
+                        cs::backdrop(MainMessage::HideDialog.into()),
                         center(message_dialog(
                             &self.status_message,
                             &self.message_details,
@@ -1035,6 +1053,7 @@ impl App {
             }
             View::Settings => settings_window,
             View::Preview => preview_window,
+            View::Logs => logs_window,
         };
 
         let content = column![
@@ -1042,9 +1061,9 @@ impl App {
             tab_bar,
             container(right_pane)
                 .width(Length::Fill)
-                .padding(10),
+                .padding(5),
         ]
-        .spacing(10);
+        .spacing(5);
 
         content.into()
     }
