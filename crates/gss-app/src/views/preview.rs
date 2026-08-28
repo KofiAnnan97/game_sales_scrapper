@@ -12,9 +12,8 @@ use types::internal::store::GameStore;
 
 use crate::components::custom_styles::{self as cs, bold_text};
 use crate::components::custom_widgets::{self as cw, game_comparison_row, game_sale_row, game_store_card};
-use crate::utils::log_utils::LogLevel;
+use crate::utils::log_utils::{LogLevel};
 use crate::utils::pricing_utils::{SalesCache, StoreSale, check_prices_for_display, compare_prices, get_sales};
-use crate::log_utils::message_builder;
 use crate::{STATUS_ERR, LOADING_FRAMES_SIZE};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -68,7 +67,7 @@ pub enum PreviewMessage {
     Exit,
     SendEmail,
     GetEmailResult(String, String),
-    SendLogEvent,
+    SendLogEvent(LogLevel, String),
     OpenEmailSettings,
     HideDialog,
 }
@@ -88,7 +87,6 @@ pub struct PreviewView {
     status_message: String,
     pub message_details: String,
     pub show_dialog: bool,
-    pub log_msg: String,
 }
 
 impl Default for PreviewView {
@@ -109,7 +107,6 @@ impl Default for PreviewView {
             status_message: String::new(),
             message_details: String::new(),
             show_dialog: false,
-            log_msg: String::new(),
         }
     }
 }
@@ -124,19 +121,17 @@ impl PreviewView {
                 } else {
                     self.active_view = PreviewDisplayed::EmailPreview;
                 }
-                self.log_msg = message_builder(&format!("Viewing {}", self.active_view), LogLevel::DEBUG);
-                Task::done(PreviewMessage::SendLogEvent)
+                Task::done(PreviewMessage::SendLogEvent(LogLevel::DEBUG,format!("Viewing {}", self.active_view)))
             }
             PreviewMessage::ComparePrices(toggled) => {
                 self.show_dialog = false;
                 self.cmp_sales_mode = toggled;
-                self.log_msg = message_builder(&format!("Comparison toggle set to {}", self.cmp_sales_mode), LogLevel::DEBUG);
                 if toggled {
                     self.active_view = PreviewDisplayed::SalesCompare;
                 } else {
                     self.active_view = PreviewDisplayed::EmailPreview;
                 }
-                Task::done(PreviewMessage::SendLogEvent)
+                Task::done(PreviewMessage::SendLogEvent(LogLevel::DEBUG,format!("Comparison toggle set to {}", self.cmp_sales_mode)))
             }
             PreviewMessage::GetSales(sales_results) => {
                 Task::perform(
@@ -160,33 +155,32 @@ impl PreviewView {
             PreviewMessage::GetSalesUpdated(cache_result) => {
                 self.is_price_check_in_progress = false;
                 self.price_check_loading_frame = 0;
-                match cache_result {
+                let (level, log_msg) = match cache_result {
                     Ok(new_sales_cache) => {
                         self.sales_cache = new_sales_cache;
-                        self.filter_games();
+                        let _ = self.filter_games();
                         self.status_message.clear();
                         self.message_details.clear();
-                        self.log_msg = message_builder(&format!("Game(s) found on sale: {}", self.sales_cache.store_sales.len()), LogLevel::INFO);
+                        (LogLevel::INFO, format!("Game(s) found on sale: {}", self.sales_cache.store_sales.len()))
                     }
                     Err(err_msg) => {
-                        self.log_msg = message_builder(&format!("An error occurred while updating sales: {}", err_msg), LogLevel::ERROR);
                         self.show_dialog = true;
                         self.status_message = STATUS_ERR.into();
                         self.message_details = "An issue occurred while looking for game sales. \
                             Please check your internet connection or try again later.".into();
+                        (LogLevel::ERROR, format!("An error occurred while updating sales: {}", err_msg))
                     }
-                }
-                Task::done(PreviewMessage::SendLogEvent)
+                };
+                Task::done(PreviewMessage::SendLogEvent(level, log_msg))
             }
             PreviewMessage::ResetToSales => {
                 self.active_view = PreviewDisplayed::Sales;
                 if self.sales_cache.store_sales.is_empty() {
                     self.is_price_check_in_progress = true;
                     self.price_check_loading_frame = 0;
-                    self.log_msg = message_builder("Check games for potential sales", LogLevel::INFO);
                     Task::batch(vec![
                         Task::perform(get_sales(),PreviewMessage::GetSales),
-                        Task::done(PreviewMessage::SendLogEvent)
+                        Task::done(PreviewMessage::SendLogEvent(LogLevel::INFO, "Check games for potential sales".into()))
                     ])
                 } else {
                     Task::none()
@@ -214,14 +208,14 @@ impl PreviewView {
                 Task::none()
             }
             PreviewMessage::PreviewApplyFilters => {
-                self.filter_games();
-                Task::done(PreviewMessage::SendLogEvent)
+                let (store, price, sort) = self.filter_games();
+                let log_msg = format!("Sales Preview - applying the following filters: {}, {}, {}", store, price, sort);
+                Task::done(PreviewMessage::SendLogEvent(LogLevel::DEBUG, log_msg))
             }
             PreviewMessage::PreviewResetFilters => {
                 self.reset_sales_page();
                 self.filtered_sale_idxs = (0..self.sales_cache.store_sales.len()).collect();
-                self.log_msg = message_builder("Reset filters", LogLevel::DEBUG);
-                Task::done(PreviewMessage::SendLogEvent)
+                Task::done(PreviewMessage::SendLogEvent(LogLevel::DEBUG, "Reset filters".into()))
             }
             PreviewMessage::RefreshSales => {
                 self.is_price_check_in_progress = true;
@@ -229,7 +223,7 @@ impl PreviewView {
                 self.sales_cache.clear();
                 Task::batch(vec![
                     Task::perform(get_sales(),PreviewMessage::GetSales),
-                    Task::done(PreviewMessage::SendLogEvent)
+                    Task::done(PreviewMessage::SendLogEvent(LogLevel::DEBUG, "Refreshing sales".into()))
                 ])
             }
             PreviewMessage::Tick => {
@@ -262,7 +256,7 @@ impl PreviewView {
                 }
                 Task::none()
             }
-            PreviewMessage::SendLogEvent => Task::none(),
+            PreviewMessage::SendLogEvent(_, _) => Task::none(),
             PreviewMessage::Exit => Task::none(),
             PreviewMessage::SendEmail => Task::none(),
             PreviewMessage::GetEmailResult(level, msg) => {
@@ -573,7 +567,7 @@ impl PreviewView {
         self.preview_custom_price_higher.clear();
     }
 
-    fn filter_games(&mut self) {
+    fn filter_games(&mut self) -> (String, String, String) {
         let store_filter_type = self.preview_selected_store.unwrap_or(StoreOptions::All);
         let price_filter_type = self.preview_price_filter.unwrap_or(PriceOptions::None);
         let sort_filter_type = self.preview_sort_by.unwrap_or(SortOptions::None);
@@ -581,17 +575,14 @@ impl PreviewView {
         if store_filter_type == StoreOptions::All && price_filter_type == PriceOptions::None && sort_filter_type == SortOptions::None {
             self.filtered_sale_idxs = (0..self.sales_cache.store_sales.len()).collect();
         } else {
-            self.log_msg = message_builder(
-                &format!("Sales Preview - applying the following filters: {}, {}, {}", &store_filter_type, &price_filter_type, &sort_filter_type), 
-                LogLevel::DEBUG
-            );
             let mut filtered_idxs = store_filter(&self.sales_cache.store_sales, store_filter_type);
             let low_price =  self.preview_custom_price_lower.parse::<f64>().ok();
             let high_price = self.preview_custom_price_higher.parse::<f64>().ok();
             filtered_idxs = price_filter(&self.sales_cache.store_sales, filtered_idxs, price_filter_type, low_price, high_price);
             filtered_idxs = sort_by_filter(&self.sales_cache.store_sales, filtered_idxs, sort_filter_type);
             self.filtered_sale_idxs = filtered_idxs;
-        }        
+        }
+        (store_filter_type.to_string(), price_filter_type.to_string(), sort_filter_type.to_string())        
     }
 }
 

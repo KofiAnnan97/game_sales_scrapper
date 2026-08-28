@@ -22,8 +22,9 @@
       - [X] Add sort functionality by price and title
     - [ ] Implement a logging window (separate from Actions Tab)
       - [X] Move logic to a separate window 
-      - [ ] Filtering logs by all, lowest severity, and exact match when displayed (move to separate window)
-      - [ ] include the ability to prune logs
+      - [X] Filtering logs by all, lowest severity, and screen where logs occurred (move to separate window)
+      - [X] include the ability to manually prune logs
+      - [ ] Fix styling for consistency
     - [X] Implement support for multiple closable views (i.e. opening settings then sales preview should result in two closable views) 
     - [X] Settings are saved based on the page displayed
     - [X] Updated closable view button design to resemble Firefox tabs
@@ -46,7 +47,7 @@
     - [X] Added custom error handling for api calls
     - [ ] Handle games thresholds with corrupted or incorrect data (try to run search on fake query with incorrect store ids)
   - Application
-    - [ ] Fix logic to support updating log file when application is prompted to close
+    - [X] Fix logic to support updating log file when application is prompted to close
     - [X] Fix store search to filter out any game with no price
     - [ ] Only update settings if needed (currently always update)
     - Add message dialog for the following 
@@ -56,6 +57,7 @@
 - Testing:
   - [ ] Add caching to Github actions
   - [ ] Update each test to do clean up before execution. If one test fails that temp environment might cause other tests to fail. 
+  - [ ] Fix app tests after logging changes
  
 ### Backlog
 - Features/Updates

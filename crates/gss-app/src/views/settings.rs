@@ -13,6 +13,7 @@ pub enum Page {
     Email,
     // Customize,
     Stores(GameStore),
+    //Logging,
 }
 
 pub fn view(app: &crate::App) -> Element<'_, Message> {
@@ -47,6 +48,10 @@ pub fn view(app: &crate::App) -> Element<'_, Message> {
             .on_press(MainMessage::PageSelected(Page::Email).into())
             .width(Length::Fill)
             .style(|theme, status| highlight_on_click_style(theme, status, app.settings_page == Page::Email)),
+        // button(text("Logging"))
+        //     .on_press(MainMessage::PageSelected(Page::Logging).into()) 
+        //     .width(Length::Fill)
+        //     .style(|theme, status| highlight_on_click_style(theme, status, app.settings_page == Page::Logging)),
         // button(text("Customize"))
         //     .on_press(MainMessage::PageSelected(Page::Customize).into())
         //     .width(Length::Fill)
@@ -61,6 +66,7 @@ pub fn view(app: &crate::App) -> Element<'_, Message> {
         Page::General => general_settings(app),
         Page::Email => email_settings(app),
         // Page::Customize => customize_settings(app),
+        // Page::Logging => row![].into(),
         Page::Stores(store_page) => {
             match store_page {
                 GameStore::STEAM => steam_settings(app),

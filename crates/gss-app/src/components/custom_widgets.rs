@@ -1,17 +1,16 @@
 use constants::operations::settings::{STEAM_STORE_ID, GOG_STORE_ID, MICROSOFT_STORE_ID};
 use iced::widget::image::Handle;
 use iced::{Alignment, alignment::Horizontal, Color, Theme, Renderer, Background};
-use iced::widget::{Container, Text, button, container, row, column, table, text, Image};
+use iced::widget::{Container, Text, button, container, row, column, table, text, Image, slider};
 use iced::widget::table::Table;
 use iced::{Element, Length, alignment, Alignment::Center};
 use iced_aw::{iced_aw_font};
 
 use types::internal::data::SaleInfo;
 
-use crate::Message;
+use crate::{MainMessage, Message};
 use crate::components::custom_styles::{bold_text, cmp_row_style, dialog_style, normal_price_style, best_price_style, rounded_background, custom_button_style};
 use crate::utils::pricing_utils::{SaleInfoCompare, StoreSale};
-
 // Butttons
 
 pub fn submenu_button(label: &str) -> Element<'_, Message> {
@@ -326,6 +325,51 @@ pub fn message_dialog<'a, M: Clone + 'static>(title: &'a str, body: &'a str, mes
     .width(360)
     .max_width(360)
     .style(dialog_style)
+}
+
+// Elements
+
+pub fn incremental_slider(choices: Vec<String>, selected: usize, max_width: f32) -> Element<'static, Message> {
+    if choices.is_empty() {
+        return text("").into();
+    }
+
+    let selected = selected.min(choices.len() - 1);
+
+    let labels = row(
+        choices.iter()
+            .map(|option| {
+                container(
+                    text(option.clone()).size(15)
+                )
+                    .width(Length::FillPortion(1))
+                    .center_x(Length::Fill)
+                    .into()
+            })
+            .collect::<Vec<Element<'_, Message>>>(),
+    )
+        .width(Length::Fixed(max_width));
+
+    let slider = slider(
+        0.0..=(choices.len() - 1) as f64,
+        selected as f64,
+        |idx| MainMessage::LevelChanged(idx as usize).into(),
+    )
+        .step(1.0)
+        .width(Length::Fixed(max_width*0.8));
+
+    let showing = choices[selected..].join(", ");
+
+    column![
+        text(format!("Showing: {showing}")),
+        container(slider)
+            .center_x(Length::Fill)
+            .padding([2, 0]),
+        labels,
+    ]
+    .spacing(4)
+    .width(Length::Fixed(max_width))
+    .into()
 }
 
 // Simple Animations
