@@ -1,10 +1,10 @@
 # Roadmap
 
-### Release 0.3.1
+### Release 0.3.2 Beta
 - Features/Updates
   - General
     - ~~[ ] Configure Steam API call to not send steam key as plain text~~
-    - [X] Modernize email html
+    - [X] Modernize email HTML
     - [X] Only show sensitive passwords when requested by user.
     - [ ] Determine if defaulting the path should be in getters for project and test path if properties and dot env file have an invalid/empty path
   - Application
@@ -24,12 +24,15 @@
       - [X] Move logic to a separate window 
       - [X] Filtering logs by all, lowest severity, and screen where logs occurred (move to separate window)
       - [X] include the ability to manually prune logs
-      - [ ] Fix styling for consistency
+      - [X] Fix styling for consistency
+      - [X] Change new_log() logic to update latest log file instead if it's been < 30 minutes
+      - [ ] Add automated pruning through a scheduler
+      - [X] Remove unneeded code/clean up
     - [X] Implement support for multiple closable views (i.e. opening settings then sales preview should result in two closable views) 
     - [X] Settings are saved based on the page displayed
     - [X] Updated closable view button design to resemble Firefox tabs
     - New Features
-      - [ ] Add auto advance to the next store as a togglable option when a radial button is selected
+      - [ ] Add auto advance to the next store as a togglable option when a radial button is selected 
       - [ ] User customization
         - [ ] Allow for custom color theme
         - [ ] Add default options
@@ -42,6 +45,8 @@
         - [ ] Update settings for alerts
         - [ ] Check past runs (may need to added later on)
         - [ ] In settings allow the user to send a test alert to confirm that the configuration works
+      - [ ] Allow user option to run application in background when closing application instead of completely exiting
+      - [ ] Add functionality to get and set a debug level (value should be store in settings file)
 - Bugs/Fixes
   - General
     - [X] Added custom error handling for api calls
@@ -55,9 +60,9 @@
       - [X] Checking pricing fails
       - [ ] Calling storefronts fails  
 - Testing:
-  - [ ] Add caching to Github actions
+  - [ ] Add caching to GitHub Actions
   - [ ] Update each test to do clean up before execution. If one test fails that temp environment might cause other tests to fail. 
-  - [ ] Fix app tests after logging changes
+  - [X] Fix app tests after logging changes
  
 ### Backlog
 - Features/Updates

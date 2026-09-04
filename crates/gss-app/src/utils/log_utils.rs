@@ -3,7 +3,7 @@ use std::fs;
 use std::panic::PanicHookInfo;
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, NaiveDateTime, TimeDelta, Utc};
 
 use constants::operations::logging::APP_SUBDIR;
 use files::general;
@@ -28,6 +28,29 @@ pub enum LogLevel {
     ERROR
 }
 
+impl LogLevel {
+    pub fn get_options() -> Vec<String> {
+         vec![
+            LogLevel::DEBUG.to_string(),
+            LogLevel::WARN.to_string(),
+            LogLevel::INFO.to_string(),
+            LogLevel::ERROR.to_string(),
+            FATAL.into()
+        ]
+    }
+
+    pub fn get_level_idx(level: String) -> usize {
+        match level.as_str() {
+            "DEBUG" => 0,
+            "WARN" => 1,
+            "INFO" => 2,
+            "ERROR" => 3,
+            "FATAL" => 4,
+            _ => 0
+        }
+    }
+}
+
 impl std::fmt::Display for LogLevel {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -40,6 +63,9 @@ impl std::fmt::Display for LogLevel {
 }
 
 pub static FATAL : &str = "FATAL";
+pub static DT_FORMAT : &str = "%Y-%m-%d %H:%M:%S";
+pub static DT_STR_FORMAT : &str = "%Y_%m_%d_%H_%M_%S";
+pub static LOG_SUFFIX : &str = "_app.log";
 
 pub struct Logger {
     file_path: String,
@@ -60,13 +86,17 @@ impl Logger {
 
     fn message_builder(&self, msg: &str, screen: Screen, log_level: LogLevel) -> String {
         let dt: DateTime<Utc> = SystemTime::now().into();
-        dt.format("%Y-%m-%d %H:%M:%S").to_string();
+        dt.format(DT_FORMAT).to_string();
         let msg = format!("{{\"timestamp\": \"{}\", \"level\": \"{}\", \"screen\": \"{}\", \"message\": \"{}\"}}\n", dt, log_level, screen, msg);
         msg
     }
 
-    pub fn get_filename(&self) -> String {
-        get_filename(&self.file_path)
+    fn update_file(&self) {
+        let mut log_block = String::new();
+        for log in self.batch.iter() {
+            log_block.push_str(log);
+        }
+        general::append_to_file(&self.file_path, log_block.as_str());
     }
 
     pub fn get_full_logs(&self) -> String {
@@ -108,10 +138,15 @@ impl Logger {
 
     pub fn flush(&mut self) {
         if self.can_update() {
-            update_file(&self.file_path, &self.batch);
+            self.update_file();
             self.batch.clear();
         }
     }
+
+    #[cfg(test)]
+    pub fn get_batch_ref(&self) -> &Vec<String> {
+        &self.batch
+    }    
 }
 
 pub fn get_filename(file_path: &str) -> String {
@@ -122,15 +157,6 @@ pub fn get_filename(file_path: &str) -> String {
 pub fn get_log_data(file_path: &str) -> String { 
     let content = general::get_contents(file_path);
     content
-} 
-
-pub fn update_file(file_path: &str, batch: &Vec<String>) {
-    // TODO: Organize by time stamp
-    let mut log_block = String::new();
-    for log in batch {
-        log_block.push_str(log);
-    }
-    general::append_to_file(file_path, log_block.as_str());
 }
 
 pub fn get_log_path() -> String {
@@ -143,13 +169,40 @@ pub fn get_log_path() -> String {
 pub fn new_log() -> String {
     let app_logs_path = get_log_path();
     let dt: DateTime<Utc> = SystemTime::now().into();
-    let timestamp = dt.format("%Y_%m_%d_%H_%M_%T").to_string();
-    let filename = format!("{}_app.log", timestamp).replace(":", "_");
-    general::write_file(Path::new(&app_logs_path), &filename, "");
-    let filepath = Path::new(&app_logs_path).join(&filename);
-    filepath.display().to_string()
+    let timestamp = dt.format(DT_STR_FORMAT).to_string();
+    let filename = format!("{}{}", timestamp, LOG_SUFFIX).replace(":", "_");
+
+    let last_log = get_last_log();
+    let last_log_dt_str = last_log.strip_suffix(LOG_SUFFIX).unwrap_or_default();
+    let last_dt = NaiveDateTime::parse_from_str(&last_log_dt_str, DT_STR_FORMAT);
+
+    match last_dt {
+        Ok(val) => {
+            if dt - val.and_utc() < TimeDelta::minutes(30){
+                let path_buf: PathBuf = [app_logs_path, last_log].iter().collect();
+                path_buf.display().to_string()
+            } else {
+                general::write_file(Path::new(&app_logs_path), &filename, "");
+                let filepath = Path::new(&app_logs_path).join(&filename);
+                filepath.display().to_string()
+            }
+        },
+        Err(_) => {
+            general::write_file(Path::new(&app_logs_path), &filename, "");
+            let filepath = Path::new(&app_logs_path).join(&filename);
+            filepath.display().to_string()
+        }
+    }
 }
 
+fn get_last_log() -> String {
+    let logs = get_app_logs();
+    // The list is reversed so the first option is the last log file
+    match logs.first() {
+        Some(log) => log.to_string(),
+        None => String::new()
+    }
+}
 
 pub fn fatal_message_builder(panic_info: &PanicHookInfo<'_>) -> String {
     let payload = panic_info.payload();
@@ -177,8 +230,8 @@ pub fn get_app_logs() -> Vec<String> {
     match fs::read_dir(get_log_path()) {
         Ok(dir) => {
             for d in dir {
-                if let Some(file_type) = d.ok() {
-                    log_names.push(file_type.file_name().to_str().unwrap().to_string());
+                if let Some(entry) = d.ok() && entry.file_type().unwrap().is_file() {
+                    log_names.push(entry.file_name().to_str().unwrap().to_string());
                 }
             }
             log_names.sort();
@@ -198,6 +251,16 @@ pub fn parse_logs(log_str: String) -> Vec<LogData> {
         }
     }
     log_data
+}
+
+pub fn get_timestamp(file_name: &str) -> String {
+    match String::from(file_name).strip_suffix(LOG_SUFFIX) {
+        Some(dt_str) => {
+            let dt_long = NaiveDateTime::parse_from_str(&dt_str, DT_STR_FORMAT);
+            dt_long.unwrap_or_default().to_string()
+        },
+        None => String::new(),
+    }
 }
 
 pub fn delete_log(file_name: &str) -> bool {

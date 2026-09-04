@@ -8,7 +8,7 @@ use iced_aw::{iced_aw_font};
 
 use types::internal::data::SaleInfo;
 
-use crate::{MainMessage, Message};
+use crate::{Message};
 use crate::components::custom_styles::{bold_text, cmp_row_style, dialog_style, normal_price_style, best_price_style, rounded_background, custom_button_style};
 use crate::utils::pricing_utils::{SaleInfoCompare, StoreSale};
 // Butttons
@@ -329,7 +329,10 @@ pub fn message_dialog<'a, M: Clone + 'static>(title: &'a str, body: &'a str, mes
 
 // Elements
 
-pub fn incremental_slider(choices: Vec<String>, selected: usize, max_width: f32) -> Element<'static, Message> {
+pub fn incremental_slider<M, F>(choices: Vec<String>, selected: usize, max_width: f32, on_change: F) -> Element<'static, M>
+where
+    M: Clone + 'static,
+    F: Fn(usize) ->  M + 'static {
     if choices.is_empty() {
         return text("").into();
     }
@@ -346,14 +349,14 @@ pub fn incremental_slider(choices: Vec<String>, selected: usize, max_width: f32)
                     .center_x(Length::Fill)
                     .into()
             })
-            .collect::<Vec<Element<'_, Message>>>(),
+            .collect::<Vec<Element<'_, M>>>(),
     )
         .width(Length::Fixed(max_width));
 
     let slider = slider(
         0.0..=(choices.len() - 1) as f64,
         selected as f64,
-        |idx| MainMessage::LevelChanged(idx as usize).into(),
+        move |idx| on_change(idx as usize),
     )
         .step(1.0)
         .width(Length::Fixed(max_width*0.8));

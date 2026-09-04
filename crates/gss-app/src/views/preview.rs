@@ -161,7 +161,7 @@ impl PreviewView {
                         let _ = self.filter_games();
                         self.status_message.clear();
                         self.message_details.clear();
-                        (LogLevel::INFO, format!("Game(s) found on sale: {}", self.sales_cache.store_sales.len()))
+                        (LogLevel::INFO, format!("Game sale(s) found: {}", self.sales_cache.store_sales.len()))
                     }
                     Err(err_msg) => {
                         self.show_dialog = true;
@@ -180,7 +180,7 @@ impl PreviewView {
                     self.price_check_loading_frame = 0;
                     Task::batch(vec![
                         Task::perform(get_sales(),PreviewMessage::GetSales),
-                        Task::done(PreviewMessage::SendLogEvent(LogLevel::INFO, "Check games for potential sales".into()))
+                        Task::done(PreviewMessage::SendLogEvent(LogLevel::INFO, "Checking games for potential sales".into()))
                     ])
                 } else {
                     Task::none()

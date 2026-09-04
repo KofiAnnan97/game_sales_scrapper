@@ -5,7 +5,7 @@ use std::io;
 use std::collections::{HashMap, HashSet};
 
 use iced::widget::{Button, column, container, row, text};
-use iced::{Element, Length, Padding, Subscription, Task, window, exit, daemon};
+use iced::{Element, Length, Padding, Subscription, Task, window, exit, daemon, Theme};
 use iced::time::{self, Duration};
 use iced_aw::menu::{self, Menu};
 use iced_aw::{ICED_AW_FONT_BYTES, menu_bar, menu_items, TabLabel, tabs::{Tabs, TabBarPosition}};
@@ -30,10 +30,9 @@ use utils::actions_utils::{send_sales_email, update_cache};
 use utils::search_utils::perform_store_search;
 use utils::file_utils::open_file;
 use utils::log_utils::{self, LogLevel};
-use crate::views::logs as logs_view;
-use crate::views::sub_windows::LogItem;
+use crate::views::logs::{LoggingMessage, LoggingView};
 use crate::utils::log_utils::Logger;
-use crate::views::logs::{Screen}; //LogPane, LoggingMessage, LoggingView, Screen};
+use crate::views::logs::{Screen};
 use crate::views::preview::{PreviewMessage, PreviewView};
 use crate::views::settings::{Page, alias_settings, store_selection};
 use crate::views::sub_windows::manual_prune;
@@ -51,8 +50,15 @@ fn main() -> iced::Result {
     }));
 
     daemon(move || App::new(log_file.clone()), App::update, App::view)
-        .title("Game Sales Scrapper")
+        .title(|app: &App, window_id| {
+            if Some(window_id) == app.manual_prune_window {
+                "Prune Logs".to_string()
+            } else {
+                "Game Sales Scrapper".to_string()
+            }
+        })
         .subscription(App::subscription)
+        .theme(|app: &App, _status| app.theme())
         .font(ICED_AW_FONT_BYTES)
         .run()
 }
@@ -155,14 +161,9 @@ pub(crate) enum MainMessage {
     UpdateLogFile,
     OpenLogsView,
     CloseLogsView,
-    LevelChanged(usize),
-    LogFileChanged(Option<String>),
-    LogScreenChanged(Screen),
     LogEvent(Screen, LogLevel, String),
-    OpenManualPrune,
-    ToggleLogsToRemove(usize, bool),
-    DeleteLogs,
-    PruneAllLogs(bool),
+    RefreshLogsView,
+    SetDefaultLogLevel(String),
 }
 
 #[derive(Debug, Clone)]
@@ -170,7 +171,7 @@ pub(crate) enum Message{
     CloseWindow(window::Id),
     Main(MainMessage),
     Preview(PreviewMessage),
-    // Logging(LoggingMessage)
+    Logging(LoggingMessage)
 }
 
 impl From<MainMessage> for Message {
@@ -185,9 +186,9 @@ impl From<PreviewMessage> for Message {
     }
 }
 
-// impl From<LoggingMessage> for Message {
-//     fn from(msg: LoggingMessage) -> Self { Message::Logging(msg) }
-// }
+impl From<LoggingMessage> for Message {
+    fn from(msg: LoggingMessage) -> Self { Message::Logging(msg) }
+}
 
 impl StoreSearchResult {
     fn title(&self) -> &str {
@@ -240,6 +241,7 @@ struct App {
     test_path: String,
     test_mode: bool,
     auto_advance_enabled: bool,
+    default_log_level: String, 
     //Search
     search_query: String,
     add_alias: String,
@@ -263,7 +265,7 @@ struct App {
     threshold_sort_order: SortOrder,
     show_dialog: bool,
     preview_view: PreviewView,
-    //logging_view: LoggingView,
+    logging_view: LoggingView,
     // Settings variables
     settings_page: Page,
     store_settings_expanded: bool,
@@ -271,13 +273,14 @@ struct App {
     status_message: String,
     message_details: String,
     logs_view_open: bool,
-    log_slider_idx: usize,
-    log_file_selected: Option<String>,
-    log_selected_screen: Option<Screen>,
     manual_prune_window: Option<window::Id>,
     manual_prune_open: bool,
-    log_items: Vec<LogItem>,
-    prune_all: bool,
+}
+
+impl Default for App {
+    fn default() -> App {
+        Self::new(log_utils::new_log()).0
+    }
 }
 
 impl App {
@@ -288,7 +291,7 @@ impl App {
             resizable: true,
             ..Default::default()
         });
-        
+
         let mut app = Self {
             main_window: Some(id),
             tab: Tab::Search,
@@ -314,6 +317,8 @@ impl App {
             test_mode: properties::is_testing_enabled(),
             // TODO: Add auto advance to settings under app
             auto_advance_enabled: false,
+            // TODO: get current default value or return DEBUG
+            default_log_level: "DEBUG".into(),
             // Search
             search_query: String::new(),
             add_alias: String::new(),
@@ -337,7 +342,7 @@ impl App {
             threshold_sort_order: SortOrder::Original,
             show_dialog: false,
             preview_view: PreviewView::default(),
-            //logging_view: LoggingView::new(&log_file),
+            logging_view: LoggingView::new(&log_file),
             // Settings view variables
             settings_page: Page::General,
             store_settings_expanded: false,
@@ -345,56 +350,36 @@ impl App {
             status_message: String::from("Ready"),
             message_details: String::new(),
             logs_view_open: false,
-            log_slider_idx: 0,
-            log_file_selected: Some(log_utils::get_filename(&log_file)),
-            log_selected_screen: Some(Screen::All),
             manual_prune_window: None,
             manual_prune_open: false,
-            log_items: {
-                let avaialable_logs = log_utils::get_app_logs();
-                let mut items: Vec<LogItem> = Vec::new();
-                for (idx, file_name) in avaialable_logs.iter().enumerate() {
-                    if idx != 0 {
-                        items.push(LogItem { id: idx, name: file_name.clone(), checked: false });
-                    }
-                }
-                items
-            },
-            prune_all: false
         };
-        
+
         app.sync_threshold_edits();
         (
             app,
             task.map(|id| MainMessage::MainWindowOpened(id).into()),
         )
     }
-}
 
-impl Default for App {
-    fn default() -> App {
-        Self::new(log_utils::new_log()).0
+    fn theme(&self) -> Theme {
+        Theme::CatppuccinMacchiato
     }
-}
-
-impl App {
     fn subscription(&self) -> Subscription<Message> {
         let log_sub = time::every(Duration::from_secs(15)).map(|_| MainMessage::UpdateLogFile.into());
         let main_tick_sub = time::every(Duration::from_millis(400)).map(|_| MainMessage::Tick.into());
         let preview_tick_sub = time::every(Duration::from_millis(400))
-            .map(|_| {Message::Preview(PreviewMessage::Tick)});
+            .map(|_| {PreviewMessage::Tick.into()});
+        let log_refresh_sub = time::every(Duration::from_millis(800)).map(|_| { MainMessage::RefreshLogsView.into() });
         let close_sub = iced::event::listen_with(|event, _, window_id| {
             match event {
-                iced::Event::Window(
-                    iced::window::Event::Closed
-                ) => {
-                    Some(Message::CloseWindow(window_id))
-                }
+                iced::Event::Window(iced::window::Event::Closed) => Some(Message::CloseWindow(window_id)),
                 _ => None,
             }
         });
-        
-        Subscription::batch(vec![log_sub, main_tick_sub, preview_tick_sub, close_sub])
+
+        let fast_lane = Subscription::batch([main_tick_sub, preview_tick_sub, log_refresh_sub, close_sub]);
+        let slow_lane = Subscription::batch([log_sub]);
+        Subscription::batch([fast_lane, slow_lane])
     }
 
     fn update_main(&mut self, message: MainMessage) -> Task<Message>{
@@ -605,7 +590,7 @@ impl App {
                     match result {
                         Ok(list) => {
                             entry.1 = list;
-                            self.logger.info(Screen::Search, &format!("Search completed for {:?}", game_store));
+                            self.logger.info(Screen::Search, &format!("Search completed for {}", game_store.get_name()));
                         }
                         Err(err) => {
                             self.logger.error(Screen::Search, &format!("Search failed for {}: {:?}", game_store.get_name(), err));
@@ -876,7 +861,8 @@ impl App {
                 Task::none()
             }
             MainMessage::HideDialog => { 
-                self.show_dialog = false;                 self.is_caching_in_progress = true;
+                self.show_dialog = false;
+                self.is_caching_in_progress = true;
 
                 if self.status_message.eq_ignore_ascii_case(STATUS_ERR) {
                     self.message_details.clear();
@@ -899,79 +885,48 @@ impl App {
             MainMessage::OpenLogsView => {
                 self.active_view = View::Logs;
                 self.logs_view_open = true;
-                self.logger.debug(Screen::Logs, "Open logs view");
+                self.logger.debug(Screen::Logs, "Showing Log View");
                 Task::none()
             }
             MainMessage::CloseLogsView => {
                 self.active_view = View::Base;
                 self.logs_view_open = false;
-                self.logger.debug(Screen::Logs, "Closed Logs view");
-                Task::none()
-            }
-            MainMessage::LevelChanged(idx) => {
-                self.log_slider_idx = idx;
-                Task::none()
-            }
-            MainMessage::LogFileChanged(dt_str) => {
-                self.log_file_selected = dt_str;
-                Task::none()
-            }
-            MainMessage::LogScreenChanged(screen) => {
-                self.log_selected_screen = Some(screen);
+                self.logger.debug(Screen::Logs, "Closed Logs View");
                 Task::none()
             }
             MainMessage::LogEvent(screen, level, msg) => {
                 self.logger.log(screen, level, &msg);
                 Task::none()
             }
-            MainMessage::OpenManualPrune => {
-                if self.manual_prune_open {
-                    return Task::none();
-                }
-
-                self.manual_prune_open = true;
-
-                let (id, task) = window::open(window::Settings {
-                    size: iced::Size::new(600.0, 800.0),
-                    resizable: true,
-                    ..Default::default()
-                });
-
-                self.manual_prune_window = Some(id);
-
-                return task.map(|_| MainMessage::LogEvent(Screen::Logs, LogLevel::DEBUG, "Opening Manual Prune Window".into()).into());
+            MainMessage::RefreshLogsView => {
+                let logs = self.logger.get_full_logs();
+                Task::done(LoggingMessage::RefreshLogs(logs).into())
             }
-            MainMessage::ToggleLogsToRemove(id, checked) => {
-                if !checked {
-                    self.prune_all = false;
-                }
-
-                if let Some(item) = self.log_items.iter_mut().find(|item| item.id == id) {
-                    item.checked = checked;
-                }
-                Task::none()
-            }
-            MainMessage::DeleteLogs => {
-                self.log_items.retain_mut(|item| {
-                    if item.checked {
-                        let _ = log_utils::delete_log(&item.name);
-                        false
-                    } else {
-                        true
-                    }
-                });
-                Task::done(Message::CloseWindow(self.manual_prune_window.unwrap()))
-            }
-            MainMessage::PruneAllLogs(toggle) => {
-                if toggle {
-                    self.prune_all = true;
-                    for item in self.log_items.iter_mut() {
-                        item.checked = true;
-                    }
-                }
+            MainMessage::SetDefaultLogLevel(level) => {
+                self.default_log_level = level;
+                // Update settings.json with the new default log_level
                 Task::none()
             }
         }
+    }
+
+    fn open_manual_prune(&mut self) -> Task<Message> {
+        if self.manual_prune_open {
+            return Task::none();
+        }
+
+        self.manual_prune_open = true;
+
+        let (id, task) = window::open(window::Settings {
+            size: iced::Size::new(700.0, 500.0),
+            position: window::Position::Centered,
+            resizable: false,
+            ..Default::default()
+        });
+
+        self.manual_prune_window = Some(id);
+
+        task.map(|_| MainMessage::LogEvent(Screen::Logs, LogLevel::DEBUG, "Viewing Manual Prune Window".into()).into())
     }
     
     fn update_preview(&mut self, message: PreviewMessage) -> Task<Message> {
@@ -1002,20 +957,22 @@ impl App {
         }
     }
     
-    // fn update_logging(&mut self, message: LoggingMessage) -> Task<Message> {
-    //     match message {
-    //         LoggingMessage::Exit => {
-    //             self.active_view = View::Base;
-    //             self.logs_view_open = false;
-    //             self.logger.debug(Screen::Logs, "Closed Logs view");
-    //             Task::none()
-    //         }
-    //         logging_message => {
-    //             //self.logging_view.update(logging_message).map(Message::Logging)
-    //             Task::none()
-    //         }
-    //     }
-    // }
+    fn update_logging(&mut self, message: LoggingMessage) -> Task<Message> {
+        match message {
+            LoggingMessage::OpenManualPrune => {
+                self.open_manual_prune()
+            }
+            LoggingMessage::Exit => {
+                self.active_view = View::Base;
+                self.logs_view_open = false;
+                self.logger.debug(Screen::Logs, "Closed Log view");
+                Task::none()
+            }
+            logging_message => {
+                self.logging_view.update(logging_message).map(Message::Logging)
+            }
+        }
+    }
 
     fn update(&mut self, message: Message) -> Task<Message> {
         match message {
@@ -1031,11 +988,10 @@ impl App {
                 } else {
                     Task::none()
                 }
-            }
+            },
             Message::Main(message) => self.update_main(message),
             Message::Preview(message) => self.update_preview(message),
-            // Message::Logging(message) => self.update_logging(message),
-            // _ => Task::none()
+            Message::Logging(message) => self.update_logging(message),
         }
     }
 
@@ -1144,13 +1100,13 @@ impl App {
                     )
                 );
             }
-            bar.padding(4)
+            bar.padding(1)
         };
 
         let settings_window: Element<'_, Message> = sttngs_view::view(self).into();
         let preview_window: Element<'_, Message> = self.preview_view.view().map(Message::Preview);
-        let logs_window: Element<'_, Message> = logs_view::view(self).into(); //self.logging_view.view().map(Message::Logging); //logs_view::view(self).into();
-
+        let logs_window: Element<'_, Message> = self.logging_view.view().map(Message::Logging);
+        
         let right_pane = match self.active_view {
             View::Base => {
                 // if self.show_dialog && self.tab == {
@@ -1298,195 +1254,212 @@ impl App {
     }
 }
 
-// #[cfg(test)]
-// mod tests {
-//     use super::*;
-//
-//     mod app {
-//         use super::*;
-//
-//         #[test]
-//         fn bulk_search_advances_to_next_game() {
-//             let mut app = App::new(String::new());
-//             app.bulk_simple_threshs = vec![
-//                 SimpleGameThreshold { name: "Alpha".into(), price: 10.0 },
-//                 SimpleGameThreshold { name: "Beta".into(), price: 20.0 },
-//             ];
-//             app.bulk_search_index = 0;
-//
-//             let next_game = app.next_bulk_game();
-//
-//             assert_eq!(next_game.map(|game| game.name), Some("Beta".into()));
-//         }
-//
-//         #[test]
-//         fn bulk_search_return_none_when_done() {
-//             let mut app = App::new(String::new());
-//             app.bulk_simple_threshs = vec![
-//                 SimpleGameThreshold { name: "Alpha".into(), price: 10.0 },
-//             ];
-//             app.bulk_search_index = 1;
-//
-//             let next_game = app.next_bulk_game();
-//
-//             assert!(next_game.is_none());
-//         }
-//
-//         #[test]
-//         fn bulk_search_returns_current_game() {
-//             let mut app = App::new(String::new());
-//             app.bulk_simple_threshs = vec![
-//                 SimpleGameThreshold { name: String::from("Alpha"), price: 10.0 },
-//                 SimpleGameThreshold { name: String::from("Beta"), price: 20.0 },
-//             ];
-//             app.bulk_search_index = 1;
-//
-//             let current_game = app.current_bulk_game();
-//
-//             assert_eq!(current_game.map(|game| game.name), Some("Beta".to_string()));
-//         }
-//
-//         #[test]
-//         fn insert_threshold() {
-//             let mut thresholds_list = Vec::new();
-//
-//             let threshold_added = App::insert_threshold(
-//                 &mut thresholds_list,
-//                 "Example Game",
-//                 "Example Alias",
-//                 9.99,
-//                 12345,
-//                 0,
-//                 "".to_string(),
-//             );
-//
-//             assert!(threshold_added);
-//             assert_eq!(thresholds_list.len(), 1);
-//             assert_eq!(thresholds_list[0].title, "Example Game");
-//             assert_eq!(thresholds_list[0].alias, "Example Alias");
-//             assert_eq!(thresholds_list[0].desired_price, 9.99);
-//             assert_eq!(thresholds_list[0].steam_id, 12345);
-//         }
-//
-//         #[test]
-//         fn update_existing_threshold() {
-//             let mut thresholds_list = vec![
-//                 GameThreshold {
-//                     title: "Example Game".into(),
-//                     alias: "Old Alias".into(),
-//                     steam_id: 100,
-//                     gog_id: 0,
-//                     microsoft_store_id: String::new(),
-//                     currency: String::from("USD"),
-//                     desired_price: 19.99,
-//                 }
-//             ];
-//
-//             let threshold_added = App::insert_threshold(
-//                 &mut thresholds_list,
-//                 "Example Game",
-//                 "New Alias",
-//                 8.99,
-//                 200,
-//                 10,
-//                 "MS123".to_string(),
-//             );
-//
-//             assert!(!threshold_added);
-//             assert_eq!(thresholds_list.len(), 1);
-//             assert_eq!(thresholds_list[0].alias, "New Alias");
-//             assert_eq!(thresholds_list[0].desired_price, 8.99);
-//             assert_eq!(thresholds_list[0].steam_id, 200);
-//             assert_eq!(thresholds_list[0].gog_id, 10);
-//             assert_eq!(thresholds_list[0].microsoft_store_id, "MS123");
-//         }
-//
-//         #[test]
-//         fn thresholds_sync_to_alias_and_price_edits() {
-//             let mut app = App::new(String::new());
-//             app.thresholds = vec![
-//                 GameThreshold {
-//                     title: "Example Game".into(),
-//                     alias: "Alias1".into(),
-//                     steam_id: 0,
-//                     gog_id: 0,
-//                     microsoft_store_id: String::new(),
-//                     currency: String::from("USD"),
-//                     desired_price: 5.5,
-//                 },
-//                 GameThreshold {
-//                     title: "Example 2".into(),
-//                     alias: String::new(),
-//                     steam_id: 0,
-//                     gog_id: 0,
-//                     microsoft_store_id: String::new(),
-//                     currency: String::from("USD"),
-//                     desired_price: 12.0,
-//                 },
-//             ];
-//
-//             app.sync_threshold_edits();
-//
-//             assert_eq!(app.threshold_alias_edits, vec!["Alias1", ""]);
-//             assert_eq!(app.threshold_price_edits, vec!["5.5", "12"]);
-//         }
-//
-//         #[test]
-//         fn sort_thresholds_column_order_cycle() {
-//             let mut app = App::new(String::new());
-//             app.threshold_sort_column = None;
-//             app.threshold_sort_order = SortOrder::Original;
-//
-//             let _ = app.update(MainMessage::SortThresholds(SortColumn::Title).into());
-//             assert_eq!(app.threshold_sort_column, Some(SortColumn::Title));
-//             assert_eq!(app.threshold_sort_order, SortOrder::Ascending);
-//
-//             let _ = app.update(MainMessage::SortThresholds(SortColumn::Title).into());
-//             assert_eq!(app.threshold_sort_order, SortOrder::Descending);
-//
-//             let _ = app.update(MainMessage::SortThresholds(SortColumn::Title).into());
-//             assert_eq!(app.threshold_sort_column, None);
-//             assert_eq!(app.threshold_sort_order, SortOrder::Original);
-//         }
-//
-//         #[test]
-//         fn log_start_search_with_no_stores() {
-//             let mut app = App::new(String::new());
-//             app.selected_stores.clear();
-//             app.search_query = "Example".into();
-//
-//             let _ = app.update(MainMessage::StartSearch.into());
-//
-//             assert!(!app.is_search_in_progress);
-//             assert!(app.log_batch.contains("No stores to search."));
-//             assert!(app.search_results_by_store.is_empty());
-//         }
-//
-//         #[test]
-//         fn logs_start_search_with_no_query() {
-//             let mut app = App::new(String::new());
-//             app.search_query.clear();
-//
-//             let _ = app.update(MainMessage::StartSearch.into());
-//
-//             assert!(!app.is_search_in_progress);
-//             assert!(app.log_batch.contains("Please enter a search query."));
-//         }
-//
-//         #[test]
-//         fn update_cache_error_shows_dialog() {
-//             let mut app = App::new(String::new());
-//             let _ = app.update(MainMessage::UpdateCacheResult(Err("cache update failed".to_string())).into());
-//             assert!(app.show_dialog);
-//             assert_eq!(app.message_details, "An issue occurred trying to cache game titles. Please check your internet connection or try again later.");
-//         }
-//
-//         #[test]
-//         fn check_price_error_shows_dialog() {
-//             let mut app = App::new(String::new());
-//             let _ = app.update(PreviewMessage::GetSalesUpdated(Err("Could not find sales data".to_string())).into());
-//             assert!(app.preview_view.show_dialog);
-//             assert_eq!(app.preview_view.message_details, "An issue occurred while looking for game sales. Please check your internet connection or try again later.");
-//         }
-//     }
-// }
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    mod app {
+        use super::*;
+
+        fn is_message_in_batch(app: &crate::App, log_msg: &str) -> bool{
+            let mut is_present = false;
+            for log in app.logger.get_batch_ref() {
+                if log.contains(log_msg) {
+                    is_present = true;
+                    break;
+                }
+            }
+            is_present
+        }
+
+        #[test]
+        fn bulk_search_advances_to_next_game() {
+            let mut app = App::new(String::new());
+            app.0.bulk_simple_threshs = vec![
+                SimpleGameThreshold { name: "Alpha".into(), price: 10.0 },
+                SimpleGameThreshold { name: "Beta".into(), price: 20.0 },
+            ];
+            app.0.bulk_search_index = 0;
+
+            let next_game = app.0.next_bulk_game();
+
+            assert_eq!(next_game.map(|game| game.name), Some("Beta".into()));
+        }
+
+        #[test]
+        fn bulk_search_return_none_when_done() {
+            let mut app = App::new(String::new());
+            app.0.bulk_simple_threshs = vec![
+                SimpleGameThreshold { name: "Alpha".into(), price: 10.0 },
+            ];
+            app.0.bulk_search_index = 1;
+
+            let next_game = app.0.next_bulk_game();
+
+            assert!(next_game.is_none());
+        }
+
+        #[test]
+        fn bulk_search_returns_current_game() {
+            let mut app = App::new(String::new());
+            app.0.bulk_simple_threshs = vec![
+                SimpleGameThreshold { name: String::from("Alpha"), price: 10.0 },
+                SimpleGameThreshold { name: String::from("Beta"), price: 20.0 },
+            ];
+            app.0.bulk_search_index = 1;
+
+            let current_game = app.0.current_bulk_game();
+
+            assert_eq!(current_game.map(|game| game.name), Some("Beta".to_string()));
+        }
+
+        #[test]
+        fn insert_threshold() {
+            let mut thresholds_list = Vec::new();
+
+            let threshold_added = App::insert_threshold(
+                &mut thresholds_list,
+                "Example Game",
+                "Example Alias",
+                9.99,
+                12345,
+                0,
+                "".to_string(),
+            );
+
+            assert!(threshold_added);
+            assert_eq!(thresholds_list.len(), 1);
+            assert_eq!(thresholds_list[0].title, "Example Game");
+            assert_eq!(thresholds_list[0].alias, "Example Alias");
+            assert_eq!(thresholds_list[0].desired_price, 9.99);
+            assert_eq!(thresholds_list[0].steam_id, 12345);
+        }
+
+        #[test]
+        fn update_existing_threshold() {
+            let mut thresholds_list = vec![
+                GameThreshold {
+                    title: "Example Game".into(),
+                    alias: "Old Alias".into(),
+                    steam_id: 100,
+                    gog_id: 0,
+                    microsoft_store_id: String::new(),
+                    currency: String::from("USD"),
+                    desired_price: 19.99,
+                }
+            ];
+
+            let threshold_added = App::insert_threshold(
+                &mut thresholds_list,
+                "Example Game",
+                "New Alias",
+                8.99,
+                200,
+                10,
+                "MS123".to_string(),
+            );
+
+            assert!(!threshold_added);
+            assert_eq!(thresholds_list.len(), 1);
+            assert_eq!(thresholds_list[0].alias, "New Alias");
+            assert_eq!(thresholds_list[0].desired_price, 8.99);
+            assert_eq!(thresholds_list[0].steam_id, 200);
+            assert_eq!(thresholds_list[0].gog_id, 10);
+            assert_eq!(thresholds_list[0].microsoft_store_id, "MS123");
+        }
+
+        #[test]
+        fn thresholds_sync_to_alias_and_price_edits() {
+            let mut app = App::new(String::new());
+            app.0.thresholds = vec![
+                GameThreshold {
+                    title: "Example Game".into(),
+                    alias: "Alias1".into(),
+                    steam_id: 0,
+                    gog_id: 0,
+                    microsoft_store_id: String::new(),
+                    currency: String::from("USD"),
+                    desired_price: 5.5,
+                },
+                GameThreshold {
+                    title: "Example 2".into(),
+                    alias: String::new(),
+                    steam_id: 0,
+                    gog_id: 0,
+                    microsoft_store_id: String::new(),
+                    currency: String::from("USD"),
+                    desired_price: 12.0,
+                },
+            ];
+
+            app.0.sync_threshold_edits();
+
+            assert_eq!(app.0.threshold_alias_edits, vec!["Alias1", ""]);
+            assert_eq!(app.0.threshold_price_edits, vec!["5.5", "12"]);
+        }
+
+        #[test]
+        fn sort_thresholds_column_order_cycle() {
+            let mut app = App::new(String::new());
+            app.0.threshold_sort_column = None;
+            app.0.threshold_sort_order = SortOrder::Original;
+
+            let _ = app.0.update(MainMessage::SortThresholds(SortColumn::Title).into());
+            assert_eq!(app.0.threshold_sort_column, Some(SortColumn::Title));
+            assert_eq!(app.0.threshold_sort_order, SortOrder::Ascending);
+
+            let _ = app.0.update(MainMessage::SortThresholds(SortColumn::Title).into());
+            assert_eq!(app.0.threshold_sort_order, SortOrder::Descending);
+
+            let _ = app.0.update(MainMessage::SortThresholds(SortColumn::Title).into());
+            assert_eq!(app.0.threshold_sort_column, None);
+            assert_eq!(app.0.threshold_sort_order, SortOrder::Original);
+        }
+
+        #[test]
+        fn log_start_search_with_no_stores() {
+            let mut app = App::new(String::new());
+            app.0.selected_stores.clear();
+            app.0.search_query = "Example".into();
+
+            let _ = app.0.update(MainMessage::StartSearch.into());
+
+            assert!(!app.0.is_search_in_progress);
+            assert!(
+                is_message_in_batch(&app.0, "No stores to search"),
+                "The expected log could not be found in the batch {:?}", app.0.logger.get_batch_ref()
+            );
+            assert!(app.0.search_results_by_store.is_empty());
+        }
+
+        #[test]
+        fn logs_start_search_with_no_query() {
+            let mut app = App::new(String::new());
+            app.0.search_query.clear();
+
+            let _ = app.0.update(MainMessage::StartSearch.into());
+
+            assert!(!app.0.is_search_in_progress);
+            assert!(
+                is_message_in_batch(&app.0, "Search query was empty so no game could be found."),
+                "The expected log could not be found in the batch {:?}", app.0.logger.get_batch_ref()
+            );
+        }
+
+        #[test]
+        fn update_cache_error_shows_dialog() {
+            let mut app = App::new(String::new());
+            let _ = app.0.update(MainMessage::UpdateCacheResult(Err("cache update failed".to_string())).into());
+            assert!(app.0.show_dialog);
+            assert_eq!(app.0.message_details, "An issue occurred trying to cache game titles. Please check your internet connection or try again later.");
+        }
+
+        #[test]
+        fn check_price_error_shows_dialog() {
+            let mut app = App::new(String::new());
+            let _ = app.0.update(PreviewMessage::GetSalesUpdated(Err("Could not find sales data".to_string())).into());
+            assert!(app.0.preview_view.show_dialog);
+            assert_eq!(app.0.preview_view.message_details, "An issue occurred while looking for game sales. Please check your internet connection or try again later.");
+        }
+    }
+}
