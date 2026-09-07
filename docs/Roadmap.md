@@ -1,12 +1,13 @@
 # Roadmap
 
-### Release 0.3.2 Beta
+### Release 0.3.1 Beta
 - Features/Updates
   - General
     - ~~[ ] Configure Steam API call to not send steam key as plain text~~
     - [X] Modernize email HTML
     - [X] Only show sensitive passwords when requested by user.
     - [ ] Determine if defaulting the path should be in getters for project and test path if properties and dot env file have an invalid/empty path
+    - [ ] Implement search via multiple game ids for Steam games
   - Application
     - [X] Update check price display to look more modern
       - [X] Make style similar to updated email design (including image) 
@@ -28,6 +29,7 @@
       - [X] Change new_log() logic to update latest log file instead if it's been < 30 minutes
       - [ ] Add automated pruning through a scheduler
       - [X] Remove unneeded code/clean up
+      - [X] Added pagination for logs
     - [X] Implement support for multiple closable views (i.e. opening settings then sales preview should result in two closable views) 
     - [X] Settings are saved based on the page displayed
     - [X] Updated closable view button design to resemble Firefox tabs

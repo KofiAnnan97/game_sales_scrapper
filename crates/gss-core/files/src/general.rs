@@ -26,7 +26,7 @@ pub fn create_dir(file_path: &str){
 pub fn write_to_file(path: String, data: String){
     match write(&path, data) {
         Ok(_) => (),
-        Err(e) => eprintln!("An error occurred while writing to \'{}\'\n{}", &path, e)
+        Err(e) => eprintln!("An error occurred while writing to \'{}\'\n{}", path, e)
     }
 }
 
@@ -38,7 +38,6 @@ pub fn write_file(path: &Path, filename: &str, data: &str) {
 pub fn append_to_file(path: &str, data: &str) {
     let file = OpenOptions::new()
         .create(true)
-        .write(true)
         .append(true)
         .open(path);
     match file {
@@ -56,9 +55,9 @@ pub fn get_contents(path: &str) -> String{
     fs::read_to_string(path).unwrap_or_default()
 }
 
-pub fn delete_file(file_path: String){
+pub fn delete_file(file_path: String) -> bool{
     match fs::remove_file(get_path(&file_path)){
-        Ok(_) => println!("Successfully deleted {}", file_path),
-        Err(e) => {eprintln!("{}",e)}
+        Ok(_) => true,
+        Err(e) => false
     }
 }

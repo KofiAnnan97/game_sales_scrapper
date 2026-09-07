@@ -12,7 +12,10 @@ const TMP_DIR_TITLE: &str = "env_vars";
 
 fn delete_decrypt_key(){
     let path_buf : PathBuf = [CONFIG_DIR.to_string(), DECRYPT_FILENAME.to_string()].iter().collect();
-    general::delete_file(path_buf.display().to_string());
+    let key_deleted = general::delete_file(path_buf.display().to_string());
+    if key_deleted {
+        println!("Successfully deleted decryption key.");
+    }
 }
 
 #[test]

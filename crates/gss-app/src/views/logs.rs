@@ -1,11 +1,18 @@
+use std::fs::File;
+use std::fmt::{Display, Formatter};
+use std::collections::HashMap;
+use std::io::{Read, Seek, SeekFrom};
 use std::path::PathBuf;
+use iced::alignment::{Horizontal, Vertical};
 use iced::{Element, Length, Alignment, Background, Color, Task};
 use iced::widget::{row, Scrollable, text, Button, container, pick_list, column};
 use crate::components::custom_widgets as cw;
-use crate::utils::log_utils::{LogLevel, get_log_data, get_log_path};
+use crate::utils::log_utils::{LogLevel, get_log_path};
 use crate::log_utils::{LogData, parse_logs};
 use crate::utils::log_utils;
 use crate::views::sub_windows::LogItem;
+
+const LOGS_PER_PAGE: usize = 20;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Screen {
@@ -64,6 +71,7 @@ impl From<String> for Screen {
 #[derive(Debug, Clone)]
 pub enum LoggingMessage {
     LevelChanged(usize),
+    PageChanged(usize),
     LogFileChanged(Option<LogFileOption>),
     LogScreenChanged(Screen),
     ToggleLogsToRemove(usize, bool),
@@ -74,7 +82,14 @@ pub enum LoggingMessage {
     OpenManualPrune,
     Exit,
     //Message(s) communicated back from App
-    RefreshLogs(String),
+    RefreshLogs,
+}
+
+#[derive(Default)]
+struct LogState {
+    file_size: u64,
+    entries: Vec<LogData>,
+    pending_line: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -83,18 +98,20 @@ pub struct LogFileOption {
     timestamp: String,
 }
 
-impl std::fmt::Display for LogFileOption {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl Display for LogFileOption {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.timestamp)
     }
 }
 
 pub struct LoggingView {
     curr_file_path: String,
-    curr_raw_logs: String,
+    current_log: LogState,
+    historical_logs: HashMap<String, LogState>,
     log_slider_idx: usize,
     log_file_selected: Option<String>,
     log_selected_screen: Option<Screen>,
+    log_page: usize,
     pub log_items: Vec<LogItem>,
     pub prune_all: bool,
 }
@@ -104,10 +121,12 @@ impl LoggingView {
         let file_name = log_utils::get_filename(curr_log_path);
         Self {
             curr_file_path: String::from(curr_log_path),
-            curr_raw_logs: String::new(),
+            current_log: LogState::default(),
+            historical_logs: HashMap::new(),
             log_slider_idx: get_defaut_slider_idx(),
             log_file_selected: Some(file_name.clone()),
             log_selected_screen: Some(Screen::All),
+            log_page: 0,
             log_items: {
                 let available_logs = log_utils::get_app_logs();
                 let mut items: Vec<LogItem> = Vec::new();
@@ -129,19 +148,26 @@ impl LoggingView {
         match message {
             LoggingMessage::LevelChanged(idx) => {
                 self.log_slider_idx = idx;
+                self.log_page = 0;
+                Task::none()
+            }
+            LoggingMessage::PageChanged(page) => {
+                self.log_page = page;
                 Task::none()
             }
             LoggingMessage::LogFileChanged(dt_str) => {
                 self.log_file_selected = dt_str.as_ref().map(|selection| selection.file_name.clone());
+                self.refresh_selected_historical_log();
+                self.log_page = 0;
                 Task::none()
             }
             LoggingMessage::LogScreenChanged(screen) => {
                 self.log_selected_screen = Some(screen);
+                self.log_page = 0;
                 Task::none()
             }
             LoggingMessage::ToggleLogsToRemove(id, checked) => {
-                let is_current = self.log_items.iter()
-                    .find(|item| item.id == id)
+                let is_current = self.log_items.get(id)
                     .is_some_and(|item| self.is_current_file(&item.file_name));
                 if is_current {
                     return Task::none();
@@ -151,7 +177,7 @@ impl LoggingView {
                     self.prune_all = false;
                 }
 
-                if let Some(item) = self.log_items.iter_mut().find(|item| item.id == id) {
+                if let Some(item) = self.log_items.get_mut(id) {
                     item.checked = checked;
                 }
                 self.sync_prune_all();
@@ -194,9 +220,11 @@ impl LoggingView {
                 }
                 Task::none()
             }
-            LoggingMessage::RefreshLogs(logs) => {
-                self.curr_raw_logs = logs;
+            LoggingMessage::RefreshLogs => {
+                self.refresh_current_log();
+                self.refresh_selected_historical_log();
                 self.refresh_log_items();
+                self.clamp_page();
                 Task::none()
             }
             LoggingMessage::OpenManualPrune => { Task::none() }
@@ -205,20 +233,8 @@ impl LoggingView {
     }
 
     pub fn view(&self) -> Element<'_, LoggingMessage> {
-        let complete_logs = if let Some(file_path) = &self.log_file_selected {
-            if file_path == &self.curr_file_path {
-                parse_logs(self.curr_raw_logs.clone())
-            } else {
-                let path_buf: PathBuf = [&get_log_path(), &file_path].iter().collect();
-                let path_str  = path_buf.display().to_string();
-                let raw_logs = get_log_data(&path_str);
-                parse_logs(raw_logs)
-            }
-        } else {
-            Vec::new()
-        };
-
         let level_options = LogLevel::get_options();
+        let filtered_logs = self.filtered_logs(&level_options);
 
         let logs_header = row![
             text("Timestamp").width(Length::Fixed(310.)),
@@ -226,13 +242,18 @@ impl LoggingView {
             text("Screen").width(Length::FillPortion(1)),
             text("Message").width(Length::FillPortion(3))
         ];
-        let mut log_cols = iced::widget::column![];
-        for (idx, log) in complete_logs.iter().enumerate() {
-            let level_idx = level_options.iter().position(|r| r == &log.level).unwrap_or(0);
-            if self.log_slider_idx <= level_idx && (self.log_selected_screen == Some(Screen::All) || self.log_selected_screen == Some(log.screen.clone().into())) {
-                log_cols = log_cols.push(log_row(log.clone(), idx));
-            }
+        
+        let total_log_count = filtered_logs.len();
+        let page_count = total_log_count.div_ceil(LOGS_PER_PAGE);
+        let page = self.log_page.min(page_count.saturating_sub(1));
+        let page_start_idx = page * LOGS_PER_PAGE;
+        let page_end_idx = (page_start_idx + LOGS_PER_PAGE).min(total_log_count);
+        
+        let mut log_cols = column![];
+        for (idx, log) in filtered_logs[page_start_idx..page_end_idx].iter().enumerate() {
+            log_cols = log_cols.push(log_row(log.clone(), page_start_idx + idx));
         }
+
         let logs_display = Scrollable::new(log_cols)
             .width(Length::Fill)
             .height(Length::Fill);
@@ -241,12 +262,29 @@ impl LoggingView {
             file_name: item.file_name.clone(),
             timestamp: item.timestamp.clone(),
         }).collect::<Vec<_>>();
+
         let selected_log = self.log_file_selected.as_ref().and_then(|file_name| {
             self.log_items.iter().find(|item| &item.file_name == file_name).map(|item| LogFileOption {
                 file_name: item.file_name.clone(),
                 timestamp: item.timestamp.clone(),
             })
         });
+
+        let log_range = if total_log_count == 0 {
+            "Showing 0-0 of 0 lines".to_string()
+        } else {
+            format!("Showing {}-{} of {} lines", page_start_idx + 1, page_end_idx, total_log_count)
+        };
+
+        let mut prev_page_btn = Button::new(text("Previous")).padding(6);
+        if page > 0 {
+            prev_page_btn = prev_page_btn.on_press(LoggingMessage::PageChanged(page - 1));
+        }
+
+        let mut next_page_btn = Button::new(text("Next")).padding(6);
+        if page + 1 < page_count {
+            next_page_btn = next_page_btn.on_press(LoggingMessage::PageChanged(page + 1));
+        }
 
         column![
             container(cw::incremental_slider(level_options, self.log_slider_idx, 600., |idx| LoggingMessage::LevelChanged(idx)))
@@ -261,7 +299,9 @@ impl LoggingView {
                             selected_log,
                             |selection| LoggingMessage::LogFileChanged(Some(selection)),
                         ),
-                    ].spacing(10)
+                    ]
+                    .align_y(Vertical::Center)
+                    .spacing(10)
                     .height(Length::Fixed(30.))
                 ),
                 container(
@@ -272,9 +312,22 @@ impl LoggingView {
                             self.log_selected_screen.clone(),
                             |screen| LoggingMessage::LogScreenChanged(screen),
                         )
-                    ].spacing(5)
+                    ]
+                    .align_y(Vertical::Center)
+                    .spacing(5)
                     .height(Length::Fixed(30.))
-                ).padding(6),
+                ),
+                container(
+                    row![
+                        prev_page_btn,
+                        text(log_range),
+                        next_page_btn,
+                    ]
+                    .spacing(12)
+                    .align_y(Alignment::Center)
+                )
+                .width(Length::Fill)
+                .align_x(Horizontal::Right),
             ].spacing(20),
             logs_header,
             logs_display,
@@ -307,6 +360,35 @@ impl LoggingView {
         self.prune_all = deletable.clone().next().is_some() && deletable.all(|item| item.checked);
     }
 
+    fn clamp_page(&mut self) {
+        let level_options = LogLevel::get_options();
+        let total_log_count = self.filtered_logs(&level_options).len();
+        let page_count = total_log_count.div_ceil(LOGS_PER_PAGE);
+        self.log_page = self.log_page.min(page_count.saturating_sub(1));
+    }
+
+    fn filtered_logs(&self, level_options: &[String]) -> Vec<LogData> {
+        let displayed_logs = if let Some(file_path) = &self.log_file_selected {
+            if self.is_current_file(file_path) {
+                self.current_log.entries.clone()
+            } else {
+                self.historical_logs
+                    .get(file_path)
+                    .map(|log| log.entries.clone())
+                    .unwrap_or_default()
+            }
+        } else {
+            Vec::new()
+        };
+
+        displayed_logs.into_iter().filter(|log| {
+            let level_idx = level_options.iter().position(|level| level == &log.level).unwrap_or(0);
+            self.log_slider_idx <= level_idx
+                && (self.log_selected_screen == Some(Screen::All)
+                    || self.log_selected_screen == Some(log.screen.clone().into()))
+        }).collect()
+    }
+
     pub(crate) fn is_current_file(&self, file_name: &str) -> bool {
         file_name == log_utils::get_filename(&self.curr_file_path)
     }
@@ -315,11 +397,12 @@ impl LoggingView {
         let available_logs = log_utils::get_app_logs();
         let current_file_name = log_utils::get_filename(&self.curr_file_path);
         let previous_items = std::mem::take(&mut self.log_items);
+        let previous_checked: HashMap<String, bool> = previous_items
+            .into_iter()
+            .map(|item| (item.file_name, item.checked))
+            .collect();
         self.log_items = available_logs.into_iter().enumerate().map(|(id, file_name)| {
-            let checked = previous_items.iter()
-                .find(|item| item.file_name == file_name)
-                .map(|item| item.checked)
-                .unwrap_or(false);
+            let checked = previous_checked.get(&file_name).copied().unwrap_or(false);
             let is_current = file_name == current_file_name;
             LogItem {
                 id,
@@ -331,6 +414,68 @@ impl LoggingView {
         self.normalize_selection();
         self.sync_prune_all();
     }
+
+    fn refresh_current_log(&mut self) {
+        refresh_log_file(&self.curr_file_path, &mut self.current_log);
+    }
+
+    fn refresh_selected_historical_log(&mut self) {
+        let file_name = match self.log_file_selected.as_ref() {
+            Some(file_name) if !self.is_current_file(file_name) => file_name.clone(),
+            _ => return,
+        };
+
+        let path_buf: PathBuf = [&get_log_path(), &file_name].iter().collect();
+        let log_state = self.historical_logs.entry(file_name).or_default();
+        refresh_log_file(&path_buf.display().to_string(), log_state);
+    }
+}
+
+fn refresh_log_file(file_path: &str, log_state: &mut LogState) {
+        let mut file = match File::open(file_path) {
+            Ok(file) => file,
+            Err(_) => {
+                *log_state = LogState::default();
+                return;
+            }
+        };
+
+        let file_size = match file.metadata().map(|metadata| metadata.len()) {
+            Ok(size) => size,
+            Err(_) => return,
+        };
+
+        if file_size < log_state.file_size {
+            *log_state = LogState::default();
+        }
+
+        if file_size == log_state.file_size {
+            return;
+        }
+
+        if file.seek(SeekFrom::Start(log_state.file_size)).is_err(){
+            return;
+        }
+
+        let mut appended = String::new();
+        if file.read_to_string(&mut appended).is_err() {
+            return;
+        }
+
+        let mut buffer = std::mem::take(&mut log_state.pending_line);
+        buffer.push_str(&appended);
+
+        let mut lines = buffer.split_inclusive('\n');
+
+        while let Some(line) = lines.next() {
+            if line.ends_with('\n') {
+                log_state.entries.extend(parse_logs(line));
+            } else {
+                log_state.pending_line.push_str(line);
+            }
+        }
+
+    log_state.file_size = file_size;
 }
 
 fn get_defaut_slider_idx() -> usize {

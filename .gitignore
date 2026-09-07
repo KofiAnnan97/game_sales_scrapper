@@ -6,7 +6,6 @@
 *.env*
 
 # Rust Build
-Cargo.lock
 target/
 
 # Executables

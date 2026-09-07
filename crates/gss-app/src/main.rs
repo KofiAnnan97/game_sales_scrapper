@@ -369,7 +369,11 @@ impl App {
         let main_tick_sub = time::every(Duration::from_millis(400)).map(|_| MainMessage::Tick.into());
         let preview_tick_sub = time::every(Duration::from_millis(400))
             .map(|_| {PreviewMessage::Tick.into()});
-        let log_refresh_sub = time::every(Duration::from_millis(800)).map(|_| { MainMessage::RefreshLogsView.into() });
+        let log_refresh_sub = if self.logs_view_open {
+            time::every(Duration::from_millis(800)).map(|_| MainMessage::RefreshLogsView.into())
+        } else {
+            Subscription::none()
+        };
         let close_sub = iced::event::listen_with(|event, _, window_id| {
             match event {
                 iced::Event::Window(iced::window::Event::Closed) => Some(Message::CloseWindow(window_id)),
@@ -899,8 +903,8 @@ impl App {
                 Task::none()
             }
             MainMessage::RefreshLogsView => {
-                let logs = self.logger.get_full_logs();
-                Task::done(LoggingMessage::RefreshLogs(logs).into())
+                self.logger.flush();
+                Task::done(LoggingMessage::RefreshLogs.into())
             }
             MainMessage::SetDefaultLogLevel(level) => {
                 self.default_log_level = level;

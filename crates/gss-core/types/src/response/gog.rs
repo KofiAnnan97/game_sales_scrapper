@@ -80,6 +80,7 @@ pub struct GameInfoBuilder {
     pub data: GameInfo,
 }
 
+#[allow(clippy::new_ret_no_self)]
 impl GameInfoBuilder{
     pub fn new(id_str: String, game_title: String,
                price_info: Price, icon_link: String,
