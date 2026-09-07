@@ -83,20 +83,20 @@ impl MicrosoftStoreApi for MSClient{
         let search_list: Vec<ProductInfo> = self.search_game_by_title(title).await.unwrap_or_else(|_e| Vec::new());
         for game in search_list {
             if game.product_id == xbox_id {
-            let mut discount_str = game.price_info.badge_text.unwrap_or_default();
-            discount_str = if !discount_str.is_empty() {
-                discount_str[1..discount_str.len()-1].to_string()
-            }else{
-                String::from("0")
-            };
-            return Some(SaleInfo{
-                icon_link: game.box_icon_url.clone(),
-                title: game.title.clone(),
-                original_price: game.price_info.msrp.unwrap_or_else(|| f64::MIN),
-                current_price: game.price_info.price.unwrap_or_else(|| f64::MAX),
-                discount_percentage: discount_str,
-                store_page_link: game.redirect_url.unwrap_or_default(),
-            });
+                let mut discount_str = game.price_info.badge_text.unwrap_or_default();
+                discount_str = if !discount_str.is_empty() {
+                    discount_str[1..discount_str.len()-1].to_string()
+                }else{
+                    String::from("0")
+                };
+                return Some(SaleInfo{
+                    icon_link: game.box_icon_url.clone(),
+                    title: game.title.clone(),
+                    original_price: game.price_info.msrp.unwrap_or_else(|| f64::MIN),
+                    current_price: game.price_info.price.unwrap_or_else(|| f64::MAX),
+                    discount_percentage: discount_str,
+                    store_page_link: game.redirect_url.unwrap_or_default(),
+                });
             }
         }
         None

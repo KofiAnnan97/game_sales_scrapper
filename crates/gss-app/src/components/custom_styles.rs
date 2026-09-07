@@ -1,12 +1,16 @@
 use iced::widget::{ MouseArea, Text, button, container, mouse_area, text};
 use iced::{Background, Border, Color, Font, Length, Shadow, Theme, font};
 
-pub fn bold_text<'a>(data: &'a str) -> Text<'a>{
+// Test Styles
+
+pub fn bold_text(data: &str) -> Text<'_> {
     text(data).font(Font{
             weight: font::Weight::Bold,
             ..Font::DEFAULT
     })
 }
+
+// Mouse Area Styles
 
 pub fn backdrop<'a, M: Clone + 'static>(message: M) -> MouseArea<'a, M>{
     mouse_area(
@@ -31,6 +35,8 @@ pub fn backdrop<'a, M: Clone + 'static>(message: M) -> MouseArea<'a, M>{
     )
     .on_press(message)
 }
+
+// Container Styles
 
 pub fn dialog_style(_theme: &Theme) -> container::Style {
     container::Style {
@@ -98,6 +104,21 @@ pub fn cmp_row_style(index: usize) -> impl Fn(&Theme) -> container::Style {
     }
 }
 
+pub fn rounded_background(background: Color, r: f32) -> container::Style {
+    container::Style{
+        text_color: None,
+        background: Some(Background::Color(background)),
+        border: Border{
+            radius: r.into(),
+            ..Default::default()
+        },
+        shadow: Default::default(),
+        snap: false,
+    }
+}
+
+// Button Styles
+
 pub fn highlight_on_click_style(theme: &iced::Theme, status: button::Status, selected: bool) -> button::Style {
     let mut style = button::text(theme, status);
     if selected {
@@ -106,4 +127,17 @@ pub fn highlight_on_click_style(theme: &iced::Theme, status: button::Status, sel
         ));
     }
     style
+}
+
+pub fn custom_button_style(background: Option<Background>, text_color: Color, rounded: f32) -> button::Style {
+    button::Style {
+        background,
+        text_color: text_color.into(),
+        border: Border {
+            radius: rounded.into(),
+            ..Default::default()
+        },
+        shadow: Default::default(),
+        snap: false,
+    }
 }
