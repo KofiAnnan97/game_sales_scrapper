@@ -34,16 +34,16 @@ jobs:
     - name: Configure project
       run: |
         # Set properties
-        cargo run --profile ci -p gss-cli -- config properties -f --locked
+        cargo run --profile ci -p gss-cli --locked -- config properties -f
         # Set test mode
-        cargo run --profile ci -p gss-cli -- config properties --test_mode 1 --locked
+        cargo run --profile ci -p gss-cli --locked -- config properties --test_mode 1
         # Set store fronts
-        cargo run --profile ci -p gss-cli -- config settings -a --locked
+        cargo run --profile ci -p gss-cli --locked -- config settings -a
       shell: bash
     - name: Cache Steam games
-      run: cargo run --profile ci -p gss-cli -- --update-cache --locked
+      run: cargo run --profile ci -p gss-cli --locked -- --update-cache
     - name: Run tests
-      run: cargo test --profile ci -- --test-threads=1 --show-output --locked
+      run: cargo test --profile ci --locked -- --test-threads=1 --show-output
   windows:
     needs: linux
     if: always()
@@ -73,13 +73,13 @@ jobs:
       - name: Configure project
         run: |
           # Set properties
-          cargo run --profile ci -p gss-cli -- config properties -f --locked
+          cargo run --profile ci -p gss-cli --locked -- config properties -f
           # Set test mode
-          cargo run --profile ci -p gss-cli -- config properties --test_mode 1 --locked
+          cargo run --profile ci -p gss-cli --locked -- config properties --test_mode 1
           # Set store fronts
-          cargo run --profile ci -p gss-cli -- config settings -a --locked 
+          cargo run --profile ci -p gss-cli --locked -- config settings -a
         shell: pwsh
       - name: Cache Steam games
-        run: cargo run --profile ci -p gss-cli -- --update-cache --locked
+        run: cargo run --profile ci -p gss-cli --locked -- --update-cache
       - name: Run tests
-        run: cargo test --profile ci -- --test-threads=1 --show-output --locked
+        run: cargo test --profile ci --locked -- --test-threads=1 --show-output
