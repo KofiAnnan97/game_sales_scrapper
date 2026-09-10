@@ -14,8 +14,8 @@ use constants::operations::properties::{
 use file_ops::{settings, thresholds};
 use files::csv;
 use gss_cli::{
-    check_prices, gog_insert_sequence, microsoft_store_insert_sequence, steam_insert_sequence,
-    storefront_check,
+    check_prices, gog_insert_sequence, microsoft_store_insert_sequence, print_test_flag,
+    steam_insert_sequence, storefront_check,
 };
 use stores::pc::steam;
 use types::internal::data::SimpleGameThreshold;
@@ -469,11 +469,7 @@ async fn main() {
         }
         Some(("add", add_args)) => {
             let selected_stores = storefront_check();
-            if properties::is_testing_enabled() {
-                println!(
-                    "------------------------\n* TEST MODE IS ENABLED *\n------------------------"
-                );
-            }
+            print_test_flag();
             let alias = if add_args.contains_id("alias") {
                 add_args.get_one::<String>("alias").unwrap().clone()
             } else if settings::get_alias_state() {
@@ -498,11 +494,7 @@ async fn main() {
         }
         Some(("bulk-insert", bulk_args)) => {
             let selected_stores = storefront_check();
-            if properties::is_testing_enabled() {
-                println!(
-                    "------------------------\n* TEST MODE IS ENABLED *\n------------------------"
-                );
-            }
+            print_test_flag();
             let mut game_list: Vec<SimpleGameThreshold> = Vec::new();
             let file_path = bulk_args.get_one::<String>("file").unwrap().clone();
             match csv::parse_game_prices_from_path(&file_path) {
@@ -530,21 +522,13 @@ async fn main() {
         }
         Some(("update", update_args)) => match update_args.subcommand() {
             Some(("price", price_args)) => {
-                if properties::is_testing_enabled() {
-                    println!(
-                        "------------------------\n* TEST MODE IS ENABLED *\n------------------------"
-                    );
-                }
+                print_test_flag();
                 let title = price_args.get_one::<String>("title").unwrap().clone();
                 let price = *price_args.get_one::<f64>("price").unwrap();
                 thresholds::update_price_fuzzy(&title, price);
             }
             Some(("alias", alias_args)) => {
-                if properties::is_testing_enabled() {
-                    println!(
-                        "------------------------\n* TEST MODE IS ENABLED *\n------------------------"
-                    );
-                }
+                print_test_flag();
                 let title = alias_args.get_one::<String>("title").unwrap().clone();
                 let alias = alias_args.get_one::<String>("alias").unwrap().clone();
                 thresholds::update_threshold_alias_fuzzy(title, &alias);
@@ -552,20 +536,12 @@ async fn main() {
             _ => (),
         },
         Some(("remove", remove_args)) => {
-            if properties::is_testing_enabled() {
-                println!(
-                    "------------------------\n* TEST MODE IS ENABLED *\n------------------------"
-                );
-            }
+            print_test_flag();
             let title = remove_args.get_one::<String>("title").unwrap().clone();
             thresholds::remove_fuzzy(&title);
         }
         _ => {
-            if properties::is_testing_enabled() {
-                println!(
-                    "------------------------\n* TEST MODE IS ENABLED *\n------------------------"
-                );
-            }
+            print_test_flag();
             if cmd.get_flag(LIST_THRESHOLDS) {
                 thresholds::list_games();
             } else if cmd.get_flag(LIST_SELECTED_STORES) {
@@ -574,7 +550,7 @@ async fn main() {
                 println!("Caching started (this might take a while)...");
                 match steam::update_cached_games().await {
                     Ok(result) => println!("{}", result),
-                    Err(e) => eprint!("Caching could not be completed due to {:?}", e),
+                    Err(e) => eprintln!("Caching could not be completed due to {:?}", e),
                 }
             } else if cmd.get_flag(CHECK_PRICES) {
                 let use_html = false;

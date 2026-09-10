@@ -4,8 +4,6 @@
 - Features/Updates
   - General
   - Application
-    - [ ] Implement a logging window (separate from Actions Tab)
-      - [ ] Add automated pruning through a scheduler
     - Optimize log pagination
       - [ ] Refactor log filtering to iterate over references instead of cloning all entries.
       - [ ] Render only the requested page using skip() and take(LOGS_PER_PAGE).
@@ -20,7 +18,7 @@
     - Add message dialog for the following 
       - [ ] Calling storefronts fails 
 - Testing:
-  - [ ] Add caching to GitHub Actions
+  - [X] Add caching to GitHub Actions
   - [ ] Update each test to do clean up before execution. If one test fails that temp environment might cause other tests to fail. 
  
 ### Backlog
@@ -33,16 +31,14 @@
     - Retrieve pricing data from game editions on GOG
     - Add the option to send emails through AWS SES
     - Remove/reduce duplicate code between the app and cli
-- Bugs/Fixes
-  - General
-    - Update dependencies and resolve any potential issues
   - Application  
     - Add loading animation of image for preview game icons 
       - Add a timeout which sets the image to a square missing image icon instead
     - Add Base closeable window when any other window is in view
       - make the base closeable window disappear when it is the only one
     - New Features
-      - Add auto advance to the next store as a togglable option when a radial button is selected 
+      - Add automated pruning through a scheduler (Logging Settings)
+      - Add auto advance to the next store as a togglable option when a radial button is selected
       - User customization
         - Allow for custom color theme
         - Add default options
@@ -57,6 +53,13 @@
         - In settings allow the user to send a test alert to confirm that the configuration
       - Allow user option to run application in background when closing application instead of completely exiting
       - Add functionality to get and set a debug level (value should be store in settings file)
+- Bugs/Fixes
+  - General
+    - Update dependencies and resolve any potential issues
+  - Application  
+    - Add functionality to get and set a debug level (value should be store in settings file)
+    - Add feedback Prune all logs button in Settings
+    - Add message dialog for failure for updating cache (Steam settings)
 - Testing
   - To do
     - Mock api calls for user commands (check prices) -> may need to moved out to later

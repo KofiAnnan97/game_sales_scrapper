@@ -18,6 +18,12 @@ pub fn storefront_check() -> Vec<GameStore> {
     selected_stores
 }
 
+pub fn print_test_flag() {
+    if properties::is_testing_enabled() {
+        println!("------------------------\n* TEST MODE IS ENABLED *\n------------------------");
+    }
+}
+
 pub fn get_simple_prices_str(store_name: &str, sales: Vec<SaleInfo>) -> String {
     let mut prices_str = String::new();
     for game in sales.iter() {

@@ -245,7 +245,7 @@ pub async fn add_steam_game(new_alias: String, app: App, price: f64, client: &re
                     steam_id: app.app_id,
                     gog_id: 0,
                     microsoft_store_id: String::new(),
-                    currency: po.currency[1..po.currency.len() - 1].to_string(),
+                    currency: po.currency,
                     desired_price: price,
                 });
                 update_thresholds(thresholds);

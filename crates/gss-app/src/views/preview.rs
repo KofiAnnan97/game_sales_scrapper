@@ -474,28 +474,27 @@ impl PreviewView {
             sales_comparisons =
                 sales_comparisons.push(text("No games to compare sale prices against."));
         } else {
-            let cmp_header = row![
-                bold_text("Game").size(20).width(Length::FillPortion(2)),
-                bold_text(STEAM_STORE_NAME)
-                    .size(20)
-                    .width(Length::FillPortion(1))
-                    .center(),
-                bold_text(GOG_STORE_NAME)
-                    .size(20)
-                    .width(Length::FillPortion(1))
-                    .center(),
-                bold_text(MICROSOFT_STORE_NAME)
-                    .size(20)
-                    .width(Length::FillPortion(1))
-                    .center(),
-            ];
-
-            sales_comparisons = sales_comparisons.push(container(cmp_header).width(Length::Fill));
             for (idx, game) in self.sales_cache.comparisons.iter().enumerate() {
                 sales_comparisons =
                     sales_comparisons.push(game_comparison_row(game, idx).width(Length::Fill));
             }
         }
+
+        let cmp_header = row![
+            bold_text("Game").size(20).width(Length::FillPortion(2)),
+            bold_text(STEAM_STORE_NAME)
+                .size(20)
+                .width(Length::FillPortion(1))
+                .center(),
+            bold_text(GOG_STORE_NAME)
+                .size(20)
+                .width(Length::FillPortion(1))
+                .center(),
+            bold_text(MICROSOFT_STORE_NAME)
+                .size(20)
+                .width(Length::FillPortion(1))
+                .center(),
+        ];
 
         let sales_comparisons_scrollable = Scrollable::new(if self.is_price_check_in_progress {
             column![cmp_check_loading]
@@ -520,9 +519,13 @@ impl PreviewView {
                 .on_toggle(PreviewMessage::ComparePrices)
                 .spacing(10),
             if self.active_view == PreviewDisplayed::SalesCompare {
-                sales_comparisons_scrollable
+                if !self.is_price_check_in_progress {
+                    column![cmp_header, sales_comparisons_scrollable]
+                } else {
+                    column![sales_comparisons_scrollable]
+                }
             } else {
-                price_check_scrollable
+                column![price_check_scrollable]
             },
             container(
                 row![
