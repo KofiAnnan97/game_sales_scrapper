@@ -1,29 +1,31 @@
+use regex::Regex;
 use serde::Deserialize;
 use serde_json::{self, Value};
 use std::collections::HashMap;
 use std::fs::read_to_string;
-use regex::Regex;
 use std::io::{self, Write};
 use std::path::PathBuf;
 // use mockall::automock;
 use async_trait::async_trait;
-use tokio::time::{Duration};
+use tokio::time::Duration;
 
+use crate::algorithms::fuzzy;
+use constants::operations::properties::PROP_STEAM_API_KEY;
+use constants::operations::thresholds::{
+    LEVENSTEIN_DIST_PERCENTAGE, SMITH_WATERMAN_DIST_PERCENTAGE,
+};
+use constants::stores::steam::*;
+use errors::api::ApiError;
 use files::general;
 use properties;
-use constants::operations::properties::PROP_STEAM_API_KEY;
 use types::internal::data::SaleInfo;
 use types::response::steam::{App, AppDetails, PriceOverview};
-use constants::stores::steam::*;
-use constants::operations::thresholds::{LEVENSTEIN_DIST_PERCENTAGE, SMITH_WATERMAN_DIST_PERCENTAGE};
-use errors::api::ApiError;
-use crate::algorithms::fuzzy;
 
 #[allow(dead_code)]
 enum SearchPattern {
     Simple,
     FuzzyLevenshtein,
-    FuzzySmithWatrerman
+    FuzzySmithWatrerman,
 }
 
 // #[automock]
@@ -42,12 +44,20 @@ pub struct SteamClient {
 
 impl SteamClient {
     pub fn new() -> Self {
-        Self { http_client: reqwest::Client::new() }
+        Self {
+            http_client: reqwest::Client::new(),
+        }
     }
 
     pub fn with_client(http_client: reqwest::Client) -> Self {
         Self { http_client }
-    } 
+    }
+}
+
+impl Default for SteamClient {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[async_trait]
@@ -69,81 +79,82 @@ impl SteamApi for SteamClient {
                         .expect("Failed to read user input");
                     if input.trim() == "q" {
                         eprintln!("Request terminated.");
-                    }
-                    else {
+                    } else {
                         match input.trim().parse::<usize>() {
                             Ok(idx) => {
-                                if idx < search_list.len(){
+                                if idx < search_list.len() {
                                     let title = search_list[idx].clone();
                                     return Some(title);
+                                } else if idx >= search_list.len() {
+                                    eprintln!(
+                                        "Integer \"{}\" is invalid. Request terminated.",
+                                        idx
+                                    );
                                 }
-                                else if idx >= search_list.len(){
-                                    eprintln!("Integer \"{}\" is invalid. Request terminated.", idx);
-                                }
-                            },
-                            Err(e) => println!("Invalid input: {}\nError: {}", input, e)
+                            }
+                            Err(e) => println!("Invalid input: {}\nError: {}", input, e),
                         }
                     }
+                } else {
+                    println!(
+                        "Could not find a game title matching \"{}\" on Steam.",
+                        keyphrase
+                    );
                 }
-                else {
-                    println!("Could not find a game title matching \"{}\" on Steam.", keyphrase);
-                }
-            }, 
-            Err(e) => println!("Error: {}", e)
+            }
+            Err(e) => println!("Error: {}", e),
         }
         None
     }
 
     async fn search_by_keyphrase(&self, keyphrase: &str) -> Result<Vec<String>, ApiError> {
-        let mut games_list : Vec<App> = load_cached_games().unwrap_or_default();
-        if games_list.len() == 0 {
+        let mut games_list: Vec<App> = load_cached_games().unwrap_or_default();
+        if games_list.is_empty() {
             let _ = update_cached_games().await;
             games_list = load_cached_games().unwrap_or_default();
         }
-        let mut search_list : Vec<String> = Vec::new();
+        let mut search_list: Vec<String> = Vec::new();
         let search_type = SearchPattern::FuzzySmithWatrerman;
         match search_type {
             SearchPattern::Simple => {
                 let keyphrase_ignore_case = format!("(?i){}", keyphrase);
                 let re = Regex::new(&keyphrase_ignore_case).unwrap();
-                for game in games_list.iter(){
+                for game in games_list.iter() {
                     let caps = re.captures(&game.name);
-                    if !caps.is_none() { search_list.push(game.name.clone()); }
+                    if !caps.is_none() {
+                        search_list.push(game.name.clone());
+                    }
                 }
-            },
+            }
             SearchPattern::FuzzyLevenshtein => {
                 let mut fuzzy_thresholds: HashMap<String, f32> = HashMap::new();
                 for app in games_list {
-                    let dist = fuzzy::levenshtein_distance(keyphrase, &app.name);      
-                    if 1.0 - (dist/keyphrase.len() as f32) >= LEVENSTEIN_DIST_PERCENTAGE {
+                    let dist = fuzzy::levenshtein_distance(keyphrase, &app.name);
+                    if 1.0 - (dist / keyphrase.len() as f32) >= LEVENSTEIN_DIST_PERCENTAGE {
                         if fuzzy_thresholds.len() > SEARCH_SIZE_LIMIT {
-                            break;    
+                            break;
                         }
                         fuzzy_thresholds.insert(app.name, dist);
                     }
                 }
-                search_list = fuzzy_thresholds.iter()
-                    .map(|(key, _)| key.clone()) // Extract keys
-                    .collect();
-                search_list.sort_by(|a, b| fuzzy_thresholds[a].total_cmp(&fuzzy_thresholds[b])); 
+                search_list = fuzzy_thresholds.keys().cloned().collect();
+                search_list.sort_by(|a, b| fuzzy_thresholds[a].total_cmp(&fuzzy_thresholds[b]));
                 fuzzy_thresholds.clear();
-            },
+            }
             SearchPattern::FuzzySmithWatrerman => {
                 let mut fuzzy_thresholds: HashMap<String, f32> = HashMap::new();
                 for app in games_list {
                     let score = fuzzy::smith_waterman(keyphrase, &app.name);
-                    let percentage = score/(2*keyphrase.len()) as f32;
+                    let percentage = score / (2 * keyphrase.len()) as f32;
                     if percentage > SMITH_WATERMAN_DIST_PERCENTAGE {
                         if fuzzy_thresholds.len() > SEARCH_SIZE_LIMIT {
-                            break;    
+                            break;
                         }
                         fuzzy_thresholds.insert(app.name, percentage);
                     }
                 }
-                search_list = fuzzy_thresholds.iter()
-                    .map(|(key, _)| key.clone()) // Extract keys
-                    .collect();
-                search_list.sort_by(|a, b| fuzzy_thresholds[a].total_cmp(&fuzzy_thresholds[b])); 
+                search_list = fuzzy_thresholds.keys().cloned().collect();
+                search_list.sort_by(|a, b| fuzzy_thresholds[a].total_cmp(&fuzzy_thresholds[b]));
                 fuzzy_thresholds.clear();
             }
         }
@@ -151,13 +162,13 @@ impl SteamApi for SteamClient {
     }
 
     async fn check_game(&self, name: &str) -> Option<App> {
-        let mut games_list : Vec<App> = load_cached_games().unwrap_or_default();
+        let mut games_list: Vec<App> = load_cached_games().unwrap_or_default();
         if games_list.is_empty() {
-            let _  = update_cached_games().await;
+            let _ = update_cached_games().await;
             games_list = load_cached_games().unwrap_or_default();
         }
-        for elem in games_list.iter(){
-            if name.to_owned() == elem.name {
+        for elem in games_list.iter() {
+            if name == elem.name {
                 return Some(App {
                     name: name.to_owned(),
                     app_id: elem.app_id,
@@ -168,62 +179,81 @@ impl SteamApi for SteamClient {
         }
         None
     }
-    
-    async fn get_price(&self, app_id : u32) -> Result<PriceOverview, ApiError> {
+
+    async fn get_price(&self, app_id: u32) -> Result<PriceOverview, ApiError> {
         match get_game_data(app_id, &self.http_client).await {
             Ok(app_details) => {
                 let success = app_details.success;
                 let data = app_details.app_data;
-                if success && data.is_some(){
-                    if let Some(price_overview) = data.unwrap().price_overview {
-                        Ok(PriceOverview{
+                if success && let Some(game_data) = data {
+                    if let Some(price_overview) = game_data.price_overview {
+                        Ok(PriceOverview {
                             currency: price_overview.currency,
                             discount_percent: price_overview.discount_percent,
-                            initial: price_overview.initial/100.0,
-                            final_price: price_overview.final_price/100.0,
+                            initial: price_overview.initial / 100.0,
+                            final_price: price_overview.final_price / 100.0,
                         })
                     } else {
-                        Err(ApiError::Message(format!("Could not retrieve pricing information for game with id {}.", app_id)))
+                        Err(ApiError::Message(format!(
+                            "Could not retrieve pricing information for game with id {}.",
+                            app_id
+                        )))
                     }
                 } else {
-                    Err(ApiError::Message(format!("No data available for game with id {}.", app_id)))
+                    Err(ApiError::Message(format!(
+                        "No data available for game with id {}.",
+                        app_id
+                    )))
                 }
-            },
-            Err(e) =>  Err(ApiError::Message(format!("An issue was found for Steam game with id: {}, {}", app_id, e)))
+            }
+            Err(e) => Err(ApiError::Message(format!(
+                "An issue was found for Steam game with id: {}, {}",
+                app_id, e
+            ))),
         }
     }
 
-    async fn get_price_details(&self, app_id : u32) -> Result<SaleInfo, ApiError> {
+    async fn get_price_details(&self, app_id: u32) -> Result<SaleInfo, ApiError> {
         match get_game_data(app_id, &self.http_client).await {
             Ok(app_details) => {
                 let success = app_details.success;
                 if success {
                     if let Some(data) = app_details.app_data {
                         let price_overview = data.price_overview.unwrap();
-                        Ok(SaleInfo{
+                        Ok(SaleInfo {
                             icon_link: data.header_image,
                             title: data.name,
-                            original_price: price_overview.initial/100.0,
-                            current_price: price_overview.final_price/100.0,
+                            original_price: price_overview.initial / 100.0,
+                            current_price: price_overview.final_price / 100.0,
                             discount_percentage: format!("{}", price_overview.discount_percent),
                             store_page_link: format!("{}{}", STORE_PAGE_URL, app_id),
                         })
                     } else {
-                        Err(ApiError::Message(format!("Game with id {} was present but info was not available", app_id)))
+                        Err(ApiError::Message(format!(
+                            "Game with id {} was present but info was not available",
+                            app_id
+                        )))
                     }
                 } else {
-                    Err(ApiError::Message(format!("No data available for game with id {}.", app_id)))
+                    Err(ApiError::Message(format!(
+                        "No data available for game with id {}.",
+                        app_id
+                    )))
                 }
-            },
-            Err(e) =>  Err(ApiError::Message(format!("An issue was found for Steam game with id: {}, {}", app_id, e)))
+            }
+            Err(e) => Err(ApiError::Message(format!(
+                "An issue was found for Steam game with id: {}, {}",
+                app_id, e
+            ))),
         }
     }
 }
 
-
 // Caching Functions
-fn get_cache_path() -> String{
-    let path_buf: PathBuf = [properties::get_data_path(), CACHE_FILENAME.to_string()].iter().collect();
+fn get_cache_path() -> String {
+    let path_buf: PathBuf = [properties::get_data_path(), CACHE_FILENAME.to_string()]
+        .iter()
+        .collect();
     let cache_file_path = path_buf.display().to_string();
     general::get_path(&cache_file_path)
 }
@@ -231,12 +261,13 @@ fn get_cache_path() -> String{
 fn load_cached_games() -> serde_json::Result<Vec<App>> {
     let filepath = get_cache_path();
     let data = read_to_string(filepath).unwrap();
-    let cached_games = serde_json::from_str::<Vec<App>>(&data);
-    cached_games
+    serde_json::from_str::<Vec<App>>(&data)
 }
 
-fn get_last_appid(cached_games: &Vec<App>) -> u32 {
-    if cached_games.len() > 0 && let Some(app) = cached_games.last() {
+fn get_last_appid(cached_games: &[App]) -> u32 {
+    if !cached_games.is_empty()
+        && let Some(app) = cached_games.last()
+    {
         app.app_id
     } else {
         0
@@ -244,11 +275,11 @@ fn get_last_appid(cached_games: &Vec<App>) -> u32 {
 }
 
 // Adds/updates entries in cache then empties the list contains potentially new games
-fn add_entries_to_cache(new_games: &mut Vec<App>, cached_games: &mut Vec<App>){
-    let mut game_idx = 0;
+fn add_entries_to_cache(new_games: &mut Vec<App>, cached_games: &mut Vec<App>) {
+    // let mut game_idx = 0;
     for ng in new_games.iter() {
         let mut unique = true;
-        for i in game_idx..cached_games.len() {
+        for i in 0..cached_games.len() {
             let cached_game = cached_games.get_mut(i).unwrap();
             if ng.app_id == cached_game.app_id {
                 if ng.last_modified > cached_game.last_modified {
@@ -256,19 +287,18 @@ fn add_entries_to_cache(new_games: &mut Vec<App>, cached_games: &mut Vec<App>){
                     cached_game.last_modified = ng.last_modified;
                     cached_game.price_change_number = ng.price_change_number;
                 }
-                game_idx = i;
+                // game_idx = i;
                 unique = false;
                 break;
-            }
-            else if ng.app_id < cached_game.app_id {
-                game_idx = i;
+            } else if ng.app_id < cached_game.app_id {
+                // game_idx = i;
                 break;
             }
         }
-        if unique && ng.name != "".to_string() {
+        if unique && !ng.name.is_empty() {
             cached_games.push(App {
                 name: ng.name.clone(),
-                app_id: ng.app_id.clone(),
+                app_id: ng.app_id,
                 last_modified: ng.last_modified,
                 price_change_number: ng.price_change_number,
             });
@@ -278,14 +308,16 @@ fn add_entries_to_cache(new_games: &mut Vec<App>, cached_games: &mut Vec<App>){
 }
 
 // Updated to return a boolean and propgate error
-pub async fn update_cached_games() -> Result<String, ApiError>{
+pub async fn update_cached_games() -> Result<String, ApiError> {
     let client = reqwest::Client::new();
-    let mut games_list : Vec<App> = load_cached_games().unwrap_or_default();
+    let mut games_list: Vec<App> = load_cached_games().unwrap_or_default();
     let last_appid = get_last_appid(&games_list);
-    let mut temp : Vec<App> = get_games(&client, NUM_OF_RESULTS, last_appid).await?;
+    let mut temp: Vec<App> = get_games(&client, NUM_OF_RESULTS, last_appid).await?;
     add_entries_to_cache(&mut temp, &mut games_list);
     let sliding_last_appid = properties::get_sliding_steam_appid();
-    if temp.is_empty() || (sliding_last_appid < last_appid  && games_list.len() > SLIDING_UPDATE_START_SIZE) {
+    if temp.is_empty()
+        || (sliding_last_appid < last_appid && games_list.len() > SLIDING_UPDATE_START_SIZE)
+    {
         temp = get_games(&client, NUM_OF_RESULTS, sliding_last_appid).await?;
         if let Some(last_app) = temp.last() {
             properties::set_sliding_steam_appid(last_app.app_id);
@@ -293,27 +325,38 @@ pub async fn update_cached_games() -> Result<String, ApiError>{
             properties::set_sliding_steam_appid(0);
         }
         add_entries_to_cache(&mut temp, &mut games_list);
+    } else {
+        properties::set_sliding_steam_appid(0);
     }
-    else{ properties::set_sliding_steam_appid(0); }
     println!("Sorting entries...");
-    games_list.sort_by(|a, b| a.app_id.cmp(&b.app_id));
+    games_list.sort_by_key(|a| a.app_id);
     let data_str = serde_json::to_string_pretty(&games_list)?;
     general::write_to_file(get_cache_path(), data_str);
     Ok("Cache update complete".into())
 }
 
-// API Functions 
-async fn get_games(client: &reqwest::Client, max_results: u32, last_appid: u32) -> Result<Vec<App>, ApiError> {
+// API Functions
+async fn get_games(
+    client: &reqwest::Client,
+    max_results: u32,
+    last_appid: u32,
+) -> Result<Vec<App>, ApiError> {
     let steam_api_key = properties::get_steam_api_key(false);
-    if steam_api_key.is_empty() { return Err(ApiError::Message(format!("Missing '{}' property.", PROP_STEAM_API_KEY))); }
+    if steam_api_key.is_empty() {
+        return Err(ApiError::Message(format!(
+            "Missing '{}' property.",
+            PROP_STEAM_API_KEY
+        )));
+    }
     let query_string = [
         ("key", steam_api_key.as_str()),
         ("max_results", &max_results.to_string()),
         ("last_appid", &last_appid.to_string()),
-        ("format", "json")
+        ("format", "json"),
     ];
     let url = format!("{}{}", API_BASE_URL, APP_LIST_ENDPOINT);
-    let resp = client.get(url)
+    let resp = client
+        .get(url)
         .timeout(Duration::from_secs(GAME_LIST_TIMEOUT_IN_SECS))
         .query(&query_string)
         .send()
@@ -321,22 +364,26 @@ async fn get_games(client: &reqwest::Client, max_results: u32, last_appid: u32) 
         .text()
         .await?;
     // println!("Response: {:?}", &resp);
-    let body : Value = serde_json::from_str(&resp)?;
-    let app_list = match body.get("response").and_then(|response| response.get("apps")) {
+    let body: Value = serde_json::from_str(&resp)?;
+    let app_list = match body
+        .get("response")
+        .and_then(|response| response.get("apps"))
+    {
         Some(apps) if !apps.is_null() => serde_json::from_value::<Vec<App>>(apps.clone())?,
         _ => Vec::new(),
     };
     Ok(app_list)
 }
 
-async fn get_game_data(app_id : u32, client: &reqwest::Client) -> Result<AppDetails, ApiError>{
+async fn get_game_data(app_id: u32, client: &reqwest::Client) -> Result<AppDetails, ApiError> {
     let app_id_str = app_id.to_string();
     let query_string = [
         ("appids", app_id_str.as_str()),
         ("filters", "basic,price_overview"),
     ];
     let url = format!("{}{}", STORE_BASE_URL, DETAILS_ENDPOINT);
-    let resp = client.get(url)
+    let resp = client
+        .get(url)
         .timeout(Duration::from_secs(DEFAULT_TIMEOUT_IN_SECS))
         .query(&query_string)
         .send()
@@ -345,18 +392,26 @@ async fn get_game_data(app_id : u32, client: &reqwest::Client) -> Result<AppDeta
         .await?;
 
     let body: Value = serde_json::from_str(&resp)?;
-    let game_by_app_id = body.get(&app_id.to_string())
-        .ok_or(ApiError::Message(format!("An error occurred trying to retrieve Steam app data.")))?;
+    let game_by_app_id = body.get(app_id.to_string()).ok_or(ApiError::Message(
+        "An error occurred trying to retrieve Steam app data.".into(),
+    ))?;
     let game: AppDetails = AppDetails::deserialize(game_by_app_id)?;
     Ok(game)
 }
 
-pub async fn get_price(app_id : u32, client: &reqwest::Client) -> Result<PriceOverview, ApiError>{
-    SteamClient::with_client(client.clone()).get_price(app_id).await
+pub async fn get_price(app_id: u32, client: &reqwest::Client) -> Result<PriceOverview, ApiError> {
+    SteamClient::with_client(client.clone())
+        .get_price(app_id)
+        .await
 }
 
-pub async fn get_price_details(app_id : u32, client: &reqwest::Client) -> Result<SaleInfo, ApiError>{
-    SteamClient::with_client(client.clone()).get_price_details(app_id).await
+pub async fn get_price_details(
+    app_id: u32,
+    client: &reqwest::Client,
+) -> Result<SaleInfo, ApiError> {
+    SteamClient::with_client(client.clone())
+        .get_price_details(app_id)
+        .await
 }
 
 // Search Functions
@@ -364,10 +419,10 @@ pub async fn check_game(name: &str) -> Option<App> {
     SteamClient::new().check_game(name).await
 }
 
-pub async fn search_by_keyphrase(keyphrase: &str) -> Result<Vec<String>, ApiError>{
+pub async fn search_by_keyphrase(keyphrase: &str) -> Result<Vec<String>, ApiError> {
     SteamClient::new().search_by_keyphrase(keyphrase).await
 }
 
-pub async fn search_game(keyphrase: &str) -> Option<String>{
+pub async fn search_game(keyphrase: &str) -> Option<String> {
     SteamClient::new().search_game(keyphrase).await
 }

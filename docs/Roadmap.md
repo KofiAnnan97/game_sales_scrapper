@@ -1,82 +1,65 @@
 # Roadmap
 
-### Release 0.3.1 Beta
+### Release 0.3.2 Alpha (Code Hardening)
 - Features/Updates
   - General
-    - ~~[ ] Configure Steam API call to not send steam key as plain text~~
-    - [X] Modernize email HTML
-    - [X] Only show sensitive passwords when requested by user.
-    - [ ] Determine if defaulting the path should be in getters for project and test path if properties and dot env file have an invalid/empty path
-    - [ ] Implement search via multiple game ids for Steam games
   - Application
-    - [X] Update check price display to look more modern
-      - [X] Make style similar to updated email design (including image) 
-      - [X] User can copy store page link to clipboard
-      - [X] Notify user that copy to clipboard was successful
-    - [X] In window overlay presented to user when settings are saved successfully before settings are closed
-    - [X] Implement Sales Preview Window
-      - [X] Move Check Price and Send Email functionality here 
-        - [X] Propagate send email error to app for message dialog
-      - [X] Link/create to email settings
-      - [X] Add a compare stores checkbox that restructures the sales data to compare prices between stores (highlight the ones with the lowest price unless all options are the same)
-      - [X] Add filter for sales based on store and price
-      - [X] Add sort functionality by price and title
-    - [ ] Implement a logging window (separate from Actions Tab)
-      - [X] Move logic to a separate window 
-      - [X] Filtering logs by all, lowest severity, and screen where logs occurred (move to separate window)
-      - [X] include the ability to manually prune logs
-      - [X] Fix styling for consistency
-      - [X] Change new_log() logic to update latest log file instead if it's been < 30 minutes
-      - [ ] Add automated pruning through a scheduler
-      - [X] Remove unneeded code/clean up
-      - [X] Added pagination for logs
-    - [X] Implement support for multiple closable views (i.e. opening settings then sales preview should result in two closable views) 
-    - [X] Settings are saved based on the page displayed
-    - [X] Updated closable view button design to resemble Firefox tabs
-    - New Features
-      - [ ] Add auto advance to the next store as a togglable option when a radial button is selected 
-      - [ ] User customization
-        - [ ] Allow for custom color theme
-        - [ ] Add default options
-        - [ ] Update settings.json to include app.default_theme
-        - [ ] Create a new file called themes.json for user created themes
-      - [ ] Implement Alert Tab
-        - [ ] Move email settings in the Alert Settings sub menu
-        - [ ] Add interface from custom email cron jobs (Windows and Linux). Might need to rework the current setup.
-        - [ ] User modifiable schedule
-        - [ ] Update settings for alerts
-        - [ ] Check past runs (may need to added later on)
-        - [ ] In settings allow the user to send a test alert to confirm that the configuration works
-      - [ ] Allow user option to run application in background when closing application instead of completely exiting
-      - [ ] Add functionality to get and set a debug level (value should be store in settings file)
+    - Optimize log pagination
+      - [ ] Refactor log filtering to iterate over references instead of cloning all entries.
+      - [ ] Render only the requested page using skip() and take(LOGS_PER_PAGE).
+      - [ ] Update clamp_page() to count matching entries without allocating a filtered vector.
+      - [ ] Avoid repeated filtering where practical by caching filtered results or indices.
+      - [ ] Invalidate pagination caches when logs, selected files, or filters change
 - Bugs/Fixes
   - General
-    - [X] Added custom error handling for api calls
     - [ ] Handle games thresholds with corrupted or incorrect data (try to run search on fake query with incorrect store ids)
   - Application
-    - [X] Fix logic to support updating log file when application is prompted to close
-    - [X] Fix store search to filter out any game with no price
     - [ ] Only update settings if needed (currently always update)
     - Add message dialog for the following 
-      - [X] Game cache cannot be updated
-      - [X] Checking pricing fails
-      - [ ] Calling storefronts fails  
+      - [ ] Calling storefronts fails 
 - Testing:
-  - [ ] Add caching to GitHub Actions
+  - [X] Add caching to GitHub Actions
   - [ ] Update each test to do clean up before execution. If one test fails that temp environment might cause other tests to fail. 
-  - [X] Fix app tests after logging changes
  
 ### Backlog
 - Features/Updates
   - General
+    - Determine if defaulting the path should be in getters for project and test path if properties and dot env file have an invalid/empty path
+    - Implement search via multiple game ids for Steam games
     - Set up Humble Bundle Storefront & test
     - Retrieve pricing data from Steam bundles 
     - Retrieve pricing data from game editions on GOG
     - Add the option to send emails through AWS SES
     - Remove/reduce duplicate code between the app and cli
+  - Application  
+    - Add loading animation of image for preview game icons 
+      - Add a timeout which sets the image to a square missing image icon instead
+    - Add Base closeable window when any other window is in view
+      - make the base closeable window disappear when it is the only one
+    - New Features
+      - Add automated pruning through a scheduler (Logging Settings)
+      - Add auto advance to the next store as a togglable option when a radial button is selected
+      - User customization
+        - Allow for custom color theme
+        - Add default options
+        - Update settings.json to include app.default_theme
+        - Create a new file called themes.json for user created themes
+      - Implement Alert Tab
+        - Move email settings in the Alert Settings sub menu
+        - Add interface from custom email cron jobs (Windows and Linux). Might need to rework the current setup.
+        - User modifiable schedule
+        - Update settings for alerts
+        - Check past runs (may need to added later on)
+        - In settings allow the user to send a test alert to confirm that the configuration
+      - Allow user option to run application in background when closing application instead of completely exiting
+      - Add functionality to get and set a debug level (value should be store in settings file)
 - Bugs/Fixes
   - General
     - Update dependencies and resolve any potential issues
+  - Application  
+    - Add functionality to get and set a debug level (value should be store in settings file)
+    - Add feedback Prune all logs button in Settings
+    - Add message dialog for failure for updating cache (Steam settings)
 - Testing
   - To do
     - Mock api calls for user commands (check prices) -> may need to moved out to later

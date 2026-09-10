@@ -5,7 +5,7 @@ use dotenv::dotenv as dotenv_linux;
 use dotenvy::dotenv as dotenv_windows;
 use files::{csv, general};
 use serde_json::json;
-use types::internal::data::{GameThreshold, SimpleGameThreshold, SaleInfo};
+use types::internal::data::{GameThreshold, SaleInfo, SimpleGameThreshold};
 
 use crate::utils::file_operations::{self, get_threshold_path};
 
@@ -13,8 +13,15 @@ pub fn add_fake_threshold(alias: &str, title: &str, price: f64) {
     add_threshold(alias, title, 1, 2, "c", price);
 }
 
-pub fn add_threshold(alias: &str, title: &str, steam_id: u32, gog_id: u32, ms_id: &str, price: f64) {
-    let game_thresh = GameThreshold{
+pub fn add_threshold(
+    alias: &str,
+    title: &str,
+    steam_id: u32,
+    gog_id: u32,
+    ms_id: &str,
+    price: f64,
+) {
+    let game_thresh = GameThreshold {
         title: String::from(title),
         alias: String::from(alias),
         steam_id,
@@ -31,25 +38,39 @@ pub fn add_threshold(alias: &str, title: &str, steam_id: u32, gog_id: u32, ms_id
             break;
         }
     }
-    if unique { thresholds.push(game_thresh); }
+    if unique {
+        thresholds.push(game_thresh);
+    }
     match file_operations::load_threshold_data() {
         Ok(data) => {
             let mut thresholds_data = data;
             *thresholds_data.get_mut(THRESHOLDS.to_string()).unwrap() = json!(thresholds);
             let thresholds_str = serde_json::to_string_pretty(&thresholds_data);
-            general::write_to_file(get_threshold_path(), thresholds_str.expect("Cannot update thresholds for testing"));
-        },
-        Err(e) => eprintln!("Error: {}", e)
+            general::write_to_file(
+                get_threshold_path(),
+                thresholds_str.expect("Cannot update thresholds for testing"),
+            );
+        }
+        Err(e) => eprintln!("Error: {}", e),
     }
 }
 
 pub fn get_sample_csv(filename: &str) -> String {
     let thresholds = vec![
-        SimpleGameThreshold{ name: String::from("Hollow Knight"), price: 9.99 },
-        SimpleGameThreshold{ name: String::from("Stardew Valley"), price: 7.99 },
+        SimpleGameThreshold {
+            name: String::from("Hollow Knight"),
+            price: 9.99,
+        },
+        SimpleGameThreshold {
+            name: String::from("Stardew Valley"),
+            price: 7.99,
+        },
     ];
-    if cfg!(target_os = "windows") { dotenv_windows().ok(); }
-    else if cfg!(target_os = "linux") { dotenv_linux().ok(); }
+    if cfg!(target_os = "windows") {
+        dotenv_windows().ok();
+    } else if cfg!(target_os = "linux") {
+        dotenv_linux().ok();
+    }
     let test_path = properties::get_test_path();
     let path_buf: PathBuf = [&test_path, DATA_DIR, filename].iter().collect();
     let csv_path = path_buf.display().to_string();
@@ -59,39 +80,36 @@ pub fn get_sample_csv(filename: &str) -> String {
 
 pub fn get_steam_price_check(title: &str, base_price: f64, curr_price: f64) -> SaleInfo {
     let discount_amount: u32 = (((base_price - curr_price) / base_price) * 100.0) as u32;
-    let steam_sales_info = SaleInfo{
+    SaleInfo {
         discount_percentage: format!("{}%", discount_amount),
         icon_link: String::new(),
         title: title.to_string(),
         original_price: base_price,
         current_price: curr_price,
         store_page_link: String::new(),
-    };
-    steam_sales_info
+    }
 }
 
 pub fn get_gog_price_check(title: &str, base_price: f64, curr_price: f64) -> SaleInfo {
     let discount_amount: u32 = (((base_price - curr_price) / base_price) * 100.0) as u32;
-    let gog_sales_info = SaleInfo{
+    SaleInfo {
         discount_percentage: format!("{}%", discount_amount),
         icon_link: String::new(),
         title: title.to_string(),
         original_price: base_price,
         current_price: curr_price,
         store_page_link: String::new(),
-    };
-    gog_sales_info
+    }
 }
 
 pub fn get_ms_price_check(title: &str, base_price: f64, curr_price: f64) -> SaleInfo {
     let discount_amount: u32 = (((base_price - curr_price) / base_price) * 100.0) as u32;
-    let ms_sales_info = SaleInfo{
+    SaleInfo {
         discount_percentage: format!("{}%", discount_amount),
         icon_link: String::new(),
         title: title.to_string(),
         original_price: base_price,
         current_price: curr_price,
         store_page_link: String::new(),
-    };
-    ms_sales_info
+    }
 }

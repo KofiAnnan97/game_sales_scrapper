@@ -1,9 +1,9 @@
-pub mod stubs{
-    pub mod threshold_stubs;
+pub mod stubs {
     pub mod command_stubs;
+    pub mod threshold_stubs;
 }
 
-pub mod utils{
+pub mod utils {
     pub mod file_operations;
     pub mod tmp_setup;
 }
@@ -11,22 +11,22 @@ pub mod utils{
 #[cfg(test)]
 pub mod tests {
     // Unit Testing
-    pub mod unit{
-        pub mod settings;
-        pub mod thresholds;
+    pub mod unit {
+        pub mod algorithms;
+        pub mod env_vars;
         pub mod passwords;
         pub mod properties;
-        pub mod env_vars;
-        pub mod algorithms;
+        pub mod settings;
+        pub mod thresholds;
     }
     // Integration Testing
-    pub mod api{
-        pub mod steam;
+    pub mod api {
         pub mod gog;
         pub mod microsoft_store;
+        pub mod steam;
     }
     // Functional Testing
-    pub mod functional{
+    pub mod functional {
         pub mod commands;
     }
 }

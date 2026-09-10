@@ -2,19 +2,22 @@ use std::collections::HashMap;
 
 use file_ops::thresholds;
 use types::{
-    internal::data::GameThreshold, 
+    internal::data::GameThreshold,
     response::{
-        gog::{BaseMoney, FinalMoney, GameInfo as GOGGame, GameInfoBuilder as GOGGameBuilder, Price}, 
-        microsoft_store::{PriceInfo, ProductInfo as MSGame, ProductInfoBuilder as MSGameBuilder}, 
-        steam::App
-    }
+        gog::{
+            BaseMoney, FinalMoney, GameInfo as GOGGame, GameInfoBuilder as GOGGameBuilder, Price,
+        },
+        microsoft_store::{PriceInfo, ProductInfo as MSGame, ProductInfoBuilder as MSGameBuilder},
+        steam::App,
+    },
 };
 
 pub fn add_simple_threshold(game_title: &str, game_alias: &str, price: f64) {
-    let mut alias_map: HashMap<String, Vec<String>> = thresholds::load_alias_map().unwrap_or_default();
+    let mut alias_map: HashMap<String, Vec<String>> =
+        thresholds::load_alias_map().unwrap_or_default();
     let mut thresholds = thresholds::load_thresholds().unwrap_or_default();
     let mut unique_title = true;
-    for threshold in &thresholds{
+    for threshold in &thresholds {
         if threshold.title == game_title {
             unique_title = false;
             break;
@@ -22,13 +25,20 @@ pub fn add_simple_threshold(game_title: &str, game_alias: &str, price: f64) {
     }
     if unique_title {
         if alias_map.contains_key(game_alias) {
-            let idx = alias_map.get(game_alias).unwrap().iter().position(|title| title == game_title);
+            let idx = alias_map
+                .get(game_alias)
+                .unwrap()
+                .iter()
+                .position(|title| title == game_title);
             if idx.is_none() {
-                alias_map.get_mut(game_alias).unwrap().push(game_title.to_string());
+                alias_map
+                    .get_mut(game_alias)
+                    .unwrap()
+                    .push(game_title.to_string());
             }
-        } else { 
+        } else {
             alias_map.insert(game_alias.to_string(), vec![game_title.to_string()]);
-        }  
+        }
         thresholds.push(GameThreshold {
             title: game_title.to_string(),
             alias: game_alias.to_string(),
@@ -36,15 +46,15 @@ pub fn add_simple_threshold(game_title: &str, game_alias: &str, price: f64) {
             gog_id: 456,
             microsoft_store_id: String::from("abc"),
             currency: String::from("USD"),
-            desired_price: price
+            desired_price: price,
         });
     }
     thresholds::update_alias_map(alias_map);
     thresholds::update_thresholds(thresholds);
 }
 
-pub fn test_steam_app() -> App{
-    App{
+pub fn test_steam_app() -> App {
+    App {
         app_id: 220,
         name: "Half-Life 2".to_string(),
         last_modified: 678910,
@@ -67,7 +77,7 @@ pub fn test_gog_game() -> GOGGame {
         base_money: BaseMoney {
             amount: String::new(),
             currency: String::new(),
-        }
+        },
     };
     let icon_link = String::new();
     let store_page_link = String::new();

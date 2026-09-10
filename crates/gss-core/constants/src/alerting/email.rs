@@ -1,4 +1,4 @@
-pub static EMAIL_STYLESHEET : &str = r#"
+pub static EMAIL_STYLESHEET: &str = r#"
 <style>
 *{
     margin:0;

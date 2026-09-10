@@ -1,10 +1,10 @@
 use iced::alignment::Horizontal;
-use iced::{Alignment, Element, Length};
 use iced::widget::center;
-use iced::widget::{Button,  Column, Container, Scrollable, checkbox, column, container, row, text};
+use iced::widget::{Button, Column, Container, Scrollable, checkbox, column, container, row, text};
+use iced::{Alignment, Element, Length};
 
-use crate::{App, Message};
 use crate::views::logs::LoggingMessage;
+use crate::{App, Message};
 
 #[derive(Debug, Clone)]
 pub struct LogItem {
@@ -15,29 +15,34 @@ pub struct LogItem {
 }
 
 pub fn checkable_logs(app: &crate::App) -> Container<'_, Message> {
-    let checkboxes = app.logging_view.log_items.iter()
+    let checkboxes = app
+        .logging_view
+        .log_items
+        .iter()
         .filter(|log| !app.logging_view.is_current_file(&log.file_name))
-        .map(|log|{
-        checkbox(log.checked)
-            .label(&log.file_name)
-            .on_toggle(move |checked| LoggingMessage::ToggleLogsToRemove(log.id, checked).into())
-            .width(Length::Fill)
-            .into()
-    });
-    
-    container(
-        column(checkboxes).spacing(10)
-            .padding(5)
-    ).into()
+        .map(|log| {
+            checkbox(log.checked)
+                .label(&log.file_name)
+                .on_toggle(move |checked| {
+                    LoggingMessage::ToggleLogsToRemove(log.id, checked).into()
+                })
+                .width(Length::Fill)
+                .into()
+        });
+
+    container(column(checkboxes).spacing(10).padding(5))
 }
 
-
 pub fn manual_prune(app: &App) -> Element<'_, Message> {
-    if app.logging_view.log_items.iter()
-        .any(|log| !app.logging_view.is_current_file(&log.file_name)) {
+    if app
+        .logging_view
+        .log_items
+        .iter()
+        .any(|log| !app.logging_view.is_current_file(&log.file_name))
+    {
         regular_prune_view(app)
     } else {
-        message_window(app,None,Some("There are no logs to prune."))
+        message_window(app, None, Some("There are no logs to prune."))
     }
 }
 
@@ -48,12 +53,12 @@ fn regular_prune_view(app: &App) -> Element<'_, Message> {
                 .label("Select All")
                 .on_toggle(|toggle| LoggingMessage::PruneAllLogs(toggle).into())
                 .width(Length::Fill)
-        ).padding(5),
+        )
+        .padding(5),
         Scrollable::new(checkable_logs(app)).height(Length::Fixed(360.)),
     ];
 
-    let delete_btn = Button::new("Delete")
-        .padding(8);
+    let delete_btn = Button::new("Delete").padding(8);
     let delete_btn = delete_btn.on_press(LoggingMessage::DeleteLogs.into());
 
     container(
@@ -65,39 +70,42 @@ fn regular_prune_view(app: &App) -> Element<'_, Message> {
                 Button::new("Close")
                     .on_press(Message::CloseWindow(app.manual_prune_window.unwrap()))
                     .padding(8)
-            ].spacing(10)
+            ]
+            .spacing(10)
             .height(Length::Fixed(60.))
         ]
         .spacing(10)
-        .padding(15)
+        .padding(15),
     )
-        .width(Length::Fill)
-        .align_x(Alignment::Center)
-        .height(Length::Fill)
-        .into()
+    .width(Length::Fill)
+    .align_x(Alignment::Center)
+    .height(Length::Fill)
+    .into()
 }
 
-pub fn message_window<'a>(app: &'a App,title: Option<&'a str>,message: Option<&'a str>) -> Element<'a, Message> {
-    let window_id = app.manual_prune_window.expect("message window requires an open window");
+pub fn message_window<'a>(
+    app: &'a App,
+    title: Option<&'a str>,
+    message: Option<&'a str>,
+) -> Element<'a, Message> {
+    let window_id = app
+        .manual_prune_window
+        .expect("message window requires an open window");
     let mut message_content = column![];
 
     if let Some(title) = title {
         message_content = message_content.push(
-            container(
-                text(title).size(24)
-            )
-            .width(Length::Fill)
-            .align_x(Horizontal::Center),
+            container(text(title).size(24))
+                .width(Length::Fill)
+                .align_x(Horizontal::Center),
         );
     }
 
     if let Some(message) = message {
         message_content = message_content.push(
-            container(
-                text(message).size(16).width(Length::Fill)
-            )
-            .width(Length::Fill)
-            .align_x(Horizontal::Center),
+            container(text(message).size(16).width(Length::Fill))
+                .width(Length::Fill)
+                .align_x(Horizontal::Center),
         );
     }
 
@@ -112,11 +120,9 @@ pub fn message_window<'a>(app: &'a App,title: Option<&'a str>,message: Option<&'
     );
 
     center(
-        container(
-            message_content.spacing(24).padding(24),
-        )
-        .width(360)
-        .max_width(360),
+        container(message_content.spacing(24).padding(24))
+            .width(360)
+            .max_width(360),
     )
     .into()
 }

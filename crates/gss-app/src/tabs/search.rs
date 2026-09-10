@@ -1,39 +1,50 @@
 use iced::widget::{Button, Radio, Scrollable, TextInput, column, container, row, text};
 use iced::{Element, Length};
 
-use file_ops::{settings, thresholds};
 use constants::icons::{LEFT_ARROW_LONG, RIGHT_ARROW_LONG};
+use file_ops::{settings, thresholds};
 
-use crate::{LOADING_FRAMES_SIZE, Message, MainMessage};
 use crate::components::custom_widgets as cw;
+use crate::{LOADING_FRAMES_SIZE, MainMessage, Message};
 
 pub const SKIP_STORE_SELECTION: usize = usize::MAX;
 
 pub fn search_tab(app: &crate::App) -> Element<'_, Message> {
     let current_store_idx: usize = if app.pending_searches > 0 {
-        app.selected_stores.len()-app.pending_searches+1
-    } else { 0 };
+        app.selected_stores.len() - app.pending_searches + 1
+    } else {
+        0
+    };
 
-    let search_index = format!("Searching Stores({}/{})", 
-        current_store_idx, 
+    let search_index = format!(
+        "Searching Stores({}/{})",
+        current_store_idx,
         app.selected_stores.len()
     );
 
-    let search_loading = cw::text_loading_indicator(&search_index, app.search_loading_frame, LOADING_FRAMES_SIZE);
+    let search_loading =
+        cw::text_loading_indicator(&search_index, app.search_loading_frame, LOADING_FRAMES_SIZE);
 
     let store_selection = if app.selected_stores.is_empty() {
         column![text("No stores selected. Please go to 'Settings'.")]
     } else if app.search_query.is_empty() && app.search_results_by_store.is_empty() {
-        column![text("No search in progress. Enter a query and press Search.")]
+        column![text(
+            "No search in progress. Enter a query and press Search."
+        )]
     } else if !app.alias_reuse_enabled && thresholds::does_alias_exist(&app.add_alias) {
         //app.log_batch.push_str(&log_utils::message_builder("L", log_utils::LogLevel::WARN));
-        column![text(format!("The alias \'{}\' is already is use. Please enable alias reuse in Settings to use this alias again.", &app.add_alias))]
-    } else if app.search_results_by_store.len() == 0 {
+        column![text(format!(
+            "The alias \'{}\' is already is use. Please enable alias reuse in Settings to use this alias again.",
+            app.add_alias
+        ))]
+    } else if app.search_results_by_store.is_empty() {
         column![text("")]
     } else {
-        let (current_store, current_results) = &app.search_results_by_store[app.current_store_search_idx];
+        let (current_store, current_results) =
+            &app.search_results_by_store[app.current_store_search_idx];
         let store_name = current_store.get_name();
-        let progress = format!("Store {}/{}: {}  ",
+        let progress = format!(
+            "Store {}/{}: {}  ",
             app.current_store_search_idx + 1,
             app.search_results_by_store.len(),
             store_name
@@ -54,8 +65,10 @@ pub fn search_tab(app: &crate::App) -> Element<'_, Message> {
                     SKIP_STORE_SELECTION,
                     selected_index_opt,
                     |idx| MainMessage::SearchResultSelected(idx).into(),
-                ).width(Length::Fill)
-            ].spacing(5);
+                )
+                .width(Length::Fill)
+            ]
+            .spacing(5);
         } else {
             search_list = search_list.push(
                 Radio::new(
@@ -81,14 +94,17 @@ pub fn search_tab(app: &crate::App) -> Element<'_, Message> {
             }
         }
 
-        let add_reqs_meet = app.search_results_by_store.iter().all(|(id, _)| app.selected_results_by_store.contains_key(id)) && !app.add_price.is_empty();
+        let add_reqs_meet = app
+            .search_results_by_store
+            .iter()
+            .all(|(id, _)| app.selected_results_by_store.contains_key(id))
+            && !app.add_price.is_empty();
         let add_threshold_button = if add_reqs_meet {
             Button::new(text("Add Threshold"))
                 .on_press(MainMessage::AddThreshold.into())
                 .padding(8)
         } else {
-            Button::new(text("Add Threshold"))
-                .padding(8)
+            Button::new(text("Add Threshold")).padding(8)
         };
 
         column![
@@ -116,14 +132,10 @@ pub fn search_tab(app: &crate::App) -> Element<'_, Message> {
                 },
             ],
             Scrollable::new(search_list).height(400).width(Length::Fill),
-            column![
-                add_threshold_button,
-            ]
-            .padding(8)
-            .spacing(10),
+            column![add_threshold_button,].padding(8).spacing(10),
         ]
     };
-    
+
     let bulk_insert_button = if app.bulk_simple_threshs.is_empty() {
         let mut button = Button::new(text("Load Multiple Searches")).padding(6);
         if !app.is_search_in_progress {
@@ -153,8 +165,7 @@ pub fn search_tab(app: &crate::App) -> Element<'_, Message> {
             .on_press(MainMessage::SearchReset.into())
             .padding(6)
     } else {
-        Button::new(text("Reset"))
-            .padding(6)
+        Button::new(text("Reset")).padding(6)
     };
 
     let search_controls = column![
@@ -179,7 +190,8 @@ pub fn search_tab(app: &crate::App) -> Element<'_, Message> {
                     .padding(5)
                     .width(Length::Fixed(150.0)),
                 bulk_insert_button
-            ].width(Length::Fill)
+            ]
+            .width(Length::Fill)
             .spacing(20)
         } else {
             row![
@@ -188,18 +200,22 @@ pub fn search_tab(app: &crate::App) -> Element<'_, Message> {
                     .padding(5)
                     .width(Length::Fixed(150.0)),
                 bulk_insert_button
-            ].spacing(20)
+            ]
+            .spacing(20)
         },
         if app.is_search_in_progress {
             column![search_loading]
         } else {
             store_selection
-        }        
+        }
     ]
     .spacing(10)
     .padding(8);
 
     let combined = column![search_controls].spacing(12).width(Length::Fill);
 
-    container(combined).width(Length::Fill).center_x(Length::Fill).into()
+    container(combined)
+        .width(Length::Fill)
+        .center_x(Length::Fill)
+        .into()
 }

@@ -1,2 +1,2 @@
-pub mod thresholds;
 pub mod settings;
+pub mod thresholds;

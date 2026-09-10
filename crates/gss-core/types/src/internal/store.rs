@@ -1,21 +1,21 @@
 use std::{fmt::Display, write};
 
 // Store IDs
-const STEAM_STORE_ID : &str = "steam";
-const GOG_STORE_ID : &str = "gog";
-const MICROSOFT_STORE_ID : &str = "microsoft_store";
+const STEAM_STORE_ID: &str = "steam";
+const GOG_STORE_ID: &str = "gog";
+const MICROSOFT_STORE_ID: &str = "microsoft_store";
 
 // Store Names (Plain text)
-const STEAM_STORE_NAME : &str = "Steam";
-const GOG_STORE_NAME : &str = "Good Old Games (GOG)";
-const MICROSOFT_STORE_NAME : &str = "Microsoft Store (PC)";
+const STEAM_STORE_NAME: &str = "Steam";
+const GOG_STORE_NAME: &str = "Good Old Games (GOG)";
+const MICROSOFT_STORE_NAME: &str = "Microsoft Store (PC)";
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
 #[allow(nonstandard_style)]
 pub enum GameStore {
     STEAM,
     GOOD_OLD_GAMES,
-    MICROSOFT_STORE_PC
+    MICROSOFT_STORE_PC,
 }
 
 impl GameStore {
@@ -38,6 +38,11 @@ impl GameStore {
 
 impl Display for GameStore {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "GamesStore {{ id: {}, name: {} }}", self.get_id(), self.get_name())
+        write!(
+            f,
+            "GamesStore {{ id: {}, name: {} }}",
+            self.get_id(),
+            self.get_name()
+        )
     }
 }

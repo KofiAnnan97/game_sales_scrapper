@@ -1,4 +1,4 @@
-use iced::{Window};
+use iced::Window;
 use iced::widget::image::Handle;
 use std::path::PathBuf;
 use std::sync::Arc;

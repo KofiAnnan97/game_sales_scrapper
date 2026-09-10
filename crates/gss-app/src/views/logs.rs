@@ -1,16 +1,16 @@
-use std::fs::File;
-use std::fmt::{Display, Formatter};
-use std::collections::HashMap;
-use std::io::{Read, Seek, SeekFrom};
-use std::path::PathBuf;
-use iced::alignment::{Horizontal, Vertical};
-use iced::{Element, Length, Alignment, Background, Color, Task};
-use iced::widget::{row, Scrollable, text, Button, container, pick_list, column};
 use crate::components::custom_widgets as cw;
-use crate::utils::log_utils::{LogLevel, get_log_path};
 use crate::log_utils::{LogData, parse_logs};
 use crate::utils::log_utils;
+use crate::utils::log_utils::{LogLevel, get_log_path};
 use crate::views::sub_windows::LogItem;
+use iced::alignment::{Horizontal, Vertical};
+use iced::widget::{Button, Scrollable, column, container, pick_list, row, text};
+use iced::{Alignment, Background, Color, Element, Length, Task};
+use std::collections::HashMap;
+use std::fmt::{Display, Formatter};
+use std::fs::File;
+use std::io::{Read, Seek, SeekFrom};
+use std::path::PathBuf;
 
 const LOGS_PER_PAGE: usize = 20;
 
@@ -29,14 +29,14 @@ pub enum Screen {
 impl std::fmt::Display for Screen {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Screen::Search => write!(f,"Search"),
-            Screen::Thresholds => write!(f,"Thresholds"),
-            Screen::Sales => write!(f,"Sales Preview"),
-            Screen::Settings => write!(f,"Settings"),
-            Screen::Logs => write!(f,"Logs"),
-            Screen::Internal => write!(f,"Internal"),
-            Screen::All => write!(f,"All"),
-            Screen::None => write!(f,"-")
+            Screen::Search => write!(f, "Search"),
+            Screen::Thresholds => write!(f, "Thresholds"),
+            Screen::Sales => write!(f, "Sales Preview"),
+            Screen::Settings => write!(f, "Settings"),
+            Screen::Logs => write!(f, "Logs"),
+            Screen::Internal => write!(f, "Internal"),
+            Screen::All => write!(f, "All"),
+            Screen::None => write!(f, "-"),
         }
     }
 }
@@ -49,7 +49,7 @@ impl Screen {
         Screen::Sales,
         Screen::Settings,
         Screen::Logs,
-        Screen::Internal
+        Screen::Internal,
     ];
 }
 
@@ -131,16 +131,16 @@ impl LoggingView {
                 let available_logs = log_utils::get_app_logs();
                 let mut items: Vec<LogItem> = Vec::new();
                 for (idx, file_name) in available_logs.iter().enumerate() {
-                    items.push(LogItem { 
-                        id: idx, 
-                        file_name: file_name.clone(), 
+                    items.push(LogItem {
+                        id: idx,
+                        file_name: file_name.clone(),
                         timestamp: log_utils::get_timestamp(file_name),
-                        checked: false 
+                        checked: false,
                     });
                 }
                 items
             },
-            prune_all: false
+            prune_all: false,
         }
     }
 
@@ -156,7 +156,8 @@ impl LoggingView {
                 Task::none()
             }
             LoggingMessage::LogFileChanged(dt_str) => {
-                self.log_file_selected = dt_str.as_ref().map(|selection| selection.file_name.clone());
+                self.log_file_selected =
+                    dt_str.as_ref().map(|selection| selection.file_name.clone());
                 self.refresh_selected_historical_log();
                 self.log_page = 0;
                 Task::none()
@@ -167,7 +168,9 @@ impl LoggingView {
                 Task::none()
             }
             LoggingMessage::ToggleLogsToRemove(id, checked) => {
-                let is_current = self.log_items.get(id)
+                let is_current = self
+                    .log_items
+                    .get(id)
                     .is_some_and(|item| self.is_current_file(&item.file_name));
                 if is_current {
                     return Task::none();
@@ -227,8 +230,8 @@ impl LoggingView {
                 self.clamp_page();
                 Task::none()
             }
-            LoggingMessage::OpenManualPrune => { Task::none() }
-            LoggingMessage::Exit => { Task::none() }
+            LoggingMessage::OpenManualPrune => Task::none(),
+            LoggingMessage::Exit => Task::none(),
         }
     }
 
@@ -242,15 +245,18 @@ impl LoggingView {
             text("Screen").width(Length::FillPortion(1)),
             text("Message").width(Length::FillPortion(3))
         ];
-        
+
         let total_log_count = filtered_logs.len();
         let page_count = total_log_count.div_ceil(LOGS_PER_PAGE);
         let page = self.log_page.min(page_count.saturating_sub(1));
         let page_start_idx = page * LOGS_PER_PAGE;
         let page_end_idx = (page_start_idx + LOGS_PER_PAGE).min(total_log_count);
-        
+
         let mut log_cols = column![];
-        for (idx, log) in filtered_logs[page_start_idx..page_end_idx].iter().enumerate() {
+        for (idx, log) in filtered_logs[page_start_idx..page_end_idx]
+            .iter()
+            .enumerate()
+        {
             log_cols = log_cols.push(log_row(log.clone(), page_start_idx + idx));
         }
 
@@ -258,22 +264,34 @@ impl LoggingView {
             .width(Length::Fill)
             .height(Length::Fill);
 
-        let log_files = self.log_items.iter().map(|item| LogFileOption {
-            file_name: item.file_name.clone(),
-            timestamp: item.timestamp.clone(),
-        }).collect::<Vec<_>>();
-
-        let selected_log = self.log_file_selected.as_ref().and_then(|file_name| {
-            self.log_items.iter().find(|item| &item.file_name == file_name).map(|item| LogFileOption {
+        let log_files = self
+            .log_items
+            .iter()
+            .map(|item| LogFileOption {
                 file_name: item.file_name.clone(),
                 timestamp: item.timestamp.clone(),
             })
+            .collect::<Vec<_>>();
+
+        let selected_log = self.log_file_selected.as_ref().and_then(|file_name| {
+            self.log_items
+                .iter()
+                .find(|item| &item.file_name == file_name)
+                .map(|item| LogFileOption {
+                    file_name: item.file_name.clone(),
+                    timestamp: item.timestamp.clone(),
+                })
         });
 
         let log_range = if total_log_count == 0 {
             "Showing 0-0 of 0 lines".to_string()
         } else {
-            format!("Showing {}-{} of {} lines", page_start_idx + 1, page_end_idx, total_log_count)
+            format!(
+                "Showing {}-{} of {} lines",
+                page_start_idx + 1,
+                page_end_idx,
+                total_log_count
+            )
         };
 
         let mut prev_page_btn = Button::new(text("Previous")).padding(6);
@@ -287,18 +305,21 @@ impl LoggingView {
         }
 
         column![
-            container(cw::incremental_slider(level_options, self.log_slider_idx, 600., |idx| LoggingMessage::LevelChanged(idx)))
-                .height(Length::Fixed(80.))
-                .center_x(Length::Fill),
+            container(cw::incremental_slider(
+                level_options,
+                self.log_slider_idx,
+                600.,
+                LoggingMessage::LevelChanged
+            ))
+            .height(Length::Fixed(80.))
+            .center_x(Length::Fill),
             row![
                 container(
                     row![
                         text("Log File:"),
-                        pick_list(
-                            log_files,
-                            selected_log,
-                            |selection| LoggingMessage::LogFileChanged(Some(selection)),
-                        ),
+                        pick_list(log_files, selected_log, |selection| {
+                            LoggingMessage::LogFileChanged(Some(selection))
+                        },),
                     ]
                     .align_y(Vertical::Center)
                     .spacing(10)
@@ -309,8 +330,8 @@ impl LoggingView {
                         text("Screen:"),
                         pick_list(
                             &Screen::OPTIONS[..],
-                            self.log_selected_screen.clone(),
-                            |screen| LoggingMessage::LogScreenChanged(screen),
+                            self.log_selected_screen,
+                            LoggingMessage::LogScreenChanged,
                         )
                     ]
                     .align_y(Vertical::Center)
@@ -318,17 +339,14 @@ impl LoggingView {
                     .height(Length::Fixed(30.))
                 ),
                 container(
-                    row![
-                        prev_page_btn,
-                        text(log_range),
-                        next_page_btn,
-                    ]
-                    .spacing(12)
-                    .align_y(Alignment::Center)
+                    row![prev_page_btn, text(log_range), next_page_btn,]
+                        .spacing(12)
+                        .align_y(Alignment::Center)
                 )
                 .width(Length::Fill)
                 .align_x(Horizontal::Right),
-            ].spacing(20),
+            ]
+            .spacing(20),
             logs_header,
             logs_display,
             row![
@@ -341,14 +359,21 @@ impl LoggingView {
             ]
             .spacing(10)
         ]
-            .into()
+        .into()
     }
 
     fn normalize_selection(&mut self) {
-        let selected_item = self.log_file_selected.as_ref()
-            .and_then(|file_name| self.log_items.iter().find(|item| &item.file_name == file_name));
+        let selected_item = self.log_file_selected.as_ref().and_then(|file_name| {
+            self.log_items
+                .iter()
+                .find(|item| &item.file_name == file_name)
+        });
         let item = selected_item
-            .or_else(|| self.log_items.iter().find(|item| self.is_current_file(&item.file_name)))
+            .or_else(|| {
+                self.log_items
+                    .iter()
+                    .find(|item| self.is_current_file(&item.file_name))
+            })
             .or_else(|| self.log_items.first());
 
         self.log_file_selected = item.map(|item| item.file_name.clone());
@@ -356,7 +381,10 @@ impl LoggingView {
 
     fn sync_prune_all(&mut self) {
         let current_file_name = log_utils::get_filename(&self.curr_file_path);
-        let mut deletable = self.log_items.iter().filter(|item| item.file_name != current_file_name);
+        let mut deletable = self
+            .log_items
+            .iter()
+            .filter(|item| item.file_name != current_file_name);
         self.prune_all = deletable.clone().next().is_some() && deletable.all(|item| item.checked);
     }
 
@@ -381,12 +409,18 @@ impl LoggingView {
             Vec::new()
         };
 
-        displayed_logs.into_iter().filter(|log| {
-            let level_idx = level_options.iter().position(|level| level == &log.level).unwrap_or(0);
-            self.log_slider_idx <= level_idx
-                && (self.log_selected_screen == Some(Screen::All)
-                    || self.log_selected_screen == Some(log.screen.clone().into()))
-        }).collect()
+        displayed_logs
+            .into_iter()
+            .filter(|log| {
+                let level_idx = level_options
+                    .iter()
+                    .position(|level| level == &log.level)
+                    .unwrap_or(0);
+                self.log_slider_idx <= level_idx
+                    && (self.log_selected_screen == Some(Screen::All)
+                        || self.log_selected_screen == Some(log.screen.clone().into()))
+            })
+            .collect()
     }
 
     pub(crate) fn is_current_file(&self, file_name: &str) -> bool {
@@ -401,16 +435,20 @@ impl LoggingView {
             .into_iter()
             .map(|item| (item.file_name, item.checked))
             .collect();
-        self.log_items = available_logs.into_iter().enumerate().map(|(id, file_name)| {
-            let checked = previous_checked.get(&file_name).copied().unwrap_or(false);
-            let is_current = file_name == current_file_name;
-            LogItem {
-                id,
-                timestamp: log_utils::get_timestamp(&file_name),
-                file_name,
-                checked: checked && !is_current,
-            }
-        }).collect();
+        self.log_items = available_logs
+            .into_iter()
+            .enumerate()
+            .map(|(id, file_name)| {
+                let checked = previous_checked.get(&file_name).copied().unwrap_or(false);
+                let is_current = file_name == current_file_name;
+                LogItem {
+                    id,
+                    timestamp: log_utils::get_timestamp(&file_name),
+                    file_name,
+                    checked: checked && !is_current,
+                }
+            })
+            .collect();
         self.normalize_selection();
         self.sync_prune_all();
     }
@@ -432,48 +470,48 @@ impl LoggingView {
 }
 
 fn refresh_log_file(file_path: &str, log_state: &mut LogState) {
-        let mut file = match File::open(file_path) {
-            Ok(file) => file,
-            Err(_) => {
-                *log_state = LogState::default();
-                return;
-            }
-        };
-
-        let file_size = match file.metadata().map(|metadata| metadata.len()) {
-            Ok(size) => size,
-            Err(_) => return,
-        };
-
-        if file_size < log_state.file_size {
+    let mut file = match File::open(file_path) {
+        Ok(file) => file,
+        Err(_) => {
             *log_state = LogState::default();
-        }
-
-        if file_size == log_state.file_size {
             return;
         }
+    };
 
-        if file.seek(SeekFrom::Start(log_state.file_size)).is_err(){
-            return;
+    let file_size = match file.metadata().map(|metadata| metadata.len()) {
+        Ok(size) => size,
+        Err(_) => return,
+    };
+
+    if file_size < log_state.file_size {
+        *log_state = LogState::default();
+    }
+
+    if file_size == log_state.file_size {
+        return;
+    }
+
+    if file.seek(SeekFrom::Start(log_state.file_size)).is_err() {
+        return;
+    }
+
+    let mut appended = String::new();
+    if file.read_to_string(&mut appended).is_err() {
+        return;
+    }
+
+    let mut buffer = std::mem::take(&mut log_state.pending_line);
+    buffer.push_str(&appended);
+
+    let lines = buffer.split_inclusive('\n');
+
+    for line in lines {
+        if line.ends_with('\n') {
+            log_state.entries.extend(parse_logs(line));
+        } else {
+            log_state.pending_line.push_str(line);
         }
-
-        let mut appended = String::new();
-        if file.read_to_string(&mut appended).is_err() {
-            return;
-        }
-
-        let mut buffer = std::mem::take(&mut log_state.pending_line);
-        buffer.push_str(&appended);
-
-        let mut lines = buffer.split_inclusive('\n');
-
-        while let Some(line) = lines.next() {
-            if line.ends_with('\n') {
-                log_state.entries.extend(parse_logs(line));
-            } else {
-                log_state.pending_line.push_str(line);
-            }
-        }
+    }
 
     log_state.file_size = file_size;
 }
@@ -484,7 +522,7 @@ fn get_defaut_slider_idx() -> usize {
 }
 
 pub fn log_row<M: Clone + 'static>(log: LogData, index: usize) -> Element<'static, M> {
-    let background = if index % 2 == 0 {
+    let background = if index.is_multiple_of(2) {
         Color::from_rgb8(10, 11, 12)
     } else {
         Color::BLACK
@@ -497,13 +535,14 @@ pub fn log_row<M: Clone + 'static>(log: LogData, index: usize) -> Element<'stati
             text(log.screen.clone()).width(Length::FillPortion(1)),
             text(log.message.clone()).width(Length::FillPortion(3)),
         ]
-            .spacing(16)
-            .align_y(Alignment::Center),
+        .spacing(16)
+        .align_y(Alignment::Center),
     )
-        .width(Length::Fill)
-        .padding([10, 14])
-        .style(move |_theme| container::Style {
-            background: Some(Background::Color(background)),
-            ..Default::default()
-        }).into()
+    .width(Length::Fill)
+    .padding([10, 14])
+    .style(move |_theme| container::Style {
+        background: Some(Background::Color(background)),
+        ..Default::default()
+    })
+    .into()
 }

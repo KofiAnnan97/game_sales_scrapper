@@ -1,13 +1,16 @@
 use constants::icons::{DOWN_ARROW, LEFT_ARROW};
-use iced::widget::{Button, Checkbox, Column, Scrollable, TextInput, button, center, column, container, pick_list, row, stack, text};
+use iced::widget::{
+    Button, Checkbox, Column, Scrollable, TextInput, button, center, column, container, pick_list,
+    row, stack, text,
+};
 use iced::{Element, Length};
 use types::internal::store::GameStore;
 
-use crate::utils::log_utils::LogLevel;
-use crate::{Message, MainMessage, LOADING_FRAMES_SIZE};
-use crate::components::custom_styles::{highlight_on_click_style, backdrop};
+use crate::components::custom_styles::{backdrop, highlight_on_click_style};
 use crate::components::custom_widgets::{message_dialog, text_loading_indicator};
+use crate::utils::log_utils::LogLevel;
 use crate::views::logs::LoggingMessage;
+use crate::{LOADING_FRAMES_SIZE, MainMessage, Message};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Page {
@@ -15,7 +18,7 @@ pub enum Page {
     Email,
     // Customize,
     Logging,
-    Stores(GameStore), 
+    Stores(GameStore),
 }
 
 pub fn view(app: &crate::App) -> Element<'_, Message> {
@@ -26,34 +29,48 @@ pub fn view(app: &crate::App) -> Element<'_, Message> {
     };
     let mut stores_subsection = column![
         button(text(format!("{}  Store(s)", store_arrow_orientation)))
-        .on_press(MainMessage::StoreSettingsExpanded(!app.store_settings_expanded).into())
-        .width(Length::Fill)
-        .style(button::text),
+            .on_press(MainMessage::StoreSettingsExpanded(!app.store_settings_expanded).into())
+            .width(Length::Fill)
+            .style(button::text),
     ];
     if app.store_settings_expanded {
-        stores_subsection = stores_subsection.push(
-            row![
-                button(text(format!("{}Steam", " ".repeat(8))))
+        stores_subsection = stores_subsection.push(row![
+            button(text(format!("{}Steam", " ".repeat(8))))
                 .on_press(MainMessage::PageSelected(Page::Stores(GameStore::STEAM)).into())
                 .width(Length::Fill)
-                .style(|theme, status| highlight_on_click_style(theme, status, app.settings_page == Page::Stores(GameStore::STEAM)))
-            ]    
-        )
+                .style(|theme, status| highlight_on_click_style(
+                    theme,
+                    status,
+                    app.settings_page == Page::Stores(GameStore::STEAM)
+                ))
+        ])
     }
 
     let sidebar = column![
         button(text("General"))
             .on_press(MainMessage::PageSelected(Page::General).into())
             .width(Length::Fill)
-            .style(|theme, status| highlight_on_click_style(theme, status, app.settings_page == Page::General)),
+            .style(|theme, status| highlight_on_click_style(
+                theme,
+                status,
+                app.settings_page == Page::General
+            )),
         button(text("Email"))
             .on_press(MainMessage::PageSelected(Page::Email).into())
             .width(Length::Fill)
-            .style(|theme, status| highlight_on_click_style(theme, status, app.settings_page == Page::Email)),
+            .style(|theme, status| highlight_on_click_style(
+                theme,
+                status,
+                app.settings_page == Page::Email
+            )),
         button(text("Logging"))
-            .on_press(MainMessage::PageSelected(Page::Logging).into()) 
+            .on_press(MainMessage::PageSelected(Page::Logging).into())
             .width(Length::Fill)
-            .style(|theme, status| highlight_on_click_style(theme, status, app.settings_page == Page::Logging)),
+            .style(|theme, status| highlight_on_click_style(
+                theme,
+                status,
+                app.settings_page == Page::Logging
+            )),
         // button(text("Customize"))
         //     .on_press(MainMessage::PageSelected(Page::Customize).into())
         //     .width(Length::Fill)
@@ -69,18 +86,15 @@ pub fn view(app: &crate::App) -> Element<'_, Message> {
         Page::Email => email_settings(app),
         // Page::Customize => customize_settings(app),
         Page::Logging => logging_settings(app),
-        Page::Stores(store_page) => {
-            match store_page {
-                GameStore::STEAM => steam_settings(app),
-                GameStore::GOOD_OLD_GAMES => todo!(),
-                GameStore::MICROSOFT_STORE_PC => todo!(),
-            } 
-        }
+        Page::Stores(store_page) => match store_page {
+            GameStore::STEAM => steam_settings(app),
+            GameStore::GOOD_OLD_GAMES => todo!(),
+            GameStore::MICROSOFT_STORE_PC => todo!(),
+        },
     };
 
     let body = row![
-        container(sidebar)
-            .style(container::bordered_box),
+        container(sidebar).style(container::bordered_box),
         container(content)
             .width(Length::Fill)
             .height(Length::Fill)
@@ -88,21 +102,17 @@ pub fn view(app: &crate::App) -> Element<'_, Message> {
     ]
     .height(Length::Fill);
 
-    let content = column![
-        body,
-    ]
-    .width(Length::Fill)
-    .height(Length::Fill);
+    let content = column![body,].width(Length::Fill).height(Length::Fill);
 
-    if app.show_dialog{
+    if app.show_dialog {
         stack![
             content,
             backdrop(MainMessage::HideDialog.into()),
             center(message_dialog(
                 "INFO",
                 "Settings were saved successfully.",
-                MainMessage::CloseSettings.into())
-            )
+                MainMessage::CloseSettings.into()
+            ))
         ]
         .into()
     } else {
@@ -110,20 +120,21 @@ pub fn view(app: &crate::App) -> Element<'_, Message> {
     }
 }
 
-
 pub fn store_selection(app: &crate::App) -> Column<'_, Message> {
-    app.available_stores.iter().fold(column![], |column, game_store| {
-        let label = game_store.get_name();
-        column.push(
-            Checkbox::new(app.selected_stores.contains(game_store))
-                .label(label)
-                .on_toggle(move |enabled| MainMessage::ToggleStore(game_store.clone(), enabled).into())
-                .width(Length::Fill),
-        )
-    }).into()
+    app.available_stores
+        .iter()
+        .fold(column![], |column, game_store| {
+            let label = game_store.get_name();
+            column.push(
+                Checkbox::new(app.selected_stores.contains(game_store))
+                    .label(label)
+                    .on_toggle(move |enabled| MainMessage::ToggleStore(*game_store, enabled).into())
+                    .width(Length::Fill),
+            )
+        })
 }
 
-pub fn alias_settings(app: &crate::App) -> Column<'_, Message>{
+pub fn alias_settings(app: &crate::App) -> Column<'_, Message> {
     column![
         Checkbox::new(app.alias_enabled)
             .label("Enable aliases")
@@ -133,35 +144,36 @@ pub fn alias_settings(app: &crate::App) -> Column<'_, Message>{
             .label("Enable alias reuse")
             .on_toggle(|toggle| MainMessage::ToggleAliasReuse(toggle).into())
             .width(Length::Fill),
-    ].into()
+    ]
 }
 
-fn general_settings(app: &crate::App) -> Element<'_, Message>{
+fn general_settings(app: &crate::App) -> Element<'_, Message> {
     let content = column![
         row![
             if app.test_mode {
                 column![
-                text("Test path"),
-                TextInput::new("Enter test path", &app.test_path)
-                    .on_input(|input| MainMessage::TestPathChanged(input).into())
-                    .padding(5)
-                    .width(Length::Fill),
-                ].spacing(4)
-            } else {
-                column![
-                text("Project path"),
-                TextInput::new("Enter project path", &app.project_path)
-                    .on_input(|input| MainMessage::ProjectPathChanged(input).into())
-                    .padding(5)
-                    .width(Length::Fill),
+                    text("Test path"),
+                    TextInput::new("Enter test path", &app.test_path)
+                        .on_input(|input| MainMessage::TestPathChanged(input).into())
+                        .padding(5)
+                        .width(Length::Fill),
                 ]
                 .spacing(4)
-            }, 
+            } else {
+                column![
+                    text("Project path"),
+                    TextInput::new("Enter project path", &app.project_path)
+                        .on_input(|input| MainMessage::ProjectPathChanged(input).into())
+                        .padding(5)
+                        .width(Length::Fill),
+                ]
+                .spacing(4)
+            },
             Checkbox::new(app.test_mode)
                 .label("Enable test mode")
                 .on_toggle(|toggle| MainMessage::ToggleTestMode(toggle).into())
                 .width(Length::Fixed(150.))
-                .spacing(10), 
+                .spacing(10),
         ]
         .spacing(10),
         text("Selected Stores"),
@@ -182,27 +194,26 @@ fn general_settings(app: &crate::App) -> Element<'_, Message>{
     .padding(10);
 
     let scrollable_content = Scrollable::new(content).height(Length::Fill);
-        
+
     column![
-        scrollable_content
-            .height(Length::Fill),
+        scrollable_content.height(Length::Fill),
         container(
             row![
                 Button::new(text("Save"))
                     .on_press(MainMessage::SaveSettings.into())
                     .padding(10),
                 Button::new(text("Close"))
-                    .on_press(MainMessage::CloseSettings.into())  
+                    .on_press(MainMessage::CloseSettings.into())
                     .padding(10)
             ]
             .spacing(10)
         )
         .align_right(Length::Fill)
-    ].into()
+    ]
+    .into()
 }
 
 fn email_settings(app: &crate::App) -> Element<'_, Message> {
-
     let content = column![
         column![
             text("Recipient email"),
@@ -258,46 +269,45 @@ fn email_settings(app: &crate::App) -> Element<'_, Message> {
             text("SMTP password"),
             if app.reveal_sensitive_data {
                 TextInput::new("Enter SMTP password", &app.smtp_password)
-                .on_input(|input| MainMessage::SmtpPasswordChanged(input).into())
-                .padding(5)
-                .width(Length::Fill)
+                    .on_input(|input| MainMessage::SmtpPasswordChanged(input).into())
+                    .padding(5)
+                    .width(Length::Fill)
             } else {
                 TextInput::new("Enter SMTP password", &app.smtp_password)
-                .padding(5)
-                .width(Length::Fill)
+                    .padding(5)
+                    .width(Length::Fill)
             },
         ]
         .spacing(4),
-        
         row![
             Checkbox::new(app.reveal_sensitive_data)
                 .label("Reveal sensitive data")
                 .on_toggle(|toggle| MainMessage::ToggleSensitiveData(toggle).into())
                 .spacing(10)
-        ].padding(10),
-        
+        ]
+        .padding(10),
     ]
     .spacing(12)
     .padding(10);
 
     let scrollable_content = Scrollable::new(content).height(Length::Fill);
-        
+
     column![
-        scrollable_content
-            .height(Length::Fill),
+        scrollable_content.height(Length::Fill),
         container(
             row![
                 Button::new(text("Save"))
                     .on_press(MainMessage::SaveSettings.into())
                     .padding(10),
                 Button::new(text("Close"))
-                    .on_press(MainMessage::CloseSettings.into())  
+                    .on_press(MainMessage::CloseSettings.into())
                     .padding(10)
             ]
             .spacing(10)
         )
         .align_right(Length::Fill)
-    ].into()
+    ]
+    .into()
 }
 
 // fn customize_settings(_app: &crate::App) -> Element<'_, Message> {
@@ -314,15 +324,21 @@ fn logging_settings(app: &crate::App) -> Element<'_, Message> {
                 Some(app.default_log_level.clone()),
                 |level| MainMessage::SetDefaultLogLevel(level).into(),
             ),
-        ].spacing(10),
+        ]
+        .spacing(10),
         Button::new("Prune All Logs")
             .on_press(LoggingMessage::DeleteAllButCurrent.into())
             .padding(8),
-    ].into()
+    ]
+    .into()
 }
 
 fn steam_settings(app: &crate::App) -> Element<'_, Message> {
-    let cache_loading = text_loading_indicator("Retrieve games to cache", app.caching_loading_frame, LOADING_FRAMES_SIZE);
+    let cache_loading = text_loading_indicator(
+        "Retrieve games to cache",
+        app.caching_loading_frame,
+        LOADING_FRAMES_SIZE,
+    );
 
     let cache_button_with_msg = if !app.is_caching_in_progress {
         row![
@@ -332,14 +348,13 @@ fn steam_settings(app: &crate::App) -> Element<'_, Message> {
         ]
     } else {
         row![
-            Button::new(text("Update Game Cache"))
-                .padding(8),
+            Button::new(text("Update Game Cache")).padding(8),
             cache_loading
         ]
         .spacing(10)
     };
 
-    let content = column![  
+    let content = column![
         column![
             text("Steam API key"),
             if app.reveal_sensitive_data {
@@ -365,19 +380,19 @@ fn steam_settings(app: &crate::App) -> Element<'_, Message> {
     let scrollable_content = Scrollable::new(content).height(Length::Fill);
 
     column![
-        scrollable_content
-            .height(Length::Fill),
+        scrollable_content.height(Length::Fill),
         container(
             row![
                 Button::new(text("Save"))
                     .on_press(MainMessage::SaveSettings.into())
                     .padding(10),
                 Button::new(text("Close"))
-                    .on_press(MainMessage::CloseSettings.into())  
+                    .on_press(MainMessage::CloseSettings.into())
                     .padding(10)
             ]
             .spacing(10)
         )
         .align_right(Length::Fill)
-    ].into()
+    ]
+    .into()
 }
