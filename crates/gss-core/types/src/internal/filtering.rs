@@ -3,7 +3,7 @@ pub enum StoreOptions {
     Steam,
     GOG,
     MicrosoftStore,
-    All
+    All,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -12,7 +12,7 @@ pub enum PriceOptions {
     Under5,
     Under10,
     Under25,
-    Custom
+    Custom,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -21,7 +21,7 @@ pub enum SortOptions {
     AToZ,
     ZToA,
     LowToHigh,
-    HighToLow
+    HighToLow,
 }
 
 impl StoreOptions {
@@ -49,7 +49,7 @@ impl SortOptions {
         SortOptions::AToZ,
         SortOptions::ZToA,
         SortOptions::LowToHigh,
-        SortOptions::HighToLow
+        SortOptions::HighToLow,
     ];
 }
 
@@ -59,7 +59,7 @@ impl std::fmt::Display for StoreOptions {
             StoreOptions::Steam => write!(f, "Steam"),
             StoreOptions::GOG => write!(f, "GOG"),
             StoreOptions::MicrosoftStore => write!(f, "Microsoft Store"),
-            StoreOptions::All => write!(f, "All")
+            StoreOptions::All => write!(f, "All"),
         }
     }
 }
@@ -67,11 +67,11 @@ impl std::fmt::Display for StoreOptions {
 impl std::fmt::Display for PriceOptions {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            PriceOptions::None => write!(f,"None"),
-            PriceOptions::Under5 => write!(f,"Under $5"),
-            PriceOptions::Under10 => write!(f,"Under $10"),
-            PriceOptions::Under25 => write!(f,"Under $25"),
-            PriceOptions::Custom => write!(f,"Custom Range"),
+            PriceOptions::None => write!(f, "None"),
+            PriceOptions::Under5 => write!(f, "Under $5"),
+            PriceOptions::Under10 => write!(f, "Under $10"),
+            PriceOptions::Under25 => write!(f, "Under $25"),
+            PriceOptions::Custom => write!(f, "Custom Range"),
         }
     }
 }
@@ -79,11 +79,11 @@ impl std::fmt::Display for PriceOptions {
 impl std::fmt::Display for SortOptions {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            SortOptions::None => write!(f,"None"),
-            SortOptions::AToZ => write!(f,"Title (A - Z)"),
-            SortOptions::ZToA => write!(f,"Title (Z - A)"),
-            SortOptions::LowToHigh => write!(f,"Price (Low - High)"),
-            SortOptions::HighToLow => write!(f,"Price (High - Low)"),
+            SortOptions::None => write!(f, "None"),
+            SortOptions::AToZ => write!(f, "Title (A - Z)"),
+            SortOptions::ZToA => write!(f, "Title (Z - A)"),
+            SortOptions::LowToHigh => write!(f, "Price (Low - High)"),
+            SortOptions::HighToLow => write!(f, "Price (High - Low)"),
         }
     }
 }

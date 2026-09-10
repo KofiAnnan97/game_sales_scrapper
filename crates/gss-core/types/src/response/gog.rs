@@ -1,9 +1,9 @@
-use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 /*-----------*
- | VERSION 1 |
- *-----------*/
+| VERSION 1 |
+*-----------*/
 
 #[derive(Deserialize, Serialize, Debug)]
 pub struct Game {
@@ -16,63 +16,63 @@ pub struct Game {
 pub struct PriceOverview {
     pub currency: String,
     pub amount: String,
-    #[serde(rename="baseAmount")]
+    #[serde(rename = "baseAmount")]
     pub base_amount: String,
-    #[serde(rename="finalAmount")]
+    #[serde(rename = "finalAmount")]
     pub final_amount: String,
-    #[serde(rename="isDiscounted")]
+    #[serde(rename = "isDiscounted")]
     pub is_discounted: bool,
-    #[serde(rename="discountPercentage")]
+    #[serde(rename = "discountPercentage")]
     pub discount_percentage: i32,
-    #[serde(rename="discountDifference")]
+    #[serde(rename = "discountDifference")]
     pub discount_diff: String,
     pub symbol: String,
-    #[serde(rename="isFree")]
+    #[serde(rename = "isFree")]
     pub is_free: bool,
     pub discount: i32,
-    #[serde(rename="isBonusStoreCreditIncluded")]
+    #[serde(rename = "isBonusStoreCreditIncluded")]
     pub is_bonus_credit_included: bool,
-    #[serde(rename="bonusStoreCreditAmount")]
-    pub bonus_credit_amount: String
+    #[serde(rename = "bonusStoreCreditAmount")]
+    pub bonus_credit_amount: String,
 }
 
 /*-----------*
- | VERSION 2 |
- *-----------*/
+| VERSION 2 |
+*-----------*/
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct GameInfo {
     pub id: String,
     pub title: String,
     pub price: Option<Price>,
-    #[serde(rename="coverHorizontal")]
+    #[serde(rename = "coverHorizontal")]
     pub c_horizontal: String,
-    #[serde(rename="storeLink")]
+    #[serde(rename = "storeLink")]
     pub store_link: String,
-    #[serde(rename="coverVertical")]
+    #[serde(rename = "coverVertical")]
     c_vertical: String,
     developers: Vec<String>,
     editions: Vec<Editions>,
     features: Vec<HashMap<String, String>>,
     genres: Vec<HashMap<String, String>>,
-    #[serde(rename="operatingSystems")]
+    #[serde(rename = "operatingSystems")]
     os: Vec<String>,
-    #[serde(rename="productState")]
+    #[serde(rename = "productState")]
     product_state: String,
-    #[serde(rename="productType")]
+    #[serde(rename = "productType")]
     product_type: String,
     publishers: Vec<String>,
     ratings: Vec<HashMap<String, String>>,
-    #[serde(rename="releaseDate")]
+    #[serde(rename = "releaseDate")]
     release_date: String,
-    #[serde(rename="reviewsRating")]
+    #[serde(rename = "reviewsRating")]
     reviews_rating: u32,
     screenshots: Vec<String>,
     slug: String,
-    #[serde(rename="storeReleaseDate")]
+    #[serde(rename = "storeReleaseDate")]
     store_release_date: String,
-    tags: Vec<HashMap<String,String>>,
-    #[serde(rename="userPreferredLanguage")]
+    tags: Vec<HashMap<String, String>>,
+    #[serde(rename = "userPreferredLanguage")]
     user_pref_lang: UserPreferredLanguage,
 }
 
@@ -81,10 +81,14 @@ pub struct GameInfoBuilder {
 }
 
 #[allow(clippy::new_ret_no_self)]
-impl GameInfoBuilder{
-    pub fn new(id_str: String, game_title: String,
-               price_info: Price, icon_link: String,
-               store_page_link: String) -> GameInfo {
+impl GameInfoBuilder {
+    pub fn new(
+        id_str: String,
+        game_title: String,
+        price_info: Price,
+        icon_link: String,
+        store_page_link: String,
+    ) -> GameInfo {
         GameInfo {
             id: id_str,
             title: game_title,
@@ -113,24 +117,24 @@ impl GameInfoBuilder{
 }
 
 #[derive(Deserialize, Serialize, Debug, Default, Clone)]
-pub struct UserPreferredLanguage{
+pub struct UserPreferredLanguage {
     pub code: String,
-    #[serde(rename="inAudio")]
+    #[serde(rename = "inAudio")]
     pub in_audio: bool,
-    #[serde(rename="inText")]
+    #[serde(rename = "inText")]
     pub in_text: bool,
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct Price {
-    #[serde(rename="final")]
+    #[serde(rename = "final")]
     pub final_price: String,
-    #[serde(rename="base")]
+    #[serde(rename = "base")]
     pub base_price: String,
     pub discount: Option<String>,
-    #[serde(rename="finalMoney")]
+    #[serde(rename = "finalMoney")]
     pub final_money: FinalMoney,
-    #[serde(rename="baseMoney")]
+    #[serde(rename = "baseMoney")]
     pub base_money: BaseMoney,
 }
 
@@ -148,9 +152,9 @@ pub struct FinalMoney {
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
-pub struct Editions{
+pub struct Editions {
     id: u64,
-    #[serde(rename="isRootEdition")]
+    #[serde(rename = "isRootEdition")]
     is_root_edition: bool,
     name: String,
 }

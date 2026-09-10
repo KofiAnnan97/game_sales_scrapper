@@ -1,39 +1,56 @@
-use lettre::{Message, SmtpTransport, Transport};
 use lettre::message::{MultiPart, SinglePart};
 use lettre::transport::smtp::authentication::{Credentials, Mechanism};
+use lettre::{Message, SmtpTransport, Transport};
 
-use types::internal::data::SaleInfo;
-use properties;
-use constants::operations::settings::{STEAM_STORE_NAME, GOG_STORE_NAME, MICROSOFT_STORE_NAME}; 
-use constants::operations::properties::{PROP_RECIPIENT_EMAIL, PROP_SMTP_HOST, PROP_SMTP_PORT, 
-                                        PROP_SMTP_EMAIL, PROP_SMTP_USERNAME, PROP_SMTP_PASSWORD};
 use constants::alerting::email::{EMAIL_STYLESHEET, HTML_BODY_HEADER};
+use constants::operations::properties::{
+    PROP_RECIPIENT_EMAIL, PROP_SMTP_EMAIL, PROP_SMTP_HOST, PROP_SMTP_PASSWORD, PROP_SMTP_PORT,
+    PROP_SMTP_USERNAME,
+};
+use constants::operations::settings::{GOG_STORE_NAME, MICROSOFT_STORE_NAME, STEAM_STORE_NAME};
+use properties;
+use types::internal::data::SaleInfo;
 
-pub fn params_check(){
+pub fn params_check() {
     // Get email parameters
-    let recipient= properties::get_recipient();
+    let recipient = properties::get_recipient();
     let smtp_host = properties::get_smtp_host();
-    let smtp_port : u16 = properties::get_smtp_port(); 
+    let smtp_port: u16 = properties::get_smtp_port();
     let smtp_email = properties::get_smtp_email();
     let smtp_user = properties::get_smtp_user();
     let smtp_pwd = properties::get_smtp_pwd(false);
 
     // Create error message
     let mut err_msg = String::new();
-    if recipient.is_empty() { err_msg.push_str(&format!("  - {}\n", PROP_RECIPIENT_EMAIL)); }
-    if smtp_host.is_empty() { err_msg.push_str(&format!("  - {}\n", PROP_SMTP_HOST)); }
-    if smtp_port == 0 { err_msg.push_str(&format!("  - {} (cannot be 0)\n", PROP_SMTP_PORT)); }
-    if smtp_email.is_empty() { err_msg.push_str(&format!("  - {}\n", PROP_SMTP_EMAIL)); }
-    if smtp_user.is_empty() { err_msg.push_str(&format!("  - {}\n", PROP_SMTP_USERNAME)); }
-    if smtp_pwd.is_empty() { err_msg.push_str(&format!("  - {}\n", PROP_SMTP_PASSWORD)); }
+    if recipient.is_empty() {
+        err_msg.push_str(&format!("  - {}\n", PROP_RECIPIENT_EMAIL));
+    }
+    if smtp_host.is_empty() {
+        err_msg.push_str(&format!("  - {}\n", PROP_SMTP_HOST));
+    }
+    if smtp_port == 0 {
+        err_msg.push_str(&format!("  - {} (cannot be 0)\n", PROP_SMTP_PORT));
+    }
+    if smtp_email.is_empty() {
+        err_msg.push_str(&format!("  - {}\n", PROP_SMTP_EMAIL));
+    }
+    if smtp_user.is_empty() {
+        err_msg.push_str(&format!("  - {}\n", PROP_SMTP_USERNAME));
+    }
+    if smtp_pwd.is_empty() {
+        err_msg.push_str(&format!("  - {}\n", PROP_SMTP_PASSWORD));
+    }
     if !err_msg.is_empty() {
-        panic!("Cannot send email without the following properties:\n{}", err_msg);
+        panic!(
+            "Cannot send email without the following properties:\n{}",
+            err_msg
+        );
     }
 }
 
 pub fn send_plain_text_msg(recipient: &str, subject: &str, body: &str) {
     let smtp_host = properties::get_smtp_host();
-    let smtp_port : u16 = properties::get_smtp_port(); 
+    let smtp_port: u16 = properties::get_smtp_port();
     let smtp_email = properties::get_smtp_email();
     let smtp_user = properties::get_smtp_user();
     let smtp_pwd = properties::get_smtp_pwd(false);
@@ -48,9 +65,9 @@ pub fn send_plain_text_msg(recipient: &str, subject: &str, body: &str) {
     let creds = Credentials::new(smtp_user, smtp_pwd);
 
     let mailer = SmtpTransport::starttls_relay(&smtp_host)
-        .unwrap()  
+        .unwrap()
         .credentials(creds)
-        .port(smtp_port)  
+        .port(smtp_port)
         .authentication(vec![Mechanism::Login])
         .build();
 
@@ -60,7 +77,7 @@ pub fn send_plain_text_msg(recipient: &str, subject: &str, body: &str) {
     }
 }
 
-pub fn create_game_card(info: SaleInfo, store_name: &str) -> String { 
+pub fn create_game_card(info: SaleInfo, store_name: &str) -> String {
     let icon_link = info.icon_link;
     let game_title = info.title;
     let old_price = info.original_price;
@@ -69,7 +86,7 @@ pub fn create_game_card(info: SaleInfo, store_name: &str) -> String {
     let store_page_link = info.store_page_link;
 
     let game_card = format!(
-    r#"
+        r#"
     <div class="game-card">
 
     <a href="{5}">
@@ -99,23 +116,27 @@ pub fn create_game_card(info: SaleInfo, store_name: &str) -> String {
 
     </div>
     "#,
-    icon_link, game_title, old_price, new_price, discount, store_page_link, store_name);
+        icon_link, game_title, old_price, new_price, discount, store_page_link, store_name
+    );
     game_card
 }
 
 pub fn create_store_cards(store_name: &str, sales: Vec<SaleInfo>) -> String {
     let simple_name = match store_name {
         STEAM_STORE_NAME => "Steam",
-        GOG_STORE_NAME  => "GOG",
+        GOG_STORE_NAME => "GOG",
         MICROSOFT_STORE_NAME => "Microsoft Store",
-        _ => ""
+        _ => "",
     };
-    
-    let mut store_cards = format!(r#"
+
+    let mut store_cards = format!(
+        r#"
     <!-- {0} -->
     <div class="store">
     <h2 class="storefront">{0}</h2>
-    "#, store_name);
+    "#,
+        store_name
+    );
     for game in sales {
         store_cards.push_str(&create_game_card(game, simple_name));
     }
@@ -124,7 +145,8 @@ pub fn create_store_cards(store_name: &str, sales: Vec<SaleInfo>) -> String {
 }
 
 pub fn create_html_body(sales_info_html: &str) -> String {
-    let html_body = format!(r#"
+    let html_body = format!(
+        r#"
     <!DOCTYPE html>
     <html lang="en">
     <head>
@@ -144,32 +166,32 @@ pub fn create_html_body(sales_info_html: &str) -> String {
     </div>
     </body>
     </html>
-    "#, EMAIL_STYLESHEET, HTML_BODY_HEADER, sales_info_html);
+    "#,
+        EMAIL_STYLESHEET, HTML_BODY_HEADER, sales_info_html
+    );
     html_body
 }
 
-pub fn send_html_msg(recipient: &str, subject: &str, body: &str) -> Result<String, String>{
+pub fn send_html_msg(recipient: &str, subject: &str, body: &str) -> Result<String, String> {
     let smtp_host = properties::get_smtp_host();
-    let smtp_port : u16 = properties::get_smtp_port();
+    let smtp_port: u16 = properties::get_smtp_port();
     let smtp_email = properties::get_smtp_email();
     let smtp_user = properties::get_smtp_user();
     let smtp_pwd = properties::get_smtp_pwd(false);
-    
+
     let email = Message::builder()
         .from(smtp_email.parse().unwrap())
         .to(recipient.parse().unwrap())
         .subject(subject)
-        .multipart(
-            MultiPart::alternative().singlepart(SinglePart::html(body.to_string())),
-        )
+        .multipart(MultiPart::alternative().singlepart(SinglePart::html(body.to_string())))
         .unwrap();
 
     let creds = Credentials::new(smtp_user, smtp_pwd);
 
     let mailer = SmtpTransport::starttls_relay(&smtp_host)
-        .unwrap()  
+        .unwrap()
         .credentials(creds)
-        .port(smtp_port)  
+        .port(smtp_port)
         .authentication(vec![Mechanism::Login])
         .build();
 

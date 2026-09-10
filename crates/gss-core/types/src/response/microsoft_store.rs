@@ -1,5 +1,5 @@
-use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 #[derive(Deserialize, Serialize, Debug)]
 pub struct ProductInfo {
@@ -22,7 +22,7 @@ pub struct ProductInfo {
     package_family_names: Vec<String>,
     #[serde(rename = "isGamingAppOnly")]
     is_gaming_app_only: bool,
-    installer: HashMap<String,String>,
+    installer: HashMap<String, String>,
     #[serde(rename = "skusSummary")]
     pub skus_summary: Vec<Option<SkusSummary>>,
     #[serde(rename = "releaseDateUtc")]
@@ -97,9 +97,13 @@ pub struct ProductInfoBuilder {
 
 #[allow(clippy::new_ret_no_self)]
 impl ProductInfoBuilder {
-    pub fn new(id_str: String, game_title: String,
-               price: PriceInfo, icon_link: String,
-               store_page_link: String) -> ProductInfo {
+    pub fn new(
+        id_str: String,
+        game_title: String,
+        price: PriceInfo,
+        icon_link: String,
+        store_page_link: String,
+    ) -> ProductInfo {
         ProductInfo {
             product_id: id_str,
             title: game_title,
@@ -153,7 +157,7 @@ impl ProductInfoBuilder {
 }
 
 #[derive(Deserialize, Serialize, Debug)]
-pub struct GameInfo{
+pub struct GameInfo {
     #[serde(rename = "shortTitle")]
     short_title: Option<String>,
     #[serde(rename = "shortDescription")]
@@ -246,7 +250,7 @@ pub struct GameInfo{
     package_family_names: Vec<String>,
     #[serde(rename = "isGamingAppOnly")]
     is_gaming_app_only: bool,
-    installer: HashMap<String,String>,
+    installer: HashMap<String, String>,
     #[serde(rename = "skusSummary")]
     pub skus_summary: Vec<Option<SkusSummary>>,
     #[serde(rename = "releaseDateUtc")]
@@ -483,7 +487,7 @@ pub struct Recommended {
 }
 
 #[derive(Deserialize, Serialize, Debug)]
-pub struct SKU{
+pub struct SKU {
     #[serde(rename = "skuId")]
     sku_id: String,
     actions: Vec<String>,
@@ -520,5 +524,5 @@ pub struct Trailers {
     sort_order: i32,
     url: String,
     height: i32,
-    width: i32
+    width: i32,
 }

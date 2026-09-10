@@ -1,17 +1,22 @@
-use iced::widget::{column, row, container, text, TextInput, Button, Scrollable, button};
+use iced::widget::{Button, Scrollable, TextInput, button, column, container, row, text};
 use iced::{Element, Length};
 
 use constants::icons::{CHECK_MARK, DOWN_ARROW, FLOPPY_DISK, TRASH_BIN, UP_ARROW};
 
-use crate::{Message, MainMessage, SortColumn, SortOrder};
+use crate::{MainMessage, Message, SortColumn, SortOrder};
 
 pub fn thresholds_tab(app: &crate::App) -> Element<'_, Message> {
     let ignore_case_query = app.search_query.to_lowercase();
-    let mut thresholds_to_show: Vec<usize> = app.thresholds.iter().enumerate()
+    let mut thresholds_to_show: Vec<usize> = app
+        .thresholds
+        .iter()
+        .enumerate()
         .filter(|(_, threshold)| {
-            if ignore_case_query.is_empty() { true } 
-            else {
-                threshold.title.to_lowercase().contains(&ignore_case_query) || threshold.alias.to_lowercase().contains(&ignore_case_query)
+            if ignore_case_query.is_empty() {
+                true
+            } else {
+                threshold.title.to_lowercase().contains(&ignore_case_query)
+                    || threshold.alias.to_lowercase().contains(&ignore_case_query)
             }
         })
         .map(|(index, _)| index)
@@ -20,12 +25,28 @@ pub fn thresholds_tab(app: &crate::App) -> Element<'_, Message> {
     if let Some(column) = app.threshold_sort_column {
         thresholds_to_show.sort_by(|thresh_a, thresh_b| {
             let thresh_cmp = match column {
-                SortColumn::Title => app.thresholds[*thresh_a].title.to_lowercase().cmp(&app.thresholds[*thresh_b].title.to_lowercase()),
-                SortColumn::Alias => app.thresholds[*thresh_a].alias.to_lowercase().cmp(&app.thresholds[*thresh_b].alias.to_lowercase()),
-                SortColumn::SteamId => app.thresholds[*thresh_a].steam_id.cmp(&app.thresholds[*thresh_b].steam_id),
-                SortColumn::GogId => app.thresholds[*thresh_a].gog_id.cmp(&app.thresholds[*thresh_b].gog_id),
-                SortColumn::MicrosoftId => app.thresholds[*thresh_a].microsoft_store_id.to_lowercase().cmp(&app.thresholds[*thresh_b].microsoft_store_id.to_lowercase()),
-                SortColumn::DesiredPrice => app.thresholds[*thresh_a].desired_price.partial_cmp(&app.thresholds[*thresh_b].desired_price).unwrap_or(std::cmp::Ordering::Equal),
+                SortColumn::Title => app.thresholds[*thresh_a]
+                    .title
+                    .to_lowercase()
+                    .cmp(&app.thresholds[*thresh_b].title.to_lowercase()),
+                SortColumn::Alias => app.thresholds[*thresh_a]
+                    .alias
+                    .to_lowercase()
+                    .cmp(&app.thresholds[*thresh_b].alias.to_lowercase()),
+                SortColumn::SteamId => app.thresholds[*thresh_a]
+                    .steam_id
+                    .cmp(&app.thresholds[*thresh_b].steam_id),
+                SortColumn::GogId => app.thresholds[*thresh_a]
+                    .gog_id
+                    .cmp(&app.thresholds[*thresh_b].gog_id),
+                SortColumn::MicrosoftId => app.thresholds[*thresh_a]
+                    .microsoft_store_id
+                    .to_lowercase()
+                    .cmp(&app.thresholds[*thresh_b].microsoft_store_id.to_lowercase()),
+                SortColumn::DesiredPrice => app.thresholds[*thresh_a]
+                    .desired_price
+                    .partial_cmp(&app.thresholds[*thresh_b].desired_price)
+                    .unwrap_or(std::cmp::Ordering::Equal),
             };
 
             if app.threshold_sort_order == SortOrder::Ascending {
@@ -37,46 +58,66 @@ pub fn thresholds_tab(app: &crate::App) -> Element<'_, Message> {
     }
 
     let header_row = row![
-        Button::new(text(format!("Title {}", header_sort_indicator(app, SortColumn::Title))))
-            .on_press(MainMessage::SortThresholds(SortColumn::Title).into())
-            .style(button::text)
-            .width(Length::FillPortion(2))
-            .padding(8),
-        Button::new(text(format!("Alias {}", header_sort_indicator(app, SortColumn::Alias))))
-            .on_press(MainMessage::SortThresholds(SortColumn::Alias).into())
-            .style(button::text)
-            .width(Length::FillPortion(2))
-            .padding(8),
+        Button::new(text(format!(
+            "Title {}",
+            header_sort_indicator(app, SortColumn::Title)
+        )))
+        .on_press(MainMessage::SortThresholds(SortColumn::Title).into())
+        .style(button::text)
+        .width(Length::FillPortion(2))
+        .padding(8),
+        Button::new(text(format!(
+            "Alias {}",
+            header_sort_indicator(app, SortColumn::Alias)
+        )))
+        .on_press(MainMessage::SortThresholds(SortColumn::Alias).into())
+        .style(button::text)
+        .width(Length::FillPortion(2))
+        .padding(8),
         container(
-            Button::new(text(format!("Steam {}", header_sort_indicator(app, SortColumn::SteamId))))
-                .on_press(MainMessage::SortThresholds(SortColumn::SteamId).into())
-                .style(button::text)
-                .width(Length::Fill)
-                .padding(8),
+            Button::new(text(format!(
+                "Steam {}",
+                header_sort_indicator(app, SortColumn::SteamId)
+            )))
+            .on_press(MainMessage::SortThresholds(SortColumn::SteamId).into())
+            .style(button::text)
+            .width(Length::Fill)
+            .padding(8),
         )
         .width(Length::Fixed(100.0)),
         container(
-            Button::new(text(format!("GOG {}", header_sort_indicator(app, SortColumn::GogId))))
-                .on_press(MainMessage::SortThresholds(SortColumn::GogId).into())
-                .style(button::text)
-                .width(Length::Fill)
-                .padding(8),
+            Button::new(text(format!(
+                "GOG {}",
+                header_sort_indicator(app, SortColumn::GogId)
+            )))
+            .on_press(MainMessage::SortThresholds(SortColumn::GogId).into())
+            .style(button::text)
+            .width(Length::Fill)
+            .padding(8),
         )
         .width(Length::Fixed(100.0)),
         container(
-            Button::new(text(format!("Microsoft(PC) {}", header_sort_indicator(app, SortColumn::MicrosoftId))))
-                .on_press(MainMessage::SortThresholds(SortColumn::MicrosoftId).into())
-                .style(button::text)
-                .width(Length::Fill)
-                .padding(8),
+            Button::new(text(format!(
+                "Microsoft(PC) {}",
+                header_sort_indicator(app, SortColumn::MicrosoftId)
+            )))
+            .on_press(MainMessage::SortThresholds(SortColumn::MicrosoftId).into())
+            .style(button::text)
+            .width(Length::Fill)
+            .padding(8),
         )
         .width(Length::Fixed(140.0)),
-        Button::new(text(format!("Price {}", header_sort_indicator(app, SortColumn::DesiredPrice))))
-            .on_press(MainMessage::SortThresholds(SortColumn::DesiredPrice).into())
-            .style(button::text)
-                .width(Length::Fill)
+        Button::new(text(format!(
+            "Price {}",
+            header_sort_indicator(app, SortColumn::DesiredPrice)
+        )))
+        .on_press(MainMessage::SortThresholds(SortColumn::DesiredPrice).into())
+        .style(button::text)
+        .width(Length::Fill)
+        .padding(8),
+        container(text("Actions"))
+            .width(Length::FillPortion(1))
             .padding(8),
-        container(text("Actions")).width(Length::FillPortion(1)).padding(8),
     ]
     .spacing(4);
 
@@ -86,33 +127,70 @@ pub fn thresholds_tab(app: &crate::App) -> Element<'_, Message> {
     let thresholds_empty: bool = thresholds_to_show.is_empty();
     for &index in thresholds_to_show.iter() {
         let threshold = &app.thresholds[index];
-        let alias_value = app.threshold_alias_edits.get(index).map(String::as_str).unwrap_or(threshold.alias.as_str());
-        let price_value = app.threshold_price_edits.get(index).map(String::as_str).unwrap_or("ERR");
+        let alias_value = app
+            .threshold_alias_edits
+            .get(index)
+            .map(String::as_str)
+            .unwrap_or(threshold.alias.as_str());
+        let price_value = app
+            .threshold_price_edits
+            .get(index)
+            .map(String::as_str)
+            .unwrap_or("ERR");
 
         threshold_rows = threshold_rows.push(
             container(
                 row![
-                    container(text(threshold.title.clone())).width(Length::FillPortion(2)).padding(8),
+                    container(text(threshold.title.clone()))
+                        .width(Length::FillPortion(2))
+                        .padding(8),
                     TextInput::new("alias", alias_value)
-                        .on_input(move |value| MainMessage::ThresholdAliasChanged(index, value).into())
+                        .on_input(
+                            move |value| MainMessage::ThresholdAliasChanged(index, value).into()
+                        )
                         .width(Length::FillPortion(2))
                         .padding(5),
-                    container(text(if threshold.steam_id != 0 { CHECK_MARK } else { "" })).center_x(Length::Fixed(100.0)).padding(8),
-                    container(text(if threshold.gog_id != 0 { CHECK_MARK } else { "" })).center_x(Length::Fixed(100.0)).padding(8),
-                    container(text(if threshold.microsoft_store_id.is_empty() { "" } else { CHECK_MARK })).center_x(Length::Fixed(140.0)).padding(8),
-                    TextInput::new("price", &price_value)
-                        .on_input(move |value| MainMessage::ThresholdPriceChanged(index, value).into())
+                    container(text(if threshold.steam_id != 0 {
+                        CHECK_MARK
+                    } else {
+                        ""
+                    }))
+                    .center_x(Length::Fixed(100.0))
+                    .padding(8),
+                    container(text(if threshold.gog_id != 0 {
+                        CHECK_MARK
+                    } else {
+                        ""
+                    }))
+                    .center_x(Length::Fixed(100.0))
+                    .padding(8),
+                    container(text(if threshold.microsoft_store_id.is_empty() {
+                        ""
+                    } else {
+                        CHECK_MARK
+                    }))
+                    .center_x(Length::Fixed(140.0))
+                    .padding(8),
+                    TextInput::new("price", price_value)
+                        .on_input(
+                            move |value| MainMessage::ThresholdPriceChanged(index, value).into()
+                        )
                         .width(Length::FillPortion(1))
                         .padding(5),
                     row![
-                        Button::new(text(FLOPPY_DISK)).on_press(MainMessage::UpdateThresholdRow(index).into()).padding(6),
-                        Button::new(text(TRASH_BIN)).on_press(MainMessage::RemoveThresholdRow(index).into()).padding(6),
+                        Button::new(text(FLOPPY_DISK))
+                            .on_press(MainMessage::UpdateThresholdRow(index).into())
+                            .padding(6),
+                        Button::new(text(TRASH_BIN))
+                            .on_press(MainMessage::RemoveThresholdRow(index).into())
+                            .padding(6),
                     ]
                     .spacing(4)
                     .width(Length::FillPortion(1)),
                 ]
                 .spacing(4),
-            ).padding(2),
+            )
+            .padding(2),
         );
     }
 
@@ -122,8 +200,12 @@ pub fn thresholds_tab(app: &crate::App) -> Element<'_, Message> {
             .padding(5)
             .width(Length::Fill),
         row![
-            Button::new(text("Reset search")).on_press(MainMessage::SearchQueryChanged(String::new()).into()).padding(6),
-            Button::new(text("Refresh list")).on_press(MainMessage::Refresh.into()).padding(6),
+            Button::new(text("Reset search"))
+                .on_press(MainMessage::SearchQueryChanged(String::new()).into())
+                .padding(6),
+            Button::new(text("Refresh list"))
+                .on_press(MainMessage::Refresh.into())
+                .padding(6),
         ]
         .spacing(8),
     ]
@@ -131,11 +213,9 @@ pub fn thresholds_tab(app: &crate::App) -> Element<'_, Message> {
     .padding(10);
 
     column![
-        threshold_controls, 
+        threshold_controls,
         if thresholds_empty {
-            column![
-                Scrollable::new(column![text("No thresholds found.")]).height(Length::Fill)
-            ]
+            column![Scrollable::new(column![text("No thresholds found.")]).height(Length::Fill)]
         } else {
             column![
                 threshold_header,
@@ -154,5 +234,7 @@ fn header_sort_indicator(app: &crate::App, column: SortColumn) -> &'static str {
             SortOrder::Descending => DOWN_ARROW,
             SortOrder::Original => "",
         }
-    } else { "" }
+    } else {
+        ""
+    }
 }

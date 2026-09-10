@@ -1,32 +1,34 @@
 use std::fs::{self, File, OpenOptions, write};
-use std::path::Path;
 use std::io::prelude::*;
+use std::path::Path;
 
-pub fn get_path(path_str: &str) -> String{
+pub fn get_path(path_str: &str) -> String {
     let path = Path::new(path_str);
     let mut is_new = false;
-    if !path.is_file(){
+    if !path.is_file() {
         File::create_new(path_str).expect("Failed to create/load file");
         is_new = true;
     }
-    let load_fp =  path.display().to_string();
-    if is_new { println!("File created: {}", load_fp); }
+    let load_fp = path.display().to_string();
+    if is_new {
+        println!("File created: {}", load_fp);
+    }
     load_fp
 }
 
-pub fn create_dir(file_path: &str){
-    if !Path::new(file_path).is_dir() { 
-        match fs::create_dir_all(file_path){
+pub fn create_dir(file_path: &str) {
+    if !Path::new(file_path).is_dir() {
+        match fs::create_dir_all(file_path) {
             Ok(_) => println!("Created directory: {}", file_path),
-            Err(e) => println!("Failed to create directory: {}, {}", file_path, e)
+            Err(e) => println!("Failed to create directory: {}, {}", file_path, e),
         }
     }
 }
 
-pub fn write_to_file(path: String, data: String){
+pub fn write_to_file(path: String, data: String) {
     match write(&path, data) {
         Ok(_) => (),
-        Err(e) => eprintln!("An error occurred while writing to \'{}\'\n{}", path, e)
+        Err(e) => eprintln!("An error occurred while writing to \'{}\'\n{}", path, e),
     }
 }
 
@@ -36,28 +38,25 @@ pub fn write_file(path: &Path, filename: &str, data: &str) {
 }
 
 pub fn append_to_file(path: &str, data: &str) {
-    let file = OpenOptions::new()
-        .create(true)
-        .append(true)
-        .open(path);
+    let file = OpenOptions::new().create(true).append(true).open(path);
     match file {
-        Ok(mut f) => {
-            match f.write_all(data.as_bytes()) {
-                Ok(_) => (),
-                Err(e) => eprintln!("Could not append to file, {}", e),
-            }
+        Ok(mut f) => match f.write_all(data.as_bytes()) {
+            Ok(_) => (),
+            Err(e) => eprintln!("Could not append to file, {}", e),
         },
         Err(e) => eprintln!("Could not open file. {}", e),
     }
 }
 
-pub fn get_contents(path: &str) -> String{
+pub fn get_contents(path: &str) -> String {
     fs::read_to_string(path).unwrap_or_default()
 }
 
-pub fn delete_file(file_path: String) -> bool{
-    match fs::remove_file(get_path(&file_path)){
+pub fn delete_file(file_path: String) -> bool {
+    // TODO: Had proper error propagation
+    #[allow(clippy::redundant_pattern_matching)]
+    match fs::remove_file(get_path(&file_path)) {
         Ok(_) => true,
-        Err(e) => false
+        Err(_) => false,
     }
 }

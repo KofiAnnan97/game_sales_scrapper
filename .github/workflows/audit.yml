@@ -1,0 +1,23 @@
+name: Code Audit
+on:
+  pull_request:
+  push:
+    branches:
+      - dev
+      - master
+      - feature/update-actions-workflow
+permissions:
+  contents: read
+jobs:
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Check formatting
+        run: cargo fmt --all -- --check
+      - name: Clippy
+        run: cargo clippy --all-targets --all-features -- -D warnings
+#      - name: Install cargo-audit
+#        run: cargo install cargo-audit
+#      - name: Audit dependencies
+#        run: cargo audit

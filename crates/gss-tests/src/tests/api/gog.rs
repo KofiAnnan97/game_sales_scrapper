@@ -8,7 +8,8 @@ static GAME_ID: usize = 1901861030;
 async fn search_game() {
     let client = reqwest::Client::new();
     let search_list = gog::search_game_by_title_v2(GAME_TITLE, &client)
-        .await.unwrap_or_else(|_| Vec::new());
+        .await
+        .unwrap_or_else(|_| Vec::new());
     let mut is_game_present = false;
     for game in search_list {
         if game.title == GAME_TITLE {
@@ -25,12 +26,16 @@ async fn get_price_info() {
     match gog::get_price_details_v2(GAME_TITLE, &client).await {
         Some(info) => {
             assert_eq!(info.title, GAME_TITLE, "{} != {}", info.title, GAME_TITLE);
-            assert_ne!(f64::MIN, info.original_price, "Original price field is empty");
+            assert_ne!(
+                f64::MIN,
+                info.original_price,
+                "Original price field is empty"
+            );
             assert_ne!(f64::MAX, info.current_price, "Current price field is empty");
             assert_ne!("", info.discount_percentage, "Discount % field is empty");
             assert_ne!("", info.icon_link, "Icon link field is empty");
             //assert_ne!("", info.store_page_link, "Store page link field is empty");
         }
-        None =>  assert!(false, "Game with id {} does not exist", GAME_ID),
+        None => unreachable!("Game with id {} does not exist", GAME_ID),
     }
 }

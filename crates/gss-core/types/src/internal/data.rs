@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize,Debug, Clone)]
-pub struct SaleInfo{
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct SaleInfo {
     pub icon_link: String,
     pub title: String,
     pub original_price: f64,
@@ -20,11 +20,11 @@ pub struct SimpleGameThreshold {
 pub struct SimpleAliasedGameThreshold {
     pub name: String,
     pub alias: String,
-    pub price: f64
+    pub price: f64,
 }
 
 #[derive(Deserialize, Serialize, Debug)]
-pub struct GameThreshold{
+pub struct GameThreshold {
     pub title: String,
     pub alias: String,
     pub steam_id: u32,
