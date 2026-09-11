@@ -3,6 +3,36 @@
 ### Release 0.3.2 Alpha (Code Hardening)
 - Features/Updates
   - General
+    - Security
+      - Fix HTML injection for generated email content
+        - [ ] Reject `javascript:`
+        - [ ] Render `<script>` as text
+        - [ ] Make sure storefront data is escaped
+      - [ ] Use interactive hidden prompts
+    - Performance
+      - [ ] Implement bounded current price checking
+        - [ ] Implement search via multiple game ids for Steam games
+        - [ ] Centralize and reuse 
+          - [ ] remove unncessary instantiations are deleted
+          - [ ] Configure connection pooling, user agents and redirects when needed
+      - [ ] Add response size limits to HTTP calls
+      - [ ] Optimize fuzzy search algorithms
+        - [ ] Use rolling row implementation for 2D comparison matrix
+        - [ ] Add limits to fuzzy search inputs
+        - [ ] Add performance benchmarks
+      - Caching improvements
+        - [ ] corrupted cached data is detected and handled with crashing
+        - [ ] avoid serializing the entire cache when practical
+    - Reliability
+      - [ ] Proper error handling for unwrap(), expect(), and panic!()
+        - [ ] Have recoverable failures with typed errors
+        - [ ] Individual storefront failures are isolated
+      - [ ] Add cargo deny to audit workflow
+  - Command Line
+    - Security
+      - [ ] Determine whether --reveal-screts should be deprecated or can't be printed in logs/CI
+    - Reliability
+      - [ ] Return meaningful exits codes for unrecoverable errors
   - Application
     - Optimize log pagination
       - [ ] Refactor log filtering to iterate over references instead of cloning all entries.
@@ -10,22 +40,20 @@
       - [ ] Update clamp_page() to count matching entries without allocating a filtered vector.
       - [ ] Avoid repeated filtering where practical by caching filtered results or indices.
       - [ ] Invalidate pagination caches when logs, selected files, or filters change
+
 - Bugs/Fixes
   - General
     - [ ] Handle games thresholds with corrupted or incorrect data (try to run search on fake query with incorrect store ids)
   - Application
     - [ ] Only update settings if needed (currently always update)
-    - Add message dialog for the following 
-      - [ ] Calling storefronts fails 
+
 - Testing:
   - [X] Add caching to GitHub Actions
-  - [ ] Update each test to do clean up before execution. If one test fails that temp environment might cause other tests to fail. 
  
 ### Backlog
 - Features/Updates
   - General
     - Determine if defaulting the path should be in getters for project and test path if properties and dot env file have an invalid/empty path
-    - Implement search via multiple game ids for Steam games
     - Set up Humble Bundle Storefront & test
     - Retrieve pricing data from Steam bundles 
     - Retrieve pricing data from game editions on GOG
@@ -53,6 +81,7 @@
         - In settings allow the user to send a test alert to confirm that the configuration
       - Allow user option to run application in background when closing application instead of completely exiting
       - Add functionality to get and set a debug level (value should be store in settings file)
+
 - Bugs/Fixes
   - General
     - Update dependencies and resolve any potential issues
@@ -60,10 +89,13 @@
     - Add functionality to get and set a debug level (value should be store in settings file)
     - Add feedback Prune all logs button in Settings
     - Add message dialog for failure for updating cache (Steam settings)
+    - Add message dialog for failed storefront calls 
+
 - Testing
-  - To do
+  - In Scope
     - Mock api calls for user commands (check prices) -> may need to moved out to later
     - `add` and `bulk-insert` script cmds
     - Figure out if comprehensive testing is viable for application
+    - Update each test to do clean up before execution. If one test fails that temp environment might cause other tests to fail.
   - Out of Scope 
     - `update-cache` and `send-email` script cmds
