@@ -44,6 +44,7 @@
       - Should include warning that increasing these values may increase memory usage and slow down the application.
     - [X] Skip corrupted logs
     - [ ] Make log windows even of both sides if even (i.e if window = 20 then next 10 and previous 10 are cached)
+    - [X] Added logic to include fallback image if image cannot be found for sales preview
 
 - Bugs/Fixes
   - General

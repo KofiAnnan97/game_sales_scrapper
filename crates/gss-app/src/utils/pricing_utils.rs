@@ -1,5 +1,6 @@
 use iced::widget::image::Handle;
 use std::collections::HashMap;
+use std::time::Duration;
 
 use crate::utils::file_utils::load_image_from_url;
 use alerting::email;
@@ -8,6 +9,9 @@ use constants::stores::gog::VERSION as GOG_VERSION;
 use file_ops::thresholds;
 use stores::pc::{gog, microsoft_store, steam};
 use types::internal::{data::SaleInfo, store::GameStore};
+
+const NO_IMAGE: &[u8] = include_bytes!("../../resources/no_image.png");
+static IMAGE_FROM_URL_TIMEOUT: u64 = 90;
 
 #[derive(Debug, Clone)]
 pub struct StoreSale {
@@ -74,6 +78,21 @@ pub fn check_prices_for_display(store_sales: &[StoreSale]) -> HashMap<GameStore,
         by_store.entry(sale.store).or_default().push(i);
     }
     by_store
+}
+
+async fn load_sale_image(url: &str) -> Handle {
+    tokio::time::timeout(
+        Duration::from_secs(IMAGE_FROM_URL_TIMEOUT),
+        load_image_from_url(url),
+    )
+    .await
+    .ok()
+    .and_then(Result::ok)
+    .unwrap_or_else(fallback_image)
+}
+
+fn fallback_image() -> Handle {
+    Handle::from_bytes(NO_IMAGE.to_vec())
 }
 
 pub async fn check_prices(use_html: bool) -> Result<String, String> {
@@ -217,7 +236,7 @@ pub async fn get_sales() -> Result<Vec<StoreSale>, String> {
             match steam::get_price_details(game.steam_id, &http_client).await {
                 Ok(info) => {
                     if game.desired_price >= info.current_price {
-                        let icon_handler = load_image_from_url(&info.icon_link).await.ok();
+                        let icon_handler = Some(load_sale_image(&info.icon_link).await);
                         sales.push(StoreSale {
                             store: GameStore::STEAM,
                             info,
@@ -234,7 +253,7 @@ pub async fn get_sales() -> Result<Vec<StoreSale>, String> {
             && let Some(info) = gog::get_price_details_v2(&game.title, &http_client).await
             && game.desired_price >= info.current_price
         {
-            let icon_handler = load_image_from_url(&info.icon_link).await.ok();
+            let icon_handler = Some(load_sale_image(&info.icon_link).await);
             sales.push(StoreSale {
                 store: GameStore::GOOD_OLD_GAMES,
                 info,
@@ -248,7 +267,7 @@ pub async fn get_sales() -> Result<Vec<StoreSale>, String> {
                 microsoft_store::get_price_details(&game.microsoft_store_id, &http_client).await
             && game.desired_price >= info.current_price
         {
-            let icon_handler = load_image_from_url(&info.icon_link).await.ok();
+            let icon_handler = Some(load_sale_image(&info.icon_link).await);
             sales.push(StoreSale {
                 store: GameStore::MICROSOFT_STORE_PC,
                 info,
