@@ -291,6 +291,7 @@ impl App {
     fn new(log_file: String) -> (Self, Task<Message>) {
         let (id, task) = window::open(window::Settings {
             size: iced::Size::new(1200.0, 800.0),
+            min_size: Some(iced::Size::new(900.0, 400.0)),
             position: window::Position::Centered,
             resizable: true,
             ..Default::default()

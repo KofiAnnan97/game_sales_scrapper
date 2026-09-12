@@ -35,11 +35,15 @@
       - [ ] Return meaningful exits codes for unrecoverable errors
   - Application
     - Optimize log pagination
-      - [ ] Refactor log filtering to iterate over references instead of cloning all entries.
-      - [ ] Render only the requested page using skip() and take(LOGS_PER_PAGE).
-      - [ ] Update clamp_page() to count matching entries without allocating a filtered vector.
-      - [ ] Avoid repeated filtering where practical by caching filtered results or indices.
-      - [ ] Invalidate pagination caches when logs, selected files, or filters change
+      - [X] Refactor log filtering to iterate over references instead of cloning all entries.
+      - [X] Render only the requested page using skip() and take(LOGS_PER_PAGE).
+      - [X] Update clamp_page() to count matching entries without allocating a filtered vector.
+      - [X] Avoid repeated filtering where practical by caching filtered results or indices.
+      - [X] Invalidate pagination caches when logs, selected files, or filters change
+    - [ ] Add user controls in settings to change the number of logs per page and the maximum number of pages cached, how may files are cached.
+      - Should include warning that increasing these values may increase memory usage and slow down the application.
+    - [X] Skip corrupted logs
+    - [ ] Make log windows even of both sides if even (i.e if window = 20 then next 10 and previous 10 are cached)
 
 - Bugs/Fixes
   - General

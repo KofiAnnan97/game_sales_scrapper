@@ -3,16 +3,20 @@ use crate::log_utils::{LogData, parse_logs};
 use crate::utils::log_utils;
 use crate::utils::log_utils::{LogLevel, get_log_path};
 use crate::views::sub_windows::LogItem;
+use files::general;
 use iced::alignment::{Horizontal, Vertical};
 use iced::widget::{Button, Scrollable, column, container, pick_list, row, text};
 use iced::{Alignment, Background, Color, Element, Length, Task};
-use std::collections::HashMap;
+use iced_aw::Spinner;
+use std::collections::{HashMap, VecDeque};
 use std::fmt::{Display, Formatter};
-use std::fs::File;
-use std::io::{Read, Seek, SeekFrom};
+use std::io::{BufRead, BufReader};
 use std::path::PathBuf;
 
 const LOGS_PER_PAGE: usize = 20;
+const MAX_CACHED_HISTORICAL_LOGS: usize = 5;
+const PAGES_PER_WINDOW: usize = 20;
+const ENTRIES_PER_WINDOW: usize = LOGS_PER_PAGE * PAGES_PER_WINDOW;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Screen {
@@ -83,13 +87,16 @@ pub enum LoggingMessage {
     Exit,
     //Message(s) communicated back from App
     RefreshLogs,
+    LogWindowLoaded(u64, String, LogState),
 }
 
-#[derive(Default)]
-struct LogState {
+#[derive(Clone, Debug, Default)]
+pub struct LogState {
     file_size: u64,
     entries: Vec<LogData>,
     pending_line: String,
+    window_start_page: usize,
+    total_matching_entries: usize,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -108,10 +115,15 @@ pub struct LoggingView {
     curr_file_path: String,
     current_log: LogState,
     historical_logs: HashMap<String, LogState>,
+    historical_log_order: VecDeque<String>,
+    filtered_log_indices: Vec<usize>,
     log_slider_idx: usize,
     log_file_selected: Option<String>,
     log_selected_screen: Option<Screen>,
     log_page: usize,
+    next_request_id: u64,
+    active_request_id: u64,
+    logs_loading: bool,
     pub log_items: Vec<LogItem>,
     pub prune_all: bool,
 }
@@ -119,14 +131,19 @@ pub struct LoggingView {
 impl LoggingView {
     pub fn new(curr_log_path: &str) -> Self {
         let file_name = log_utils::get_filename(curr_log_path);
-        Self {
+        let mut view = Self {
             curr_file_path: String::from(curr_log_path),
             current_log: LogState::default(),
             historical_logs: HashMap::new(),
+            historical_log_order: VecDeque::new(),
+            filtered_log_indices: Vec::new(),
             log_slider_idx: get_defaut_slider_idx(),
             log_file_selected: Some(file_name.clone()),
             log_selected_screen: Some(Screen::All),
             log_page: 0,
+            next_request_id: 0,
+            active_request_id: 0,
+            logs_loading: true,
             log_items: {
                 let available_logs = log_utils::get_app_logs();
                 let mut items: Vec<LogItem> = Vec::new();
@@ -141,7 +158,9 @@ impl LoggingView {
                 items
             },
             prune_all: false,
-        }
+        };
+        view.refresh_filter_cache();
+        view
     }
 
     pub fn update(&mut self, message: LoggingMessage) -> Task<LoggingMessage> {
@@ -149,23 +168,31 @@ impl LoggingView {
             LoggingMessage::LevelChanged(idx) => {
                 self.log_slider_idx = idx;
                 self.log_page = 0;
-                Task::none()
+                self.schedule_selected_log_window(0, true)
             }
             LoggingMessage::PageChanged(page) => {
+                let (window_start_page, total_pages) = self.selected_page_window();
+                if page < window_start_page || page >= window_start_page + PAGES_PER_WINDOW {
+                    let new_start_page = page
+                        .saturating_sub(PAGES_PER_WINDOW / 2)
+                        .min(total_pages.saturating_sub(PAGES_PER_WINDOW));
+                    self.clear_selected_log_window(new_start_page);
+                    self.log_page = page;
+                    return self.schedule_selected_log_window(new_start_page, true);
+                }
                 self.log_page = page;
                 Task::none()
             }
             LoggingMessage::LogFileChanged(dt_str) => {
                 self.log_file_selected =
                     dt_str.as_ref().map(|selection| selection.file_name.clone());
-                self.refresh_selected_historical_log();
                 self.log_page = 0;
-                Task::none()
+                self.schedule_selected_log_window(0, true)
             }
             LoggingMessage::LogScreenChanged(screen) => {
                 self.log_selected_screen = Some(screen);
                 self.log_page = 0;
-                Task::none()
+                self.schedule_selected_log_window(0, true)
             }
             LoggingMessage::ToggleLogsToRemove(id, checked) => {
                 let is_current = self
@@ -188,32 +215,42 @@ impl LoggingView {
             }
             LoggingMessage::DeleteAllButCurrent => {
                 let current_file_name = log_utils::get_filename(&self.curr_file_path);
+                let mut deleted_files = Vec::new();
                 self.log_items.retain_mut(|item| {
                     if item.file_name == current_file_name {
                         true
                     } else {
                         let _ = log_utils::delete_log(&item.file_name);
+                        deleted_files.push(item.file_name.clone());
                         false
                     }
                 });
+                for file_name in deleted_files {
+                    self.remove_historical_log_cache(&file_name);
+                }
                 self.prune_all = false;
                 self.normalize_selection();
-                Task::none()
+                self.schedule_selected_log_window(0, true)
             }
             LoggingMessage::DeleteLogs => {
                 let current_file_name = log_utils::get_filename(&self.curr_file_path);
+                let mut deleted_files = Vec::new();
                 self.log_items.retain_mut(|item| {
                     if item.file_name != current_file_name && item.checked {
                         let _ = log_utils::delete_log(&item.file_name);
+                        deleted_files.push(item.file_name.clone());
                         false
                     } else {
                         true
                     }
                 });
 
+                for file_name in deleted_files {
+                    self.remove_historical_log_cache(&file_name);
+                }
                 self.prune_all = false;
                 self.normalize_selection();
-                Task::none()
+                self.schedule_selected_log_window(0, true)
             }
             LoggingMessage::PruneAllLogs(toggle) => {
                 let current_file_name = log_utils::get_filename(&self.curr_file_path);
@@ -224,20 +261,36 @@ impl LoggingView {
                 Task::none()
             }
             LoggingMessage::RefreshLogs => {
-                self.refresh_current_log();
-                self.refresh_selected_historical_log();
                 self.refresh_log_items();
-                self.clamp_page();
-                Task::none()
+                let (window_start_page, _) = self.selected_page_window();
+                self.schedule_selected_log_window(window_start_page, false)
             }
             LoggingMessage::OpenManualPrune => Task::none(),
             LoggingMessage::Exit => Task::none(),
+            LoggingMessage::LogWindowLoaded(request_id, file_name, state) => {
+                if request_id != self.active_request_id {
+                    return Task::none();
+                }
+
+                if self.log_file_selected.as_deref() != Some(file_name.as_str()) {
+                    return Task::none();
+                }
+
+                if self.is_current_file(&file_name) {
+                    self.current_log = state;
+                } else {
+                    self.historical_logs.insert(file_name, state);
+                }
+                self.logs_loading = false;
+                self.refresh_filter_cache();
+                self.clamp_page();
+                Task::none()
+            }
         }
     }
 
     pub fn view(&self) -> Element<'_, LoggingMessage> {
         let level_options = LogLevel::get_options();
-        let filtered_logs = self.filtered_logs(&level_options);
 
         let logs_header = row![
             text("Timestamp").width(Length::Fixed(310.)),
@@ -246,23 +299,49 @@ impl LoggingView {
             text("Message").width(Length::FillPortion(3))
         ];
 
-        let total_log_count = filtered_logs.len();
+        let total_log_count = self.selected_total_matching_entries();
         let page_count = total_log_count.div_ceil(LOGS_PER_PAGE);
         let page = self.log_page.min(page_count.saturating_sub(1));
-        let page_start_idx = page * LOGS_PER_PAGE;
-        let page_end_idx = (page_start_idx + LOGS_PER_PAGE).min(total_log_count);
+        let (window_start_page, _) = self.selected_page_window();
+        let page_start_idx = page.saturating_sub(window_start_page) * LOGS_PER_PAGE;
 
-        let mut log_cols = column![];
-        for (idx, log) in filtered_logs[page_start_idx..page_end_idx]
-            .iter()
-            .enumerate()
-        {
-            log_cols = log_cols.push(log_row(log.clone(), page_start_idx + idx));
-        }
-
-        let logs_display = Scrollable::new(log_cols)
+        let logs_display: Element<'_, LoggingMessage> = if self.logs_loading {
+            container(
+                column![
+                    text("Loading logs...").size(24).center(),
+                    Spinner::new()
+                        .width(150.0)
+                        .height(150.0)
+                        .circle_radius(10.0)
+                ]
+                .spacing(10)
+                .align_x(Horizontal::Center),
+            )
             .width(Length::Fill)
-            .height(Length::Fill);
+            .height(Length::Fill)
+            .center_x(Length::Fill)
+            .center_y(Length::Fill)
+            .into()
+        } else {
+            let mut log_cols = column![];
+            let selected_entries = self.selected_entries();
+            for (idx, entry_index) in self
+                .filtered_log_indices
+                .iter()
+                .skip(page_start_idx)
+                .take(LOGS_PER_PAGE)
+                .enumerate()
+            {
+                if let Some(log) = selected_entries.get(*entry_index) {
+                    log_cols = log_cols.push(log_row(log, page_start_idx + idx));
+                }
+            }
+
+            Scrollable::new(log_cols)
+                .width(Length::Fill)
+                .height(Length::Fill)
+                .into()
+        };
 
         let log_files = self
             .log_items
@@ -288,8 +367,8 @@ impl LoggingView {
         } else {
             format!(
                 "Showing {}-{} of {} lines",
-                page_start_idx + 1,
-                page_end_idx,
+                page * LOGS_PER_PAGE + 1,
+                (page * LOGS_PER_PAGE + LOGS_PER_PAGE).min(total_log_count),
                 total_log_count
             )
         };
@@ -389,38 +468,74 @@ impl LoggingView {
     }
 
     fn clamp_page(&mut self) {
-        let level_options = LogLevel::get_options();
-        let total_log_count = self.filtered_logs(&level_options).len();
+        let total_log_count = self.selected_total_matching_entries();
         let page_count = total_log_count.div_ceil(LOGS_PER_PAGE);
         self.log_page = self.log_page.min(page_count.saturating_sub(1));
     }
 
-    fn filtered_logs(&self, level_options: &[String]) -> Vec<LogData> {
-        let displayed_logs = if let Some(file_path) = &self.log_file_selected {
+    fn selected_page_window(&self) -> (usize, usize) {
+        if let Some(file_path) = &self.log_file_selected {
+            let state = if self.is_current_file(file_path) {
+                Some(&self.current_log)
+            } else {
+                self.historical_logs.get(file_path)
+            };
+            if let Some(state) = state {
+                return (
+                    state.window_start_page,
+                    state.total_matching_entries.div_ceil(LOGS_PER_PAGE),
+                );
+            }
+        }
+        (0, 0)
+    }
+
+    fn selected_total_matching_entries(&self) -> usize {
+        if let Some(file_path) = &self.log_file_selected {
+            let state = if self.is_current_file(file_path) {
+                Some(&self.current_log)
+            } else {
+                self.historical_logs.get(file_path)
+            };
+            return state.map_or(0, |state| state.total_matching_entries);
+        }
+        0
+    }
+
+    fn selected_entries(&self) -> &[LogData] {
+        if let Some(file_path) = &self.log_file_selected {
             if self.is_current_file(file_path) {
-                self.current_log.entries.clone()
+                &self.current_log.entries
             } else {
                 self.historical_logs
                     .get(file_path)
-                    .map(|log| log.entries.clone())
-                    .unwrap_or_default()
+                    .map_or(&[], |log| log.entries.as_slice())
             }
         } else {
-            Vec::new()
-        };
+            &[]
+        }
+    }
 
-        displayed_logs
-            .into_iter()
-            .filter(|log| {
-                let level_idx = level_options
-                    .iter()
-                    .position(|level| level == &log.level)
-                    .unwrap_or(0);
-                self.log_slider_idx <= level_idx
-                    && (self.log_selected_screen == Some(Screen::All)
-                        || self.log_selected_screen == Some(log.screen.clone().into()))
-            })
-            .collect()
+    fn refresh_filter_cache(&mut self) {
+        self.invalidate_filter_cache();
+        self.filtered_log_indices = (0..self.selected_entries().len()).collect();
+    }
+
+    fn invalidate_filter_cache(&mut self) {
+        self.filtered_log_indices.clear();
+    }
+
+    fn clear_selected_log_window(&mut self, start_page: usize) {
+        self.invalidate_filter_cache();
+        if let Some(file_path) = self.log_file_selected.as_ref() {
+            if self.is_current_file(file_path) {
+                self.current_log.entries.clear();
+                self.current_log.window_start_page = start_page;
+            } else if let Some(log_state) = self.historical_logs.get_mut(file_path) {
+                log_state.entries.clear();
+                log_state.window_start_page = start_page;
+            }
+        }
     }
 
     pub(crate) fn is_current_file(&self, file_name: &str) -> bool {
@@ -453,67 +568,124 @@ impl LoggingView {
         self.sync_prune_all();
     }
 
-    fn refresh_current_log(&mut self) {
-        refresh_log_file(&self.curr_file_path, &mut self.current_log);
-    }
+    fn schedule_selected_log_window(
+        &mut self,
+        start_page: usize,
+        force_refresh: bool,
+    ) -> Task<LoggingMessage> {
+        if force_refresh {
+            self.invalidate_filter_cache();
+        }
 
-    fn refresh_selected_historical_log(&mut self) {
         let file_name = match self.log_file_selected.as_ref() {
-            Some(file_name) if !self.is_current_file(file_name) => file_name.clone(),
-            _ => return,
+            Some(file_name) => file_name.clone(),
+            None => return Task::none(),
         };
 
-        let path_buf: PathBuf = [&get_log_path(), &file_name].iter().collect();
-        let log_state = self.historical_logs.entry(file_name).or_default();
-        refresh_log_file(&path_buf.display().to_string(), log_state);
+        let path = if self.is_current_file(&file_name) {
+            PathBuf::from(&self.curr_file_path)
+        } else {
+            self.cache_historical_log(&file_name);
+            [&get_log_path(), &file_name].iter().collect()
+        };
+
+        let cached_file_size = if self.is_current_file(&file_name) {
+            self.current_log.file_size
+        } else {
+            self.historical_logs
+                .get(&file_name)
+                .map_or(0, |state| state.file_size)
+        };
+
+        let file_size = general::get_file_size(&path);
+        if !force_refresh && file_size == cached_file_size {
+            self.logs_loading = false;
+            return Task::none();
+        }
+
+        self.logs_loading = true;
+        self.next_request_id = self.next_request_id.wrapping_add(1);
+        self.active_request_id = self.next_request_id;
+        let request_id = self.active_request_id;
+        let minimum_level = self.log_slider_idx;
+        let selected_screen = self.log_selected_screen;
+        let path = path.display().to_string();
+        Task::perform(
+            tokio::task::spawn_blocking(move || {
+                load_log_window(&path, start_page, minimum_level, selected_screen)
+            }),
+            move |result| {
+                LoggingMessage::LogWindowLoaded(request_id, file_name, result.unwrap_or_default())
+            },
+        )
+    }
+
+    fn cache_historical_log(&mut self, file_name: &str) {
+        if self.historical_logs.contains_key(file_name) {
+            return;
+        }
+
+        self.historical_log_order.push_back(file_name.to_string());
+
+        while self.historical_log_order.len() > MAX_CACHED_HISTORICAL_LOGS {
+            if let Some(oldest_file) = self.historical_log_order.pop_front() {
+                self.historical_logs.remove(&oldest_file);
+            }
+        }
+    }
+
+    fn remove_historical_log_cache(&mut self, file_name: &str) {
+        self.historical_logs.remove(file_name);
+        self.historical_log_order
+            .retain(|cached| cached != file_name);
     }
 }
 
-fn refresh_log_file(file_path: &str, log_state: &mut LogState) {
-    let mut file = match File::open(file_path) {
+fn load_log_window(
+    file_path: &str,
+    start_page: usize,
+    minimum_level: usize,
+    selected_screen: Option<Screen>,
+) -> LogState {
+    let mut log_state = LogState::default();
+    let file = match general::get_file(file_path) {
         Ok(file) => file,
         Err(_) => {
-            *log_state = LogState::default();
-            return;
+            return log_state;
         }
     };
 
     let file_size = match file.metadata().map(|metadata| metadata.len()) {
         Ok(size) => size,
-        Err(_) => return,
+        Err(_) => return log_state,
     };
 
-    if file_size < log_state.file_size {
-        *log_state = LogState::default();
-    }
+    let first_entry = start_page * LOGS_PER_PAGE;
+    let last_entry = first_entry + ENTRIES_PER_WINDOW;
+    let mut matching_entries = Vec::new();
+    let mut total_matching_entries = 0;
+    let reader = BufReader::new(file);
 
-    if file_size == log_state.file_size {
-        return;
-    }
-
-    if file.seek(SeekFrom::Start(log_state.file_size)).is_err() {
-        return;
-    }
-
-    let mut appended = String::new();
-    if file.read_to_string(&mut appended).is_err() {
-        return;
-    }
-
-    let mut buffer = std::mem::take(&mut log_state.pending_line);
-    buffer.push_str(&appended);
-
-    let lines = buffer.split_inclusive('\n');
-
-    for line in lines {
-        if line.ends_with('\n') {
-            log_state.entries.extend(parse_logs(line));
-        } else {
-            log_state.pending_line.push_str(line);
+    for line in reader.lines().map_while(Result::ok) {
+        for log in parse_logs(&line) {
+            let level_idx = LogLevel::get_level_idx(log.level.clone());
+            let matches = minimum_level <= level_idx
+                && (selected_screen == Some(Screen::All)
+                    || selected_screen == Some(log.screen.clone().into()));
+            if matches {
+                if (first_entry..last_entry).contains(&total_matching_entries) {
+                    matching_entries.push(log);
+                }
+                total_matching_entries += 1;
+            }
         }
     }
-
+    log_state.entries = matching_entries;
+    log_state.pending_line.clear();
     log_state.file_size = file_size;
+    log_state.window_start_page = start_page;
+    log_state.total_matching_entries = total_matching_entries;
+    log_state
 }
 
 fn get_defaut_slider_idx() -> usize {
@@ -521,7 +693,7 @@ fn get_defaut_slider_idx() -> usize {
     LogLevel::get_level_idx("INFO".into())
 }
 
-pub fn log_row<M: Clone + 'static>(log: LogData, index: usize) -> Element<'static, M> {
+pub fn log_row<'a, M: Clone + 'static>(log: &'a LogData, index: usize) -> Element<'a, M> {
     let background = if index.is_multiple_of(2) {
         Color::from_rgb8(10, 11, 12)
     } else {
@@ -530,10 +702,10 @@ pub fn log_row<M: Clone + 'static>(log: LogData, index: usize) -> Element<'stati
 
     container(
         row![
-            text(log.timestamp.clone()).width(Length::Fixed(300.0)),
-            text(log.level.clone()).width(Length::FillPortion(1)),
-            text(log.screen.clone()).width(Length::FillPortion(1)),
-            text(log.message.clone()).width(Length::FillPortion(3)),
+            text(log.timestamp.as_str()).width(Length::Fixed(300.0)),
+            text(log.level.as_str()).width(Length::FillPortion(1)),
+            text(log.screen.as_str()).width(Length::FillPortion(1)),
+            text(log.message.as_str()).width(Length::FillPortion(3)),
         ]
         .spacing(16)
         .align_y(Alignment::Center),
