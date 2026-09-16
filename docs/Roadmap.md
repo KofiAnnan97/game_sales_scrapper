@@ -40,11 +40,11 @@
       - [X] Update clamp_page() to count matching entries without allocating a filtered vector.
       - [X] Avoid repeated filtering where practical by caching filtered results or indices.
       - [X] Invalidate pagination caches when logs, selected files, or filters change
-    - [ ] Add user controls in settings to change the number of logs per page and the maximum number of pages cached, how may files are cached.
-      - Should include warning that increasing these values may increase memory usage and slow down the application.
+    - [X] Remove flicker when log display updates
     - [X] Skip corrupted logs
     - [ ] Make log windows even of both sides if even (i.e if window = 20 then next 10 and previous 10 are cached)
     - [X] Added logic to include fallback image if image cannot be found for sales preview
+    - [X] Added a base window tab and made all the other window tabs sequential by user input
 
 - Bugs/Fixes
   - General
@@ -69,6 +69,8 @@
       - Add a timeout which sets the image to a square missing image icon instead
     - Add Base closeable window when any other window is in view
       - make the base closeable window disappear when it is the only one
+    - Add user controls in settings to change the number of logs per page and the maximum number of pages cached, how may files are cached.
+      - Should include warning that increasing these values may increase memory usage and slow down the application.
     - New Features
       - Add automated pruning through a scheduler (Logging Settings)
       - Add auto advance to the next store as a togglable option when a radial button is selected

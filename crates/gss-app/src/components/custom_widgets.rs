@@ -45,7 +45,7 @@ pub fn menu_text_button(label: &str, message: Message) -> Element<'_, Message> {
 pub fn closable_window_button(
     label: &str,
     click_msg: Message,
-    close_msg: Message,
+    close_msg: Option<Message>,
     is_clicked: bool,
 ) -> Element<'_, Message> {
     let unclicked_color = Color::from_rgb8(20, 60, 120);
@@ -77,7 +77,7 @@ pub fn closable_window_button(
         custom_button_style(Some(Background::Color(bg)), Color::WHITE, 0.0)
     });
 
-    let content = if is_clicked {
+    let content = if is_clicked && let Some(close_msg) = close_msg {
         row![
             label_button,
             button(text("×").size(16).align_x(alignment::Horizontal::Center),)

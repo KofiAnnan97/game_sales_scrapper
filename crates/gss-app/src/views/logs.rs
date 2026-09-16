@@ -1,17 +1,21 @@
-use crate::components::custom_widgets as cw;
-use crate::log_utils::{LogData, parse_logs};
-use crate::utils::log_utils;
-use crate::utils::log_utils::{LogLevel, get_log_path};
-use crate::views::sub_windows::LogItem;
-use files::general;
-use iced::alignment::{Horizontal, Vertical};
-use iced::widget::{Button, Scrollable, column, container, pick_list, row, text};
-use iced::{Alignment, Background, Color, Element, Length, Task};
-use iced_aw::Spinner;
 use std::collections::{HashMap, VecDeque};
 use std::fmt::{Display, Formatter};
 use std::io::{BufRead, BufReader};
 use std::path::PathBuf;
+use std::time::Duration;
+
+use iced::alignment::{Horizontal, Vertical};
+use iced::widget::{Button, Scrollable, column, container, pick_list, row, stack, text};
+use iced::{Alignment, Background, Color, Element, Length, Task};
+use iced_aw::Spinner;
+
+use files::general;
+
+use crate::components::{custom_styles as cs, custom_widgets as cw};
+use crate::log_utils::{LogData, parse_logs};
+use crate::utils::log_utils;
+use crate::utils::log_utils::{LogLevel, get_log_path};
+use crate::views::sub_windows::LogItem;
 
 const LOGS_PER_PAGE: usize = 20;
 const MAX_CACHED_HISTORICAL_LOGS: usize = 5;
@@ -82,12 +86,15 @@ pub enum LoggingMessage {
     DeleteLogs,
     DeleteAllButCurrent,
     PruneAllLogs(bool),
-    // Message(s) to communicate up to App
+
+    // Messages to communicate up to App
     OpenManualPrune,
     Exit,
-    //Message(s) communicated back from App
+
+    // Messages communicated back from App
     RefreshLogs,
     LogWindowLoaded(u64, String, LogState),
+    ShowLoading(u64),
 }
 
 #[derive(Clone, Debug, Default)]
@@ -119,11 +126,13 @@ pub struct LoggingView {
     filtered_log_indices: Vec<usize>,
     log_slider_idx: usize,
     log_file_selected: Option<String>,
+    displayed_log_file: Option<String>,
     log_selected_screen: Option<Screen>,
     log_page: usize,
     next_request_id: u64,
     active_request_id: u64,
     logs_loading: bool,
+    show_loading: bool,
     pub log_items: Vec<LogItem>,
     pub prune_all: bool,
 }
@@ -139,11 +148,13 @@ impl LoggingView {
             filtered_log_indices: Vec::new(),
             log_slider_idx: get_defaut_slider_idx(),
             log_file_selected: Some(file_name.clone()),
+            displayed_log_file: Some(file_name.clone()),
             log_selected_screen: Some(Screen::All),
             log_page: 0,
             next_request_id: 0,
             active_request_id: 0,
             logs_loading: true,
+            show_loading: false,
             log_items: {
                 let available_logs = log_utils::get_app_logs();
                 let mut items: Vec<LogItem> = Vec::new();
@@ -166,6 +177,10 @@ impl LoggingView {
     pub fn update(&mut self, message: LoggingMessage) -> Task<LoggingMessage> {
         match message {
             LoggingMessage::LevelChanged(idx) => {
+                if self.log_slider_idx == idx {
+                    return Task::none();
+                }
+
                 self.log_slider_idx = idx;
                 self.log_page = 0;
                 self.schedule_selected_log_window(0, true)
@@ -176,7 +191,6 @@ impl LoggingView {
                     let new_start_page = page
                         .saturating_sub(PAGES_PER_WINDOW / 2)
                         .min(total_pages.saturating_sub(PAGES_PER_WINDOW));
-                    self.clear_selected_log_window(new_start_page);
                     self.log_page = page;
                     return self.schedule_selected_log_window(new_start_page, true);
                 }
@@ -190,6 +204,10 @@ impl LoggingView {
                 self.schedule_selected_log_window(0, true)
             }
             LoggingMessage::LogScreenChanged(screen) => {
+                if self.log_selected_screen == Some(screen) {
+                    return Task::none();
+                }
+
                 self.log_selected_screen = Some(screen);
                 self.log_page = 0;
                 self.schedule_selected_log_window(0, true)
@@ -279,11 +297,19 @@ impl LoggingView {
                 if self.is_current_file(&file_name) {
                     self.current_log = state;
                 } else {
-                    self.historical_logs.insert(file_name, state);
+                    self.historical_logs.insert(file_name.clone(), state);
                 }
+                self.displayed_log_file = Some(file_name);
                 self.logs_loading = false;
+                self.show_loading = false;
                 self.refresh_filter_cache();
                 self.clamp_page();
+                Task::none()
+            }
+            LoggingMessage::ShowLoading(request_id) => {
+                if request_id == self.active_request_id && self.logs_loading {
+                    self.show_loading = true;
+                }
                 Task::none()
             }
         }
@@ -298,49 +324,53 @@ impl LoggingView {
             text("Screen").width(Length::FillPortion(1)),
             text("Message").width(Length::FillPortion(3))
         ];
-
         let total_log_count = self.selected_total_matching_entries();
         let page_count = total_log_count.div_ceil(LOGS_PER_PAGE);
         let page = self.log_page.min(page_count.saturating_sub(1));
         let (window_start_page, _) = self.selected_page_window();
         let page_start_idx = page.saturating_sub(window_start_page) * LOGS_PER_PAGE;
 
-        let logs_display: Element<'_, LoggingMessage> = if self.logs_loading {
-            container(
-                column![
-                    text("Loading logs...").size(24).center(),
-                    Spinner::new()
-                        .width(150.0)
-                        .height(150.0)
-                        .circle_radius(10.0)
-                ]
-                .spacing(10)
-                .align_x(Horizontal::Center),
-            )
-            .width(Length::Fill)
-            .height(Length::Fill)
-            .center_x(Length::Fill)
-            .center_y(Length::Fill)
-            .into()
-        } else {
-            let mut log_cols = column![];
-            let selected_entries = self.selected_entries();
-            for (idx, entry_index) in self
-                .filtered_log_indices
-                .iter()
-                .skip(page_start_idx)
-                .take(LOGS_PER_PAGE)
-                .enumerate()
-            {
-                if let Some(log) = selected_entries.get(*entry_index) {
-                    log_cols = log_cols.push(log_row(log, page_start_idx + idx));
-                }
+        let mut log_cols = column![];
+        let selected_entries = self.selected_entries();
+        for (idx, entry_index) in self
+            .filtered_log_indices
+            .iter()
+            .skip(page_start_idx)
+            .take(LOGS_PER_PAGE)
+            .enumerate()
+        {
+            if let Some(log) = selected_entries.get(*entry_index) {
+                log_cols = log_cols.push(log_row(log, page_start_idx + idx));
             }
+        }
 
-            Scrollable::new(log_cols)
+        let log_table: Scrollable<LoggingMessage> = Scrollable::new(log_cols)
+            .width(Length::Fill)
+            .height(Length::Fill);
+
+        let logs_display: Element<'_, LoggingMessage> = if self.show_loading {
+            stack![
+                log_table,
+                container(
+                    column![
+                        text("Loading Logs...").size(24).center(),
+                        Spinner::new()
+                            .width(150.0)
+                            .height(150.0)
+                            .circle_radius(10.0),
+                    ]
+                    .spacing(10)
+                    .align_x(Horizontal::Center),
+                )
                 .width(Length::Fill)
                 .height(Length::Fill)
-                .into()
+                .center_x(Length::Fill)
+                .center_y(Length::Fill)
+                .style(|_style| cs::darken_background(0.85))
+            ]
+            .into()
+        } else {
+            log_table.into()
         };
 
         let log_files = self
@@ -474,7 +504,7 @@ impl LoggingView {
     }
 
     fn selected_page_window(&self) -> (usize, usize) {
-        if let Some(file_path) = &self.log_file_selected {
+        if let Some(file_path) = &self.displayed_log_file {
             let state = if self.is_current_file(file_path) {
                 Some(&self.current_log)
             } else {
@@ -491,7 +521,7 @@ impl LoggingView {
     }
 
     fn selected_total_matching_entries(&self) -> usize {
-        if let Some(file_path) = &self.log_file_selected {
+        if let Some(file_path) = &self.displayed_log_file {
             let state = if self.is_current_file(file_path) {
                 Some(&self.current_log)
             } else {
@@ -503,7 +533,7 @@ impl LoggingView {
     }
 
     fn selected_entries(&self) -> &[LogData] {
-        if let Some(file_path) = &self.log_file_selected {
+        if let Some(file_path) = &self.displayed_log_file {
             if self.is_current_file(file_path) {
                 &self.current_log.entries
             } else {
@@ -517,25 +547,7 @@ impl LoggingView {
     }
 
     fn refresh_filter_cache(&mut self) {
-        self.invalidate_filter_cache();
         self.filtered_log_indices = (0..self.selected_entries().len()).collect();
-    }
-
-    fn invalidate_filter_cache(&mut self) {
-        self.filtered_log_indices.clear();
-    }
-
-    fn clear_selected_log_window(&mut self, start_page: usize) {
-        self.invalidate_filter_cache();
-        if let Some(file_path) = self.log_file_selected.as_ref() {
-            if self.is_current_file(file_path) {
-                self.current_log.entries.clear();
-                self.current_log.window_start_page = start_page;
-            } else if let Some(log_state) = self.historical_logs.get_mut(file_path) {
-                log_state.entries.clear();
-                log_state.window_start_page = start_page;
-            }
-        }
     }
 
     pub(crate) fn is_current_file(&self, file_name: &str) -> bool {
@@ -573,8 +585,8 @@ impl LoggingView {
         start_page: usize,
         force_refresh: bool,
     ) -> Task<LoggingMessage> {
-        if force_refresh {
-            self.invalidate_filter_cache();
+        if self.logs_loading && self.active_request_id != 0 && !force_refresh {
+            return Task::none();
         }
 
         let file_name = match self.log_file_selected.as_ref() {
@@ -600,6 +612,9 @@ impl LoggingView {
         let file_size = general::get_file_size(&path);
         if !force_refresh && file_size == cached_file_size {
             self.logs_loading = false;
+            self.show_loading = false;
+            self.refresh_filter_cache();
+            self.clamp_page();
             return Task::none();
         }
 
@@ -610,14 +625,27 @@ impl LoggingView {
         let minimum_level = self.log_slider_idx;
         let selected_screen = self.log_selected_screen;
         let path = path.display().to_string();
-        Task::perform(
-            tokio::task::spawn_blocking(move || {
-                load_log_window(&path, start_page, minimum_level, selected_screen)
-            }),
-            move |result| {
-                LoggingMessage::LogWindowLoaded(request_id, file_name, result.unwrap_or_default())
-            },
-        )
+
+        Task::batch([
+            Task::perform(
+                async {
+                    tokio::time::sleep(Duration::from_millis(10)).await;
+                },
+                move |_| LoggingMessage::ShowLoading(request_id),
+            ),
+            Task::perform(
+                tokio::task::spawn_blocking(move || {
+                    load_log_window(&path, start_page, minimum_level, selected_screen)
+                }),
+                move |result| {
+                    LoggingMessage::LogWindowLoaded(
+                        request_id,
+                        file_name,
+                        result.unwrap_or_default(),
+                    )
+                },
+            ),
+        ])
     }
 
     fn cache_historical_log(&mut self, file_name: &str) {
