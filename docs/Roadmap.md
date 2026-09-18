@@ -42,7 +42,7 @@
       - [X] Invalidate pagination caches when logs, selected files, or filters change
     - [X] Remove flicker when log display updates
     - [X] Skip corrupted logs
-    - [ ] Make log windows even of both sides if even (i.e if window = 20 then next 10 and previous 10 are cached)
+    - [X] Make log windows even of both sides if even (i.e if window = 20 then next 10 and previous 10 are cached)
     - [X] Added logic to include fallback image if image cannot be found for sales preview
     - [X] Added a base window tab and made all the other window tabs sequential by user input
 

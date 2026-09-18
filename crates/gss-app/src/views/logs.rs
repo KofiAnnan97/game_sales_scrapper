@@ -17,10 +17,10 @@ use crate::utils::log_utils;
 use crate::utils::log_utils::{LogLevel, get_log_path};
 use crate::views::sub_windows::LogItem;
 
-const LOGS_PER_PAGE: usize = 20;
-const MAX_CACHED_HISTORICAL_LOGS: usize = 5;
-const PAGES_PER_WINDOW: usize = 20;
-const ENTRIES_PER_WINDOW: usize = LOGS_PER_PAGE * PAGES_PER_WINDOW;
+const DEFAULT_LOGS_PER_PAGE: usize = 20;
+const DEFAULT_MAX_CACHED_HISTORICAL_LOGS: usize = 5;
+const DEFAULT_PAGES_PER_WINDOW: usize = 20;
+const DEFAULT_ENTRIES_PER_WINDOW: usize = DEFAULT_LOGS_PER_PAGE * DEFAULT_PAGES_PER_WINDOW;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Screen {
@@ -86,6 +86,8 @@ pub enum LoggingMessage {
     DeleteLogs,
     DeleteAllButCurrent,
     PruneAllLogs(bool),
+    LogWindowLoaded(u64, String, LogState),
+    ShowLoading(u64),
 
     // Messages to communicate up to App
     OpenManualPrune,
@@ -93,8 +95,10 @@ pub enum LoggingMessage {
 
     // Messages communicated back from App
     RefreshLogs,
-    LogWindowLoaded(u64, String, LogState),
-    ShowLoading(u64),
+    SetLogsPerPage(usize),
+    SetPagesPerWindow(usize),
+    SetEntriesPerWindow(usize, usize),
+    SetMaxCachedHistoricalLogs(usize),
 }
 
 #[derive(Clone, Debug, Default)]
@@ -135,6 +139,11 @@ pub struct LoggingView {
     show_loading: bool,
     pub log_items: Vec<LogItem>,
     pub prune_all: bool,
+    // Log Cache Settings
+    logs_per_page: usize,
+    pages_per_window: usize,
+    entries_per_window: usize,
+    max_cached_historical_logs: usize,
 }
 
 impl LoggingView {
@@ -169,6 +178,10 @@ impl LoggingView {
                 items
             },
             prune_all: false,
+            logs_per_page: get_page_length(),
+            pages_per_window: get_window_size(),
+            entries_per_window: get_window_entries_size(),
+            max_cached_historical_logs: get_max_log_cache(),
         };
         view.refresh_filter_cache();
         view
@@ -187,13 +200,17 @@ impl LoggingView {
             }
             LoggingMessage::PageChanged(page) => {
                 let (window_start_page, total_pages) = self.selected_page_window();
-                if page < window_start_page || page >= window_start_page + PAGES_PER_WINDOW {
+                if window_start_page == 0 && page == self.pages_per_window
+                    || page < window_start_page
+                    || page > window_start_page + self.pages_per_window
+                {
                     let new_start_page = page
-                        .saturating_sub(PAGES_PER_WINDOW / 2)
-                        .min(total_pages.saturating_sub(PAGES_PER_WINDOW));
+                        .saturating_sub(self.pages_per_window / 2)
+                        .min(total_pages.saturating_sub(self.pages_per_window));
                     self.log_page = page;
                     return self.schedule_selected_log_window(new_start_page, true);
                 }
+
                 self.log_page = page;
                 Task::none()
             }
@@ -312,6 +329,22 @@ impl LoggingView {
                 }
                 Task::none()
             }
+            LoggingMessage::SetLogsPerPage(count) => {
+                self.logs_per_page = count;
+                Task::none()
+            }
+            LoggingMessage::SetPagesPerWindow(count) => {
+                self.pages_per_window = count;
+                Task::none()
+            }
+            LoggingMessage::SetEntriesPerWindow(logs_per_page, pages_per_window) => {
+                self.entries_per_window = logs_per_page * pages_per_window;
+                Task::none()
+            }
+            LoggingMessage::SetMaxCachedHistoricalLogs(count) => {
+                self.max_cached_historical_logs = count;
+                Task::none()
+            }
         }
     }
 
@@ -325,10 +358,10 @@ impl LoggingView {
             text("Message").width(Length::FillPortion(3))
         ];
         let total_log_count = self.selected_total_matching_entries();
-        let page_count = total_log_count.div_ceil(LOGS_PER_PAGE);
+        let page_count = total_log_count.div_ceil(self.logs_per_page);
         let page = self.log_page.min(page_count.saturating_sub(1));
         let (window_start_page, _) = self.selected_page_window();
-        let page_start_idx = page.saturating_sub(window_start_page) * LOGS_PER_PAGE;
+        let page_start_idx = page.saturating_sub(window_start_page) * self.logs_per_page;
 
         let mut log_cols = column![];
         let selected_entries = self.selected_entries();
@@ -336,7 +369,7 @@ impl LoggingView {
             .filtered_log_indices
             .iter()
             .skip(page_start_idx)
-            .take(LOGS_PER_PAGE)
+            .take(self.logs_per_page)
             .enumerate()
         {
             if let Some(log) = selected_entries.get(*entry_index) {
@@ -397,8 +430,8 @@ impl LoggingView {
         } else {
             format!(
                 "Showing {}-{} of {} lines",
-                page * LOGS_PER_PAGE + 1,
-                (page * LOGS_PER_PAGE + LOGS_PER_PAGE).min(total_log_count),
+                page * self.logs_per_page + 1,
+                (page * self.logs_per_page + self.logs_per_page).min(total_log_count),
                 total_log_count
             )
         };
@@ -499,7 +532,7 @@ impl LoggingView {
 
     fn clamp_page(&mut self) {
         let total_log_count = self.selected_total_matching_entries();
-        let page_count = total_log_count.div_ceil(LOGS_PER_PAGE);
+        let page_count = total_log_count.div_ceil(self.logs_per_page);
         self.log_page = self.log_page.min(page_count.saturating_sub(1));
     }
 
@@ -513,7 +546,7 @@ impl LoggingView {
             if let Some(state) = state {
                 return (
                     state.window_start_page,
-                    state.total_matching_entries.div_ceil(LOGS_PER_PAGE),
+                    state.total_matching_entries.div_ceil(self.logs_per_page),
                 );
             }
         }
@@ -626,6 +659,8 @@ impl LoggingView {
         let selected_screen = self.log_selected_screen;
         let path = path.display().to_string();
 
+        let logs_per_page = self.logs_per_page;
+        let entries_per_window = self.entries_per_window;
         Task::batch([
             Task::perform(
                 async {
@@ -635,7 +670,14 @@ impl LoggingView {
             ),
             Task::perform(
                 tokio::task::spawn_blocking(move || {
-                    load_log_window(&path, start_page, minimum_level, selected_screen)
+                    load_log_window(
+                        &path,
+                        start_page,
+                        minimum_level,
+                        selected_screen,
+                        logs_per_page,
+                        entries_per_window,
+                    )
                 }),
                 move |result| {
                     LoggingMessage::LogWindowLoaded(
@@ -655,7 +697,7 @@ impl LoggingView {
 
         self.historical_log_order.push_back(file_name.to_string());
 
-        while self.historical_log_order.len() > MAX_CACHED_HISTORICAL_LOGS {
+        while self.historical_log_order.len() > self.max_cached_historical_logs {
             if let Some(oldest_file) = self.historical_log_order.pop_front() {
                 self.historical_logs.remove(&oldest_file);
             }
@@ -674,6 +716,8 @@ fn load_log_window(
     start_page: usize,
     minimum_level: usize,
     selected_screen: Option<Screen>,
+    logs_per_page: usize,
+    entries_per_window: usize,
 ) -> LogState {
     let mut log_state = LogState::default();
     let file = match general::get_file(file_path) {
@@ -688,8 +732,16 @@ fn load_log_window(
         Err(_) => return log_state,
     };
 
-    let first_entry = start_page * LOGS_PER_PAGE;
-    let last_entry = first_entry + ENTRIES_PER_WINDOW;
+    let first_entry = if start_page > 0 {
+        (start_page - 1) * logs_per_page
+    } else {
+        0
+    };
+    let last_entry = if first_entry == 0 {
+        first_entry + entries_per_window
+    } else {
+        first_entry + entries_per_window + logs_per_page
+    };
     let mut matching_entries = Vec::new();
     let mut total_matching_entries = 0;
     let reader = BufReader::new(file);
@@ -718,10 +770,31 @@ fn load_log_window(
 
 fn get_defaut_slider_idx() -> usize {
     // TODO: Call gss-core to retrieve default log level from settings.json under app
-    LogLevel::get_level_idx("INFO".into())
+    LogLevel::get_level_idx("DEBUG".into())
 }
 
-pub fn log_row<'a, M: Clone + 'static>(log: &'a LogData, index: usize) -> Element<'a, M> {
+fn get_page_length() -> usize {
+    // TODO: retrieve value from settings json or use default
+    DEFAULT_LOGS_PER_PAGE
+}
+
+// Assumes that the window size is an even number
+fn get_window_size() -> usize {
+    // TODO: retrieve value from settings json or use default
+    DEFAULT_PAGES_PER_WINDOW
+}
+
+fn get_max_log_cache() -> usize {
+    // TODO: retrieve value from settings json or use default
+    DEFAULT_MAX_CACHED_HISTORICAL_LOGS
+}
+
+fn get_window_entries_size() -> usize {
+    // TODO: retrieve value from settings json or use default
+    DEFAULT_ENTRIES_PER_WINDOW
+}
+
+pub fn log_row<'a, M: Clone + 'a>(log: &'a LogData, index: usize) -> Element<'a, M> {
     let background = if index.is_multiple_of(2) {
         Color::from_rgb8(10, 11, 12)
     } else {

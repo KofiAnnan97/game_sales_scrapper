@@ -167,6 +167,7 @@ pub(crate) enum MainMessage {
     LogEvent(Screen, LogLevel, String),
     RefreshLogsView,
     SetDefaultLogLevel(String),
+    _UpdateLoggingSettings(usize, usize, usize),
 }
 
 #[derive(Debug, Clone)]
@@ -291,7 +292,7 @@ impl App {
     fn new(log_file: String) -> (Self, Task<Message>) {
         let (id, task) = window::open(window::Settings {
             size: iced::Size::new(1200.0, 800.0),
-            min_size: Some(iced::Size::new(900.0, 400.0)),
+            min_size: Some(iced::Size::new(950.0, 400.0)),
             position: window::Position::Centered,
             resizable: true,
             ..Default::default()
@@ -567,6 +568,18 @@ impl App {
                 self.search_query = value;
                 Task::none()
             }
+            MainMessage::_UpdateLoggingSettings(
+                logs_per_page,
+                pages_per_window,
+                max_cached_logs,
+            ) => Task::batch([
+                Task::done(LoggingMessage::SetLogsPerPage(logs_per_page).into()),
+                Task::done(LoggingMessage::SetPagesPerWindow(pages_per_window).into()),
+                Task::done(
+                    LoggingMessage::SetEntriesPerWindow(logs_per_page, pages_per_window).into(),
+                ),
+                Task::done(LoggingMessage::SetMaxCachedHistoricalLogs(max_cached_logs).into()),
+            ]),
             MainMessage::StartSearch => {
                 self.bulk_search_used = false;
                 self.start_game_search(self.search_query.clone())
