@@ -1,10 +1,14 @@
 name: Code Audit
 on:
+  schedule:
+    - cron: "0 0 1 */4 *"
   pull_request:
-  push:
     branches:
       - dev
       - master
+  push:
+    branches:
+      - dev
 permissions:
   contents: read
 jobs:

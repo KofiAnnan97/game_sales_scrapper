@@ -113,6 +113,7 @@ pub enum Error {
 pub(crate) enum MainMessage {
     MainWindowOpened(window::Id),
     TabSelected(Tab),
+    OpenBaseView,
     OpenSettings,
     CloseSettings,
     OpenSalesPreview,
@@ -166,6 +167,7 @@ pub(crate) enum MainMessage {
     LogEvent(Screen, LogLevel, String),
     RefreshLogsView,
     SetDefaultLogLevel(String),
+    _UpdateLoggingSettings(usize, usize, usize),
 }
 
 #[derive(Debug, Clone)]
@@ -222,12 +224,12 @@ impl Tab {
 }
 
 struct App {
+    // General
     main_window: Option<window::Id>,
     tab: Tab,
     active_view: View,
-    settings_view_open: bool,
-    preview_view_open: bool,
     logger: Logger,
+    view_bar: Vec<View>,
     // Settings
     available_stores: Vec<GameStore>,
     selected_stores: Vec<GameStore>,
@@ -276,7 +278,6 @@ struct App {
     // Logging variables
     status_message: String,
     message_details: String,
-    logs_view_open: bool,
     manual_prune_window: Option<window::Id>,
     manual_prune_open: bool,
 }
@@ -291,17 +292,18 @@ impl App {
     fn new(log_file: String) -> (Self, Task<Message>) {
         let (id, task) = window::open(window::Settings {
             size: iced::Size::new(1200.0, 800.0),
+            min_size: Some(iced::Size::new(950.0, 400.0)),
             position: window::Position::Centered,
             resizable: true,
             ..Default::default()
         });
 
         let mut app = Self {
+            // General
             main_window: Some(id),
             tab: Tab::Search,
             active_view: View::Base,
-            settings_view_open: false,
-            preview_view_open: false,
+            view_bar: Vec::new(),
             logger: Logger::new(&log_file),
             // Settings
             available_stores: settings::get_available_stores(),
@@ -353,7 +355,6 @@ impl App {
             //Logging view variables
             status_message: String::from("Ready"),
             message_details: String::new(),
-            logs_view_open: false,
             manual_prune_window: None,
             manual_prune_open: false,
         };
@@ -365,6 +366,7 @@ impl App {
     fn theme(&self) -> Theme {
         Theme::CatppuccinMacchiato
     }
+
     fn subscription(&self) -> Subscription<Message> {
         let log_sub =
             time::every(Duration::from_secs(15)).map(|_| MainMessage::UpdateLogFile.into());
@@ -372,7 +374,7 @@ impl App {
             time::every(Duration::from_millis(400)).map(|_| MainMessage::Tick.into());
         let preview_tick_sub =
             time::every(Duration::from_millis(400)).map(|_| PreviewMessage::Tick.into());
-        let log_refresh_sub = if self.logs_view_open {
+        let log_refresh_sub = if self.view_bar.contains(&View::Logs) {
             time::every(Duration::from_millis(800)).map(|_| MainMessage::RefreshLogsView.into())
         } else {
             Subscription::none()
@@ -436,8 +438,15 @@ impl App {
                 );
                 Task::none()
             }
+            MainMessage::OpenBaseView => {
+                self.active_view = View::Base;
+                self.logger.info(Screen::Settings, "Switching to Base view");
+                Task::none()
+            }
             MainMessage::OpenSettings => {
-                self.settings_view_open = true;
+                if self.view_bar.is_empty() || !self.view_bar.contains(&View::Settings) {
+                    self.view_bar.push(View::Settings);
+                }
                 self.active_view = View::Settings;
                 self.settings_page = Page::General;
                 self.logger
@@ -445,21 +454,31 @@ impl App {
                 Task::none()
             }
             MainMessage::CloseSettings => {
-                self.settings_view_open = false;
-                self.active_view = View::Base;
+                self.view_bar.retain(|&view| view != View::Settings);
+                self.active_view = if self.view_bar.is_empty() {
+                    View::Base
+                } else {
+                    *self.view_bar.last().unwrap()
+                };
                 self.show_dialog = false;
                 self.logger.info(Screen::Settings, "Closed settings view");
                 Task::none()
             }
             MainMessage::OpenSalesPreview => {
                 self.active_view = View::Preview;
-                self.preview_view_open = true;
+                if self.view_bar.is_empty() || !self.view_bar.contains(&View::Preview) {
+                    self.view_bar.push(View::Preview);
+                }
                 self.logger.info(Screen::Sales, "Open sales view");
                 Task::done(Message::Preview(PreviewMessage::ResetToSales))
             }
             MainMessage::CloseSalesPreview => {
-                self.active_view = View::Base;
-                self.preview_view_open = false;
+                self.view_bar.retain(|&view| view != View::Preview);
+                self.active_view = if self.view_bar.is_empty() {
+                    View::Base
+                } else {
+                    *self.view_bar.last().unwrap()
+                };
                 self.logger.info(Screen::Sales, "Close sales view");
                 Task::none()
             }
@@ -549,6 +568,18 @@ impl App {
                 self.search_query = value;
                 Task::none()
             }
+            MainMessage::_UpdateLoggingSettings(
+                logs_per_page,
+                pages_per_window,
+                max_cached_logs,
+            ) => Task::batch([
+                Task::done(LoggingMessage::SetLogsPerPage(logs_per_page).into()),
+                Task::done(LoggingMessage::SetPagesPerWindow(pages_per_window).into()),
+                Task::done(
+                    LoggingMessage::SetEntriesPerWindow(logs_per_page, pages_per_window).into(),
+                ),
+                Task::done(LoggingMessage::SetMaxCachedHistoricalLogs(max_cached_logs).into()),
+            ]),
             MainMessage::StartSearch => {
                 self.bulk_search_used = false;
                 self.start_game_search(self.search_query.clone())
@@ -1003,21 +1034,29 @@ impl App {
             }
             MainMessage::PageSelected(selected) => {
                 if self.active_view != View::Settings {
-                    self.settings_view_open = true;
                     self.active_view = View::Settings;
+                    if self.view_bar.is_empty() || !self.view_bar.contains(&View::Settings) {
+                        self.view_bar.push(View::Settings);
+                    }
                 }
                 self.settings_page = selected;
                 Task::none()
             }
             MainMessage::OpenLogsView => {
                 self.active_view = View::Logs;
-                self.logs_view_open = true;
+                if self.view_bar.is_empty() || !self.view_bar.contains(&View::Logs) {
+                    self.view_bar.push(View::Logs);
+                }
                 self.logger.debug(Screen::Logs, "Showing Log View");
                 Task::none()
             }
             MainMessage::CloseLogsView => {
-                self.active_view = View::Base;
-                self.logs_view_open = false;
+                self.view_bar.retain(|&view| view != View::Logs);
+                self.active_view = if self.view_bar.is_empty() {
+                    View::Base
+                } else {
+                    *self.view_bar.last().unwrap()
+                };
                 self.logger.debug(Screen::Logs, "Closed Logs View");
                 Task::none()
             }
@@ -1067,7 +1106,12 @@ impl App {
         match message {
             PreviewMessage::Exit => {
                 self.active_view = View::Base;
-                self.preview_view_open = false;
+                self.view_bar.retain(|&view| view != View::Logs);
+                self.active_view = if self.view_bar.is_empty() {
+                    View::Base
+                } else {
+                    *self.view_bar.last().unwrap()
+                };
                 Task::none()
             }
 
@@ -1078,9 +1122,11 @@ impl App {
                 })
             }
             PreviewMessage::OpenEmailSettings => {
-                self.settings_view_open = true;
                 self.active_view = View::Settings;
                 self.settings_page = Page::Email;
+                if self.view_bar.is_empty() || !self.view_bar.contains(&View::Settings) {
+                    self.view_bar.push(View::Settings);
+                }
                 Task::none()
             }
             PreviewMessage::SendLogEvent(level, msg) => {
@@ -1099,7 +1145,12 @@ impl App {
             LoggingMessage::OpenManualPrune => self.open_manual_prune(),
             LoggingMessage::Exit => {
                 self.active_view = View::Base;
-                self.logs_view_open = false;
+                self.view_bar.retain(|&view| view != View::Logs);
+                self.active_view = if self.view_bar.is_empty() {
+                    View::Base
+                } else {
+                    *self.view_bar.last().unwrap()
+                };
                 self.logger.debug(Screen::Logs, "Closed Log view");
                 Task::none()
             }
@@ -1200,33 +1251,38 @@ impl App {
             .width(Length::Fill);
 
         let top_row = row![menu_bar,].width(Length::Fill).spacing(0);
+        let mut visible_tabs_count: u32 = 0;
 
         let tab_bar = {
             let mut bar = row![];
-
-            if self.settings_view_open {
-                bar = bar.push(cw::closable_window_button(
-                    "Settings",
-                    MainMessage::OpenSettings.into(),
-                    MainMessage::CloseSettings.into(),
-                    self.active_view == View::Settings,
-                ));
-            }
-            if self.preview_view_open {
-                bar = bar.push(cw::closable_window_button(
-                    "Preview",
-                    MainMessage::OpenSalesPreview.into(),
-                    MainMessage::CloseSalesPreview.into(),
-                    self.active_view == View::Preview,
-                ));
-            }
-            if self.logs_view_open {
-                bar = bar.push(cw::closable_window_button(
-                    "Logs",
-                    MainMessage::OpenLogsView.into(),
-                    MainMessage::CloseLogsView.into(),
-                    self.active_view == View::Logs,
-                ));
+            for view in self.view_bar.iter() {
+                if view == &View::Settings {
+                    bar = bar.push(cw::closable_window_button(
+                        "Settings",
+                        MainMessage::OpenSettings.into(),
+                        Some(MainMessage::CloseSettings.into()),
+                        self.active_view == View::Settings,
+                    ));
+                    visible_tabs_count += 1;
+                }
+                if view == &View::Preview {
+                    bar = bar.push(cw::closable_window_button(
+                        "Preview",
+                        MainMessage::OpenSalesPreview.into(),
+                        Some(MainMessage::CloseSalesPreview.into()),
+                        self.active_view == View::Preview,
+                    ));
+                    visible_tabs_count += 1;
+                }
+                if view == &View::Logs {
+                    bar = bar.push(cw::closable_window_button(
+                        "Logs",
+                        MainMessage::OpenLogsView.into(),
+                        Some(MainMessage::CloseLogsView.into()),
+                        self.active_view == View::Logs,
+                    ));
+                    visible_tabs_count += 1;
+                }
             }
             bar.padding(1)
         };
@@ -1259,7 +1315,19 @@ impl App {
 
         let content = column![
             top_row,
-            tab_bar,
+            if visible_tabs_count > 0 {
+                row![
+                    cw::closable_window_button(
+                        "General",
+                        MainMessage::OpenBaseView.into(),
+                        None,
+                        self.active_view == View::Base
+                    ),
+                    tab_bar
+                ]
+            } else {
+                row![tab_bar]
+            },
             container(right_pane).width(Length::Fill).padding(5),
         ]
         .spacing(5);

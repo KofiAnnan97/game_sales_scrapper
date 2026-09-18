@@ -113,6 +113,21 @@ pub fn rounded_background(background: Color, r: f32) -> container::Style {
     }
 }
 
+pub fn darken_background(opacity: f32) -> container::Style {
+    container::Style {
+        background: Some(
+            iced::Color {
+                r: 0.0,
+                g: 0.0,
+                b: 0.0,
+                a: opacity,
+            }
+            .into(),
+        ),
+        ..Default::default()
+    }
+}
+
 // Button Styles
 
 pub fn highlight_on_click_style(

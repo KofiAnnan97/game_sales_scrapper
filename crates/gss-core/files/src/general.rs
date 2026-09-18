@@ -1,6 +1,6 @@
 use std::fs::{self, File, OpenOptions, write};
 use std::io::prelude::*;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 pub fn get_path(path_str: &str) -> String {
     let path = Path::new(path_str);
@@ -14,6 +14,17 @@ pub fn get_path(path_str: &str) -> String {
         println!("File created: {}", load_fp);
     }
     load_fp
+}
+
+pub fn get_file(file_path: &str) -> Result<File, std::io::Error> {
+    File::open(file_path)
+}
+
+pub fn get_file_size(path: &PathBuf) -> u64 {
+    match fs::metadata(path) {
+        Ok(metadata) => metadata.len(),
+        Err(_) => 0,
+    }
 }
 
 pub fn create_dir(file_path: &str) {

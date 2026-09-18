@@ -1,7 +1,7 @@
 use iced::widget::image::Handle;
 use std::collections::HashMap;
 
-use crate::utils::file_utils::load_image_from_url;
+use crate::utils::file_utils::load_url_image_with_fallback;
 use alerting::email;
 use constants::operations::settings::{GOG_STORE_ID, MICROSOFT_STORE_ID, STEAM_STORE_ID};
 use constants::stores::gog::VERSION as GOG_VERSION;
@@ -217,7 +217,8 @@ pub async fn get_sales() -> Result<Vec<StoreSale>, String> {
             match steam::get_price_details(game.steam_id, &http_client).await {
                 Ok(info) => {
                     if game.desired_price >= info.current_price {
-                        let icon_handler = load_image_from_url(&info.icon_link).await.ok();
+                        let icon_handler =
+                            Some(load_url_image_with_fallback(&info.icon_link).await);
                         sales.push(StoreSale {
                             store: GameStore::STEAM,
                             info,
@@ -234,7 +235,7 @@ pub async fn get_sales() -> Result<Vec<StoreSale>, String> {
             && let Some(info) = gog::get_price_details_v2(&game.title, &http_client).await
             && game.desired_price >= info.current_price
         {
-            let icon_handler = load_image_from_url(&info.icon_link).await.ok();
+            let icon_handler = Some(load_url_image_with_fallback(&info.icon_link).await);
             sales.push(StoreSale {
                 store: GameStore::GOOD_OLD_GAMES,
                 info,
@@ -248,7 +249,7 @@ pub async fn get_sales() -> Result<Vec<StoreSale>, String> {
                 microsoft_store::get_price_details(&game.microsoft_store_id, &http_client).await
             && game.desired_price >= info.current_price
         {
-            let icon_handler = load_image_from_url(&info.icon_link).await.ok();
+            let icon_handler = Some(load_url_image_with_fallback(&info.icon_link).await);
             sales.push(StoreSale {
                 store: GameStore::MICROSOFT_STORE_PC,
                 info,
