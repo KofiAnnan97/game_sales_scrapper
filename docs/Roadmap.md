@@ -11,9 +11,9 @@
       - [ ] Use interactive hidden prompts
     - Performance
       - [ ] Implement bounded current price checking
-        - [ ] Implement search via multiple game ids for Steam games
-        - [ ] Centralize and reuse 
-          - [ ] remove unncessary instantiations are deleted
+        - [X] Implement search via multiple game ids for Steam games (email only)
+        - [X] Centralize and reuse http client
+          - [X] remove unnecessary instantiations are deleted
           - [ ] Configure connection pooling, user agents and redirects when needed
       - [ ] Add response size limits to HTTP calls
       - [ ] Optimize fuzzy search algorithms

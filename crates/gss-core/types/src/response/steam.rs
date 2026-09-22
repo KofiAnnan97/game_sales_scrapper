@@ -56,6 +56,23 @@ pub enum Requirements {
 }
 
 #[derive(Deserialize, Serialize, Debug)]
+pub struct AppPrices {
+    #[serde(flatten)]
+    pub prices: HashMap<String, ResponseData>,
+}
+
+#[derive(Deserialize, Serialize, Debug)]
+pub struct ResponseData {
+    pub success: bool,
+    pub data: PriceData,
+}
+
+#[derive(Deserialize, Serialize, Debug)]
+pub struct PriceData {
+    pub price_overview: Option<PriceOverview>,
+}
+
+#[derive(Deserialize, Serialize, Debug)]
 pub struct PriceOverview {
     pub currency: String,
     pub discount_percent: u32,

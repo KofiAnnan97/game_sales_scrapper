@@ -19,30 +19,18 @@ pub trait MicrosoftStoreApi {
     async fn get_price_details(&self, xbox_id: &str) -> Option<SaleInfo>;
 }
 
-pub struct MSClient {
-    http_client: reqwest::Client,
+pub struct MSClient<'a> {
+    http_client: &'a reqwest::Client,
 }
 
-impl MSClient {
-    pub fn new() -> Self {
-        Self {
-            http_client: reqwest::Client::new(),
-        }
-    }
-
-    pub fn with_client(http_client: reqwest::Client) -> Self {
+impl<'a> MSClient<'a> {
+    pub fn new(http_client: &'a reqwest::Client) -> Self {
         Self { http_client }
     }
 }
 
-impl Default for MSClient {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 #[async_trait]
-impl MicrosoftStoreApi for MSClient {
+impl<'a> MicrosoftStoreApi for MSClient<'a> {
     async fn search_game_by_title(&self, title: &str) -> Result<Vec<ProductInfo>, ApiError> {
         let query_string = [
             ("query", title),
@@ -142,9 +130,7 @@ pub async fn search_game_by_title(
     title: &str,
     http_client: &reqwest::Client,
 ) -> Result<Vec<ProductInfo>, ApiError> {
-    MSClient::with_client(http_client.clone())
-        .search_game_by_title(title)
-        .await
+    MSClient::new(http_client).search_game_by_title(title).await
 }
 
 pub async fn get_price_using_search(
@@ -152,13 +138,11 @@ pub async fn get_price_using_search(
     xbox_id: &str,
     http_client: &reqwest::Client,
 ) -> Option<SaleInfo> {
-    MSClient::with_client(http_client.clone())
+    MSClient::new(http_client)
         .get_price_using_search(title, xbox_id)
         .await
 }
 
 pub async fn get_price_details(xbox_id: &str, http_client: &reqwest::Client) -> Option<SaleInfo> {
-    MSClient::with_client(http_client.clone())
-        .get_price_details(xbox_id)
-        .await
+    MSClient::new(http_client).get_price_details(xbox_id).await
 }

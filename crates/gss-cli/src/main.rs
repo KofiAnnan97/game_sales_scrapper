@@ -41,6 +41,8 @@ async fn main() {
         .value_parser(clap::value_parser!(String))
         .required(true);
 
+    let http_client = reqwest::Client::new();
+
     let cmd : ArgMatches = command!()
         .about("A simple script for checking prices on games.")
         .subcommand(
@@ -479,7 +481,6 @@ async fn main() {
             };
             let title = add_args.get_one::<String>("title").unwrap().clone();
             let price = *add_args.get_one::<f64>("price").unwrap();
-            let http_client = reqwest::Client::new();
             for store in selected_stores {
                 if store == GameStore::STEAM {
                     steam_insert_sequence(&alias, &title, price, &http_client).await;
@@ -501,7 +502,6 @@ async fn main() {
                 Ok(gl) => game_list = gl,
                 Err(e) => eprintln!("Could not parse file: {}\n{}", file_path, e),
             }
-            let http_client = reqwest::Client::new();
             for game in game_list.iter() {
                 println!("INSERT GAME -> \"{}\"", game.name);
                 let title = &game.name;
@@ -548,20 +548,20 @@ async fn main() {
                 settings::list_selected_stores();
             } else if cmd.get_flag(UPDATE_CACHE) {
                 println!("Caching started (this might take a while)...");
-                match steam::update_cached_games().await {
+                match steam::update_cached_games(&http_client).await {
                     Ok(result) => println!("{}", result),
                     Err(e) => eprintln!("Caching could not be completed due to {:?}", e),
                 }
             } else if cmd.get_flag(CHECK_PRICES) {
                 let use_html = false;
-                let prices_str = check_prices(use_html).await;
+                let prices_str = check_prices(use_html, &http_client).await;
                 if !prices_str.is_empty() {
                     println!("------------\nCHECK PRICES\n------------\n{}", prices_str);
                 }
             } else if cmd.get_flag(SEND_EMAIL) {
                 email::params_check();
                 let use_html = true;
-                let sales_str = check_prices(use_html).await;
+                let sales_str = check_prices(use_html, &http_client).await;
                 let html_body = email::create_html_body(&sales_str);
                 println!("Email Contents:\n{}", html_body);
                 if sales_str.is_empty() {

@@ -24,29 +24,18 @@ pub trait GogApi {
     async fn get_price_details_v2(&self, title: &str) -> Option<SaleInfo>;
 }
 
-pub struct GogClient {
-    http_client: reqwest::Client,
+pub struct GogClient<'a> {
+    http_client: &'a reqwest::Client,
 }
 
-impl GogClient {
-    pub fn new() -> Self {
-        Self {
-            http_client: reqwest::Client::new(),
-        }
-    }
-    pub fn with_client(http_client: reqwest::Client) -> Self {
+impl<'a> GogClient<'a> {
+    pub fn new(http_client: &'a reqwest::Client) -> Self {
         Self { http_client }
     }
 }
 
-impl Default for GogClient {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 #[async_trait]
-impl GogApi for GogClient {
+impl<'a> GogApi for GogClient<'a> {
     async fn search_game_by_title(&self, title: &str) -> serde_json::Result<Vec<Game>> {
         let media_type = "game";
         let limit: i32 = 30;
@@ -195,12 +184,20 @@ pub fn get_price_from_list(title: &str, games_list: Vec<Game>) -> Option<f64> {
 }
 
 // Version 1
-pub async fn search_game_by_title(title: &str) -> serde_json::Result<Vec<Game>> {
-    GogClient::new().search_game_by_title(title).await
+pub async fn search_game_by_title(
+    title: &str,
+    http_client: &reqwest::Client,
+) -> serde_json::Result<Vec<Game>> {
+    GogClient::new(http_client)
+        .search_game_by_title(title)
+        .await
 }
 
-pub async fn get_price_details(title: &str) -> Option<PriceOverview> {
-    GogClient::new().get_price_details(title).await
+pub async fn get_price_details(
+    title: &str,
+    http_client: &reqwest::Client,
+) -> Option<PriceOverview> {
+    GogClient::new(http_client).get_price_details(title).await
 }
 
 // Version 2
@@ -208,13 +205,13 @@ pub async fn search_game_by_title_v2(
     title: &str,
     http_client: &reqwest::Client,
 ) -> std::result::Result<Vec<GameInfo>, ApiError> {
-    GogClient::with_client(http_client.clone())
+    GogClient::new(http_client)
         .search_game_by_title_v2(title, SEARCH_LIMIT)
         .await
 }
 
 pub async fn get_price_details_v2(title: &str, http_client: &reqwest::Client) -> Option<SaleInfo> {
-    GogClient::with_client(http_client.clone())
+    GogClient::new(http_client)
         .get_price_details_v2(title)
         .await
 }

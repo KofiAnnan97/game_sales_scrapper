@@ -76,27 +76,43 @@ pub fn check_prices_for_display(store_sales: &[StoreSale]) -> HashMap<GameStore,
     by_store
 }
 
-pub async fn check_prices(use_html: bool) -> Result<String, String> {
+pub async fn check_prices_for_email(use_html: bool) -> Result<String, String> {
     let thresholds = thresholds::load_thresholds().unwrap_or_default();
     let mut steam_sales: Vec<SaleInfo> = Vec::new();
+    let mut steam_app_ids: Vec<u32> = Vec::new();
+    let mut desired_prices: HashMap<String, f64> = HashMap::new();
     let mut gog_sales: Vec<SaleInfo> = Vec::new();
     let mut microsoft_store_sales: Vec<SaleInfo> = Vec::new();
     let http_client = reqwest::Client::new();
     let mut output = String::new();
-    for elem in thresholds.iter() {
+    let mut iter = thresholds.iter().peekable();
+    while let Some(elem) = iter.next() {
         if elem.steam_id != 0 {
-            match steam::get_price_details(elem.steam_id, &http_client).await {
-                Ok(info) => {
-                    if elem.desired_price >= info.current_price {
-                        steam_sales.push(info);
+            if steam_app_ids.len() >= 10 || iter.peek().is_none() {
+                match steam::get_bulk_filtered_price_details(
+                    &steam_app_ids,
+                    &desired_prices,
+                    &http_client,
+                )
+                .await
+                {
+                    Ok(mut sales_info) => {
+                        steam_sales.append(&mut sales_info);
+                        steam_app_ids.clear();
+                        desired_prices.clear();
                     }
+                    Err(e) => println!("{}", e),
                 }
-                Err(e) => println!("{}", e),
+            } else {
+                steam_app_ids.push(elem.steam_id);
+                desired_prices
+                    .entry(elem.steam_id.to_string())
+                    .or_insert(elem.desired_price);
             }
         }
         if elem.gog_id != 0 {
             if GOG_VERSION == 1
-                && let Some(po) = gog::get_price_details(&elem.title).await
+                && let Some(po) = gog::get_price_details(&elem.title, &http_client).await
             {
                 let current_price = po.final_amount.parse::<f64>().unwrap();
                 if elem.desired_price >= current_price {

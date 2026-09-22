@@ -1,8 +1,9 @@
 use alerting::email;
 use properties;
+use reqwest::Client;
 use stores::pc::steam;
 
-use crate::utils::pricing_utils::check_prices;
+use crate::utils::pricing_utils::check_prices_for_email;
 
 pub async fn send_sales_email() -> Result<String, String> {
     let smtp_props = std::panic::catch_unwind(|| {
@@ -12,7 +13,7 @@ pub async fn send_sales_email() -> Result<String, String> {
         return Err(format!("{:?}", err));
     }
     let use_html = true;
-    match check_prices(use_html).await {
+    match check_prices_for_email(use_html).await {
         Ok(sales_str) => {
             let html_body = email::create_html_body(&sales_str).to_string();
             println!("Email Contents:\n{}", html_body);
@@ -34,7 +35,8 @@ pub async fn send_sales_email() -> Result<String, String> {
 }
 
 pub async fn update_cache() -> Result<String, String> {
-    match steam::update_cached_games().await {
+    let http_client = Client::new();
+    match steam::update_cached_games(&http_client).await {
         Ok(results) => Ok(results),
         Err(err) => Err(err.to_string()),
     }

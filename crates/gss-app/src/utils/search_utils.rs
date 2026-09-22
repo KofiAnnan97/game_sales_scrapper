@@ -18,10 +18,10 @@ pub async fn perform_store_search(
     let mut results = Vec::new();
 
     match game_store {
-        GameStore::STEAM => match steam::search_by_keyphrase(&query).await {
+        GameStore::STEAM => match steam::search_by_keyphrase(&query, &http_client).await {
             Ok(list) => {
                 for title in list.into_iter().take(MAX_RESULTS) {
-                    let steam_id = steam::check_game(&title)
+                    let steam_id = steam::check_game(&title, &http_client)
                         .await
                         .map(|app| app.app_id)
                         .unwrap_or(0);

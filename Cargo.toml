@@ -28,8 +28,8 @@ codegen-units = 8
 strip = "symbols"
 
 [workspace.dependencies]
-reqwest = { version = "0.12.15", features = ["json", "blocking", "cookies"] }
-tokio = { version = "1.52.3", features = ["full"] }
+reqwest = { version = "0.13.5", features = ["json", "blocking","query"] }
+tokio = { version = "1.53.1", features = ["full"] }
 clap = { version = "4.6.1", features = ["derive", "cargo"] }
 dotenv = "0.15.0"
 dotenvy = "0.15.7"
@@ -45,8 +45,7 @@ base64 = "0.22.1"
 hex = "0.4.3"
 chrono = "0.4.45"
 iced = { version = "0.14.0", features = ["image"] }
-iced_aw = { version = "0.14.0", features = ["full"] }
+iced_aw = { version = "0.14.1", features = ["full"] }
 mockall = "0.14.0"
-mockito = "1.7.2"
 async-trait = "0.1.89"
 rfd = "0.17.2"

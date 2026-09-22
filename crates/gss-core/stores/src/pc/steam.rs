@@ -19,7 +19,7 @@ use errors::api::ApiError;
 use files::general;
 use properties;
 use types::internal::data::SaleInfo;
-use types::response::steam::{App, AppDetails, PriceOverview};
+use types::response::steam::{App, AppDetails, AppPrices, PriceOverview};
 
 #[allow(dead_code)]
 enum SearchPattern {
@@ -36,32 +36,25 @@ pub trait SteamApi {
     async fn check_game(&self, name: &str) -> Option<App>;
     async fn get_price(&self, app_id: u32) -> Result<PriceOverview, ApiError>;
     async fn get_price_details(&self, app_id: u32) -> Result<SaleInfo, ApiError>;
+    async fn get_bulk_filtered_price_details(
+        &self,
+        app_ids: &[u32],
+        desired_prices: &HashMap<String, f64>,
+    ) -> Result<Vec<SaleInfo>, ApiError>;
 }
 
-pub struct SteamClient {
-    http_client: reqwest::Client,
+pub struct SteamClient<'a> {
+    http_client: &'a reqwest::Client,
 }
 
-impl SteamClient {
-    pub fn new() -> Self {
-        Self {
-            http_client: reqwest::Client::new(),
-        }
-    }
-
-    pub fn with_client(http_client: reqwest::Client) -> Self {
+impl<'a> SteamClient<'a> {
+    pub fn new(http_client: &'a reqwest::Client) -> Self {
         Self { http_client }
     }
 }
 
-impl Default for SteamClient {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 #[async_trait]
-impl SteamApi for SteamClient {
+impl<'a> SteamApi for SteamClient<'a> {
     async fn search_game(&self, keyphrase: &str) -> Option<String> {
         match self.search_by_keyphrase(keyphrase).await {
             Ok(search_list) => {
@@ -110,7 +103,7 @@ impl SteamApi for SteamClient {
     async fn search_by_keyphrase(&self, keyphrase: &str) -> Result<Vec<String>, ApiError> {
         let mut games_list: Vec<App> = load_cached_games().unwrap_or_default();
         if games_list.is_empty() {
-            let _ = update_cached_games().await;
+            let _ = update_cached_games(self.http_client).await;
             games_list = load_cached_games().unwrap_or_default();
         }
         let mut search_list: Vec<String> = Vec::new();
@@ -164,7 +157,7 @@ impl SteamApi for SteamClient {
     async fn check_game(&self, name: &str) -> Option<App> {
         let mut games_list: Vec<App> = load_cached_games().unwrap_or_default();
         if games_list.is_empty() {
-            let _ = update_cached_games().await;
+            let _ = update_cached_games(self.http_client).await;
             games_list = load_cached_games().unwrap_or_default();
         }
         for elem in games_list.iter() {
@@ -181,7 +174,7 @@ impl SteamApi for SteamClient {
     }
 
     async fn get_price(&self, app_id: u32) -> Result<PriceOverview, ApiError> {
-        match get_game_data(app_id, &self.http_client).await {
+        match get_game_data(app_id, true, self.http_client).await {
             Ok(app_details) => {
                 let success = app_details.success;
                 let data = app_details.app_data;
@@ -214,7 +207,7 @@ impl SteamApi for SteamClient {
     }
 
     async fn get_price_details(&self, app_id: u32) -> Result<SaleInfo, ApiError> {
-        match get_game_data(app_id, &self.http_client).await {
+        match get_game_data(app_id, true, self.http_client).await {
             Ok(app_details) => {
                 let success = app_details.success;
                 if success {
@@ -246,6 +239,38 @@ impl SteamApi for SteamClient {
                 app_id, e
             ))),
         }
+    }
+
+    async fn get_bulk_filtered_price_details(
+        &self,
+        app_ids: &[u32],
+        desired_prices: &HashMap<String, f64>,
+    ) -> Result<Vec<SaleInfo>, ApiError> {
+        let mut sales_info: Vec<SaleInfo> = Vec::new();
+        match get_bulk_prices(app_ids, self.http_client).await {
+            Ok(app_prices) => {
+                for (app_id, response) in app_prices.prices {
+                    let id = app_id.parse::<u32>().unwrap_or_default();
+                    if let Some(po) = response.data.price_overview
+                        && let Some(price) = desired_prices.get(&app_id)
+                        && *price >= po.final_price / 100.0
+                        && let Ok(app_details) = get_game_data(id, false, self.http_client).await
+                        && let Some(data) = app_details.app_data
+                    {
+                        sales_info.push(SaleInfo {
+                            icon_link: data.header_image,
+                            title: data.name,
+                            original_price: po.initial / 100.0,
+                            current_price: po.final_price / 100.0,
+                            discount_percentage: format!("{}", po.discount_percent),
+                            store_page_link: format!("{}{}", STORE_PAGE_URL, app_id),
+                        });
+                    }
+                }
+            }
+            Err(e) => return Err(e),
+        }
+        Ok(sales_info)
     }
 }
 
@@ -307,18 +332,18 @@ fn add_entries_to_cache(new_games: &mut Vec<App>, cached_games: &mut Vec<App>) {
     new_games.clear();
 }
 
-// Updated to return a boolean and propgate error
-pub async fn update_cached_games() -> Result<String, ApiError> {
-    let client = reqwest::Client::new();
+// Updated to return a boolean and propagate error
+pub async fn update_cached_games(client: &reqwest::Client) -> Result<String, ApiError> {
+    // let client = reqwest::Client::new();
     let mut games_list: Vec<App> = load_cached_games().unwrap_or_default();
     let last_appid = get_last_appid(&games_list);
-    let mut temp: Vec<App> = get_games(&client, NUM_OF_RESULTS, last_appid).await?;
+    let mut temp: Vec<App> = get_games(client, NUM_OF_RESULTS, last_appid).await?;
     add_entries_to_cache(&mut temp, &mut games_list);
     let sliding_last_appid = properties::get_sliding_steam_appid();
     if temp.is_empty()
         || (sliding_last_appid < last_appid && games_list.len() > SLIDING_UPDATE_START_SIZE)
     {
-        temp = get_games(&client, NUM_OF_RESULTS, sliding_last_appid).await?;
+        temp = get_games(client, NUM_OF_RESULTS, sliding_last_appid).await?;
         if let Some(last_app) = temp.last() {
             properties::set_sliding_steam_appid(last_app.app_id);
         } else {
@@ -375,11 +400,19 @@ async fn get_games(
     Ok(app_list)
 }
 
-async fn get_game_data(app_id: u32, client: &reqwest::Client) -> Result<AppDetails, ApiError> {
+async fn get_game_data(
+    app_id: u32,
+    with_price: bool,
+    client: &reqwest::Client,
+) -> Result<AppDetails, ApiError> {
     let app_id_str = app_id.to_string();
+    let mut filters = String::from("basic");
+    if with_price {
+        filters.push_str(",price_overview");
+    }
     let query_string = [
         ("appids", app_id_str.as_str()),
-        ("filters", "basic,price_overview"),
+        ("filters", filters.as_str()),
     ];
     let url = format!("{}{}", STORE_BASE_URL, DETAILS_ENDPOINT);
     let resp = client
@@ -399,30 +432,65 @@ async fn get_game_data(app_id: u32, client: &reqwest::Client) -> Result<AppDetai
     Ok(game)
 }
 
-pub async fn get_price(app_id: u32, client: &reqwest::Client) -> Result<PriceOverview, ApiError> {
-    SteamClient::with_client(client.clone())
-        .get_price(app_id)
-        .await
+async fn get_bulk_prices(app_ids: &[u32], client: &reqwest::Client) -> Result<AppPrices, ApiError> {
+    let app_ids_str = app_ids
+        .iter()
+        .map(|id| id.to_string())
+        .collect::<Vec<String>>()
+        .join(",");
+    let query_string = [
+        ("appids", app_ids_str.as_str()),
+        ("filters", "price_overview"),
+    ];
+    let url = format!("{}{}", STORE_BASE_URL, DETAILS_ENDPOINT);
+    let resp = client
+        .get(url)
+        .timeout(Duration::from_secs(DEFAULT_TIMEOUT_IN_SECS))
+        .query(&query_string)
+        .send()
+        .await?
+        .text()
+        .await?;
+
+    let body: Value = serde_json::from_str(&resp)?;
+    let app_prices: AppPrices = AppPrices::deserialize(&body)?;
+    Ok(app_prices)
 }
 
+pub async fn get_price(app_id: u32, client: &reqwest::Client) -> Result<PriceOverview, ApiError> {
+    SteamClient::new(client).get_price(app_id).await
+}
 pub async fn get_price_details(
     app_id: u32,
     client: &reqwest::Client,
 ) -> Result<SaleInfo, ApiError> {
-    SteamClient::with_client(client.clone())
-        .get_price_details(app_id)
-        .await
+    SteamClient::new(client).get_price_details(app_id).await
 }
 
 // Search Functions
-pub async fn check_game(name: &str) -> Option<App> {
-    SteamClient::new().check_game(name).await
+pub async fn check_game(name: &str, client: &reqwest::Client) -> Option<App> {
+    SteamClient::new(client).check_game(name).await
 }
 
-pub async fn search_by_keyphrase(keyphrase: &str) -> Result<Vec<String>, ApiError> {
-    SteamClient::new().search_by_keyphrase(keyphrase).await
+pub async fn search_by_keyphrase(
+    keyphrase: &str,
+    client: &reqwest::Client,
+) -> Result<Vec<String>, ApiError> {
+    SteamClient::new(client)
+        .search_by_keyphrase(keyphrase)
+        .await
 }
 
-pub async fn search_game(keyphrase: &str) -> Option<String> {
-    SteamClient::new().search_game(keyphrase).await
+pub async fn search_game(keyphrase: &str, client: &reqwest::Client) -> Option<String> {
+    SteamClient::new(client).search_game(keyphrase).await
+}
+
+pub async fn get_bulk_filtered_price_details(
+    app_ids: &[u32],
+    desired_prices: &HashMap<String, f64>,
+    client: &reqwest::Client,
+) -> Result<Vec<SaleInfo>, ApiError> {
+    SteamClient::new(client)
+        .get_bulk_filtered_price_details(app_ids, desired_prices)
+        .await
 }

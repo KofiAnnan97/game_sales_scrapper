@@ -11,7 +11,8 @@ async fn search_game() {
     let _test_env =
         tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, file_operations::load_steam_cache());
 
-    let search_list = steam::search_by_keyphrase(GAME_TITLE)
+    let client = reqwest::Client::new();
+    let search_list = steam::search_by_keyphrase(GAME_TITLE, &client)
         .await
         .unwrap_or_else(|_| Vec::new());
     let mut is_game_present = false;
