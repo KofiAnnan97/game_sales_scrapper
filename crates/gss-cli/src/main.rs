@@ -1,5 +1,6 @@
 use clap::parser::ValueSource;
 use clap::{Arg, ArgAction, ArgMatches, Command, arg, command};
+use reqwest::Client;
 use serde_json::Value;
 use std::collections::HashMap;
 use std::io::{self, Write};
@@ -41,7 +42,7 @@ async fn main() {
         .value_parser(clap::value_parser!(String))
         .required(true);
 
-    let http_client = reqwest::Client::new();
+    let http_client = Client::new();
 
     let cmd : ArgMatches = command!()
         .about("A simple script for checking prices on games.")

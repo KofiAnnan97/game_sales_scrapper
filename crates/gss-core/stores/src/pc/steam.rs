@@ -334,7 +334,6 @@ fn add_entries_to_cache(new_games: &mut Vec<App>, cached_games: &mut Vec<App>) {
 
 // Updated to return a boolean and propagate error
 pub async fn update_cached_games(client: &reqwest::Client) -> Result<String, ApiError> {
-    // let client = reqwest::Client::new();
     let mut games_list: Vec<App> = load_cached_games().unwrap_or_default();
     let last_appid = get_last_appid(&games_list);
     let mut temp: Vec<App> = get_games(client, NUM_OF_RESULTS, last_appid).await?;

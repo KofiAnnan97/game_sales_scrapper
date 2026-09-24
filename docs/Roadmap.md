@@ -17,9 +17,9 @@
           - [ ] Configure connection pooling, user agents and redirects when needed
       - [ ] Add response size limits to HTTP calls
       - [ ] Optimize fuzzy search algorithms
-        - [ ] Use rolling row implementation for 2D comparison matrix
+        - [X] Use rolling row implementation for 2D comparison matrix
         - [ ] Add limits to fuzzy search inputs
-        - [ ] Add performance benchmarks
+        - [X] Add performance benchmarks (time only)
       - Caching improvements
         - [ ] corrupted cached data is detected and handled with crashing
         - [ ] avoid serializing the entire cache when practical

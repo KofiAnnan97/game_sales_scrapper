@@ -61,14 +61,14 @@ impl<'a> GogApi for GogClient<'a> {
     }
 
     async fn get_price_details(&self, title: &str) -> Option<PriceOverview> {
-        let http_client = reqwest::Client::new();
         let media_type = "game";
         let limit_num: i32 = 30;
         let url = format!(
             "{}{}?mediaType={}&search={}&limit={}",
             BASE_URL_V1, MEDIA_ENDPOINT_V1, media_type, title, limit_num
         );
-        let resp = http_client
+        let resp = self
+            .http_client
             .get(url)
             .timeout(Duration::from_secs(DEFAULT_TIMEOUT_IN_SECS))
             .send()

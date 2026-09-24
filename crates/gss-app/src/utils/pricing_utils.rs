@@ -1,4 +1,5 @@
 use iced::widget::image::Handle;
+use reqwest::Client;
 use std::collections::HashMap;
 
 use crate::utils::file_utils::load_url_image_with_fallback;
@@ -83,7 +84,7 @@ pub async fn check_prices_for_email(use_html: bool) -> Result<String, String> {
     let mut desired_prices: HashMap<String, f64> = HashMap::new();
     let mut gog_sales: Vec<SaleInfo> = Vec::new();
     let mut microsoft_store_sales: Vec<SaleInfo> = Vec::new();
-    let http_client = reqwest::Client::new();
+    let http_client = Client::new();
     let mut output = String::new();
     let mut iter = thresholds.iter().peekable();
     while let Some(elem) = iter.next() {
@@ -227,7 +228,7 @@ pub fn compare_prices(store_sales: &[StoreSale]) -> Vec<SaleInfoCompare> {
 pub async fn get_sales() -> Result<Vec<StoreSale>, String> {
     let mut sales: Vec<StoreSale> = Vec::new();
     let thresholds = thresholds::load_thresholds().unwrap_or_else(|_e| Vec::new());
-    let http_client = reqwest::Client::new();
+    let http_client = Client::new();
     for game in thresholds.iter() {
         if game.steam_id != 0 {
             match steam::get_price_details(game.steam_id, &http_client).await {
