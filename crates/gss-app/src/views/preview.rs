@@ -11,6 +11,7 @@ use constants::operations::settings::{GOG_STORE_NAME, MICROSOFT_STORE_NAME, STEA
 use types::internal::filtering::*;
 use types::internal::store::GameStore;
 
+use crate::app::constants::{LOADING_FRAMES_SIZE, STATUS_ERR};
 use crate::components::custom_styles::{self as cs, bold_text};
 use crate::components::custom_widgets::{
     self as cw, game_comparison_row, game_sale_row, game_store_card,
@@ -19,7 +20,6 @@ use crate::utils::log_utils::LogLevel;
 use crate::utils::pricing_utils::{
     SalesCache, StoreSale, check_prices_for_display, compare_prices, get_sales,
 };
-use crate::{LOADING_FRAMES_SIZE, STATUS_ERR};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum PreviewDisplayed {

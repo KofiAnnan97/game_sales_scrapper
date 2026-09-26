@@ -162,7 +162,7 @@ impl Logger {
         }
     }
 
-    #[cfg(test)]
+    // Used for testing only
     pub fn get_batch_ref(&self) -> &Vec<String> {
         &self.batch
     }

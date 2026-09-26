@@ -1,6 +1,6 @@
-use crate::stubs::threshold_stubs;
-use crate::utils::tmp_setup;
 use file_ops::thresholds;
+use gss_tests::stubs::threshold_stubs;
+use gss_tests::utils::tmp_setup;
 use properties;
 use types::internal::store::GameStore;
 

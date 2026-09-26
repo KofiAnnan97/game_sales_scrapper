@@ -8,8 +8,8 @@ use types::internal::store::GameStore;
 // use stores::pc::microsoft_store::{self, MockMicrosoftStoreApi};
 // use stores::pc::gog::MockGogApi;
 // use stores::pc::steam::MockSteamApi;
-use crate::stubs::command_stubs;
-use crate::utils::file_operations;
+use gss_tests::stubs::command_stubs;
+use gss_tests::utils::file_operations;
 
 // Sample Game Data IDs
 static E33_GAME_TITLE: &str = "Clair Obscur: Expedition 33";

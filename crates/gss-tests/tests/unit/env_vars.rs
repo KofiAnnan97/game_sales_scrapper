@@ -2,9 +2,9 @@ use std::env;
 use std::panic;
 use std::path::PathBuf;
 
-use crate::utils::{file_operations, tmp_setup};
 use constants::operations::properties::*;
 use files::general;
+use gss_tests::utils::{file_operations, tmp_setup};
 use properties::env_vars::EnvVar;
 use properties::{
     self,

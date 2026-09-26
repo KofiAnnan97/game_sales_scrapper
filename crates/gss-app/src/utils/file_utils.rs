@@ -4,7 +4,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
 
-use crate::Error;
+use crate::app::enums::Error;
 
 const NO_IMAGE: &[u8] = include_bytes!("../../resources/no_image.png");
 static IMAGE_FROM_URL_TIMEOUT: u64 = 90;

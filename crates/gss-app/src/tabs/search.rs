@@ -4,12 +4,13 @@ use iced::{Element, Length};
 use constants::icons::{LEFT_ARROW_LONG, RIGHT_ARROW_LONG};
 use file_ops::{settings, thresholds};
 
+use crate::app::constants::LOADING_FRAMES_SIZE;
+use crate::app::message::{MainMessage, Message};
+use crate::app::state::App;
 use crate::components::custom_widgets as cw;
-use crate::{LOADING_FRAMES_SIZE, MainMessage, Message};
-
 pub const SKIP_STORE_SELECTION: usize = usize::MAX;
 
-pub fn search_tab(app: &crate::App) -> Element<'_, Message> {
+pub fn search_tab(app: &App) -> Element<'_, Message> {
     let current_store_idx: usize = if app.pending_searches > 0 {
         app.selected_stores.len() - app.pending_searches + 1
     } else {

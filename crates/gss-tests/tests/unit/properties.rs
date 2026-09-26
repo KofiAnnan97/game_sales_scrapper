@@ -7,8 +7,8 @@ use properties;
 use properties::passwords::Password;
 use serde_json::Value;
 
-use crate::utils::{file_operations, tmp_setup};
 use constants::operations::properties::*;
+use gss_tests::utils::{file_operations, tmp_setup};
 
 const TMP_DIR_TITLE: &str = "properties";
 

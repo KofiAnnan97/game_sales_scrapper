@@ -12,9 +12,7 @@ use iced_aw::Spinner;
 use files::general;
 
 use crate::components::{custom_styles as cs, custom_widgets as cw};
-use crate::log_utils::{LogData, parse_logs};
-use crate::utils::log_utils;
-use crate::utils::log_utils::{LogLevel, get_log_path};
+use crate::utils::log_utils::{self, LogData, LogLevel, get_log_path, parse_logs};
 use crate::views::sub_windows::LogItem;
 
 const DEFAULT_LOGS_PER_PAGE: usize = 20;

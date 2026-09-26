@@ -3,9 +3,11 @@ use iced::{Element, Length};
 
 use constants::icons::{CHECK_MARK, DOWN_ARROW, FLOPPY_DISK, TRASH_BIN, UP_ARROW};
 
-use crate::{MainMessage, Message, SortColumn, SortOrder};
+use crate::app::enums::{SortColumn, SortOrder};
+use crate::app::message::{MainMessage, Message};
+use crate::app::state::App;
 
-pub fn thresholds_tab(app: &crate::App) -> Element<'_, Message> {
+pub fn thresholds_tab(app: &App) -> Element<'_, Message> {
     let ignore_case_query = app.search_query.to_lowercase();
     let mut thresholds_to_show: Vec<usize> = app
         .thresholds
@@ -227,7 +229,7 @@ pub fn thresholds_tab(app: &crate::App) -> Element<'_, Message> {
     .into()
 }
 
-fn header_sort_indicator(app: &crate::App, column: SortColumn) -> &'static str {
+fn header_sort_indicator(app: &App, column: SortColumn) -> &'static str {
     if app.threshold_sort_column == Some(column) {
         match app.threshold_sort_order {
             SortOrder::Ascending => UP_ARROW,

@@ -1,4 +1,4 @@
-use crate::utils::{file_operations, tmp_setup};
+use gss_tests::utils::{file_operations, tmp_setup};
 use stores::pc::steam;
 
 // Constants

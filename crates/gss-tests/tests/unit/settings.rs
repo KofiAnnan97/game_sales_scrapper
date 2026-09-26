@@ -1,6 +1,6 @@
-use crate::utils::tmp_setup;
 use constants::operations::settings::{DEFAULT_ALIAS_STATE, DISABLED_STATE, ENABLED_STATE};
 use file_ops::settings;
+use gss_tests::utils::tmp_setup;
 use properties;
 use std::collections::HashMap;
 use types::internal::store::GameStore;
