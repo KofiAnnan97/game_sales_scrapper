@@ -424,11 +424,26 @@ async fn get_game_data(
         .await?;
 
     let body: Value = serde_json::from_str(&resp)?;
-    let game_by_app_id = body.get(app_id.to_string()).ok_or(ApiError::Message(
-        "An error occurred trying to retrieve Steam app data.".into(),
-    ))?;
-    let game: AppDetails = AppDetails::deserialize(game_by_app_id)?;
-    Ok(game)
+
+    let response: HashMap<String, AppDetails> = serde_json::from_value(body)?;
+    if response.is_empty() {
+        return Err(ApiError::Message("The response was empty.".into()));
+    }
+    if response.len() > 1 {
+        return Err(ApiError::Message(
+            "More than one game was provided in response.".into(),
+        ));
+    }
+    if let Some((_, details)) = response.into_iter().next()
+        && let Some(app_data) = &details.app_data
+        && app_data.steam_appid == app_id
+    {
+        Ok(details)
+    } else {
+        Err(ApiError::Message(
+            "The game data is empty or there was some mismatch/missing data.".into(),
+        ))
+    }
 }
 
 async fn get_bulk_prices(app_ids: &[u32], client: &reqwest::Client) -> Result<AppPrices, ApiError> {

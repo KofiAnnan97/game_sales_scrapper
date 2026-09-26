@@ -48,6 +48,8 @@
 
 - Bugs/Fixes
   - General
+    - [X] Steam data does not seem to always send the correct steam app id when retrieving game data. More robust checking and error handling was added.
+    - [X] Sales preview doesn't exit when the user hits the close button
     - [ ] Handle games thresholds with corrupted or incorrect data (try to run search on fake query with incorrect store ids)
   - Application
     - [ ] Only update settings if needed (currently always update)

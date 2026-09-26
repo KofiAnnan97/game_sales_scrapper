@@ -1105,8 +1105,7 @@ impl App {
     fn update_preview(&mut self, message: PreviewMessage) -> Task<Message> {
         match message {
             PreviewMessage::Exit => {
-                self.active_view = View::Base;
-                self.view_bar.retain(|&view| view != View::Logs);
+                self.view_bar.retain(|&view| view != View::Preview);
                 self.active_view = if self.view_bar.is_empty() {
                     View::Base
                 } else {

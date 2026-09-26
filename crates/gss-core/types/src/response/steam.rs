@@ -22,7 +22,7 @@ pub struct AppData {
     #[serde(rename = "type")]
     product_type: String,
     pub name: String,
-    pub steam_appid: u64,
+    pub steam_appid: u32,
     required_age: Age,
     is_free: bool,
     controller_support: Option<String>,
