@@ -5,14 +5,13 @@ use std::panic::PanicHookInfo;
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 
+use crate::app::constants::BATCH_LIMIT;
 use constants::operations::logging::APP_SUBDIR;
 use files::general;
 use serde::{Deserialize, Serialize};
 use serde_json::from_str;
 
 use crate::views::logs::Screen;
-
-const BATCH_LIMIT: usize = 10;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct LogData {

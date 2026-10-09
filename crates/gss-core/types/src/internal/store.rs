@@ -1,5 +1,7 @@
 use std::{fmt::Display, write};
 
+use crate::internal::data::SaleInfo;
+
 // Store IDs
 const STEAM_STORE_ID: &str = "steam";
 const GOG_STORE_ID: &str = "gog";
@@ -9,6 +11,12 @@ const MICROSOFT_STORE_ID: &str = "microsoft_store";
 const STEAM_STORE_NAME: &str = "Steam";
 const GOG_STORE_NAME: &str = "Good Old Games (GOG)";
 const MICROSOFT_STORE_NAME: &str = "Microsoft Store (PC)";
+
+// Concurrency limit for searches
+pub const DEFAULT_CONCURRENCY_LIMIT: usize = 8;
+
+// Bulk search limit
+pub const BULK_SEARCH_LIMIT: usize = 10;
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
 #[allow(nonstandard_style)]
@@ -45,4 +53,10 @@ impl Display for GameStore {
             self.get_name()
         )
     }
+}
+
+#[derive(Debug, Clone)]
+pub enum StorePriceResult {
+    Success(Vec<SaleInfo>),
+    Error(String),
 }

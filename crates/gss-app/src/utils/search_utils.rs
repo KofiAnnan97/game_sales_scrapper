@@ -3,9 +3,8 @@ use reqwest::Client;
 use stores::pc::{gog, microsoft_store, steam};
 use types::internal::store::GameStore;
 
+use crate::app::constants::MAX_RESULTS;
 use crate::app::enums::StoreSearchResult;
-
-static MAX_RESULTS: usize = 20;
 
 pub async fn perform_store_search(
     query: String,

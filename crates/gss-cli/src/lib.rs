@@ -1,15 +1,18 @@
 use std::collections::HashMap;
 use std::io::{self, Write};
+use std::sync::Arc;
 
 use alerting::email;
 use constants::stores::gog::VERSION as GOG_VERSION;
 use file_ops::{settings, thresholds};
 use stores::pc::{gog, microsoft_store, steam};
-use types::internal::{data::SaleInfo, store::GameStore};
+use tokio::sync::Semaphore;
+use types::internal::{
+    data::SaleInfo,
+    store::{BULK_SEARCH_LIMIT, DEFAULT_CONCURRENCY_LIMIT, GameStore, StorePriceResult},
+};
 use types::response::gog::GameInfo as GOGGameInfo;
 use types::response::microsoft_store::ProductInfo;
-
-const BULK_SEARCH_LIMIT: usize = 10;
 
 pub fn storefront_check() -> Vec<GameStore> {
     let selected_stores = settings::get_selected_stores();
@@ -44,68 +47,124 @@ pub fn get_simple_prices_str(store_name: &str, sales: Vec<SaleInfo>) -> String {
 
 pub async fn check_prices(use_html: bool, http_client: &reqwest::Client) -> String {
     let thresholds = thresholds::load_thresholds().unwrap_or_else(|_e| Vec::new());
-    let mut steam_sales: Vec<SaleInfo> = Vec::new();
-    let mut gog_sales: Vec<SaleInfo> = Vec::new();
-    let mut microsoft_store_sales: Vec<SaleInfo> = Vec::new();
+
+    let semaphore = Arc::new(Semaphore::new(DEFAULT_CONCURRENCY_LIMIT));
+    let mut tasks: Vec<tokio::task::JoinHandle<(GameStore, StorePriceResult)>> = Vec::new();
+
     let mut steam_app_ids: Vec<u32> = Vec::new();
     let mut desired_prices: HashMap<String, f64> = HashMap::new();
-    let mut output = String::new();
-    let mut iter = thresholds.iter().peekable();
-    while let Some(elem) = iter.next() {
+    let mut steam_iter = thresholds.iter().peekable();
+
+    while let Some(elem) = steam_iter.next() {
         if elem.steam_id != 0 {
             steam_app_ids.push(elem.steam_id);
             desired_prices
                 .entry(elem.steam_id.to_string())
                 .or_insert(elem.desired_price);
 
-            if steam_app_ids.len() >= BULK_SEARCH_LIMIT || iter.peek().is_none() {
-                match steam::get_bulk_filtered_price_details(
-                    &steam_app_ids,
-                    &desired_prices,
-                    http_client,
-                )
-                .await
-                {
-                    Ok(mut sales_info) => {
-                        steam_sales.append(&mut sales_info);
-                        steam_app_ids.clear();
-                        desired_prices.clear();
-                    }
-                    Err(e) => println!("{}", e),
-                }
+            if steam_app_ids.len() >= BULK_SEARCH_LIMIT || steam_iter.peek().is_none() {
+                let sem = Arc::clone(&semaphore);
+                let ids = steam_app_ids.clone();
+                let prices = desired_prices.clone();
+                let client: reqwest::Client = http_client.clone();
+
+                let task = tokio::spawn(async move {
+                    let _permit = sem.acquire().await.ok();
+                    let result = match steam::get_bulk_filtered_price_details(
+                        &ids, &prices, &client,
+                    )
+                    .await
+                    {
+                        Ok(sales) => StorePriceResult::Success(sales),
+                        Err(e) => StorePriceResult::Error(e.to_string()),
+                    };
+                    (GameStore::STEAM, result)
+                });
+                tasks.push(task);
+
+                steam_app_ids.clear();
+                desired_prices.clear();
             }
-        }
-        if elem.gog_id != 0 {
-            if GOG_VERSION == 1
-                && let Some(po) = gog::get_price_details(&elem.title, http_client).await
-            {
-                let current_price = po.final_amount.parse::<f64>().unwrap();
-                if elem.desired_price >= current_price {
-                    let price_str = format!(
-                        "\n\t- {} : {} -> {} {} ({}% off)",
-                        elem.title,
-                        po.base_amount,
-                        po.final_amount,
-                        po.currency,
-                        po.discount_percentage
-                    );
-                    output.push_str(&price_str);
-                }
-            } else if GOG_VERSION == 2
-                && let Some(info) = gog::get_price_details_v2(&elem.title, http_client).await
-                && elem.desired_price >= info.current_price
-            {
-                gog_sales.push(info);
-            }
-        }
-        if !elem.microsoft_store_id.is_empty()
-            && let Some(info) =
-                microsoft_store::get_price_details(&elem.microsoft_store_id, http_client).await
-            && elem.desired_price >= info.current_price
-        {
-            microsoft_store_sales.push(info);
         }
     }
+
+    for elem in thresholds.iter() {
+        if elem.gog_id != 0 && GOG_VERSION == 2 {
+            let sem = Arc::clone(&semaphore);
+            let title = elem.title.clone();
+            let desired_price = elem.desired_price;
+            let client = http_client.clone();
+
+            let task = tokio::spawn(async move {
+                let _permit = sem.acquire().await.ok();
+                if let Some(info) = gog::get_price_details_v2(&title, &client).await {
+                    if desired_price >= info.current_price {
+                        (
+                            GameStore::GOOD_OLD_GAMES,
+                            StorePriceResult::Success(vec![info]),
+                        )
+                    } else {
+                        (GameStore::GOOD_OLD_GAMES, StorePriceResult::Success(vec![]))
+                    }
+                } else {
+                    (GameStore::GOOD_OLD_GAMES, StorePriceResult::Success(vec![]))
+                }
+            });
+            tasks.push(task);
+        }
+
+        if !elem.microsoft_store_id.is_empty() {
+            let sem = Arc::clone(&semaphore);
+            let store_id = elem.microsoft_store_id.clone();
+            let desired_price = elem.desired_price;
+            let client = http_client.clone();
+
+            let task = tokio::spawn(async move {
+                let _permit = sem.acquire().await.ok();
+                if let Some(info) = microsoft_store::get_price_details(&store_id, &client).await {
+                    if desired_price >= info.current_price {
+                        (
+                            GameStore::MICROSOFT_STORE_PC,
+                            StorePriceResult::Success(vec![info]),
+                        )
+                    } else {
+                        (
+                            GameStore::MICROSOFT_STORE_PC,
+                            StorePriceResult::Success(vec![]),
+                        )
+                    }
+                } else {
+                    (
+                        GameStore::MICROSOFT_STORE_PC,
+                        StorePriceResult::Success(vec![]),
+                    )
+                }
+            });
+            tasks.push(task);
+        }
+    }
+
+    let mut steam_sales: Vec<SaleInfo> = Vec::new();
+    let mut gog_sales: Vec<SaleInfo> = Vec::new();
+    let mut microsoft_store_sales: Vec<SaleInfo> = Vec::new();
+
+    let results = futures::future::join_all(tasks).await;
+    for (store, price_result) in results.into_iter().flatten() {
+        match price_result {
+            StorePriceResult::Success(mut sales) => match store {
+                GameStore::STEAM => steam_sales.append(&mut sales),
+                GameStore::GOOD_OLD_GAMES => gog_sales.append(&mut sales),
+                GameStore::MICROSOFT_STORE_PC => microsoft_store_sales.append(&mut sales),
+            },
+            StorePriceResult::Error(e) => {
+                eprintln!("Error from {}: {}", store, e);
+            }
+        }
+    }
+
+    // Format output
+    let mut output = String::new();
+
     if !steam_sales.is_empty() {
         let store_name = GameStore::STEAM.get_name();
         if use_html {

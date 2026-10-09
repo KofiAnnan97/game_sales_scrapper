@@ -99,7 +99,7 @@ pub fn damerau_levenshtein(query: &str, reference: &str) -> f32 {
     for i in 1..=query_len {
         for j in 1..=reference_len {
             let idx: usize = i * cols + j;
-            let cost = if query_chars[i - 1] == reference_chars[j - 1] {
+            let cost = if query_chars[i - 1].eq_ignore_ascii_case(&reference_chars[j - 1]) {
                 0
             } else {
                 1
@@ -151,7 +151,7 @@ pub fn smith_waterman(query: &str, reference: &str) -> f32 {
     for i in 1..query_len {
         for j in 1..cols {
             let idx: usize = i * cols + j;
-            let diagonal = if query_chars[i - 1] == reference_chars[j - 1] {
+            let diagonal = if query_chars[i - 1].eq_ignore_ascii_case(&reference_chars[j - 1]) {
                 cmp_matrix[(i - 1) * cols + (j - 1)] + match_score
             } else {
                 cmp_matrix[(i - 1) * cols + (j - 1)] - mismatch_penalty

@@ -44,6 +44,8 @@ pub struct PriceOverview {
 pub struct GameInfo {
     pub id: String,
     pub title: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
     pub price: Option<Price>,
     #[serde(rename = "coverHorizontal")]
     pub c_horizontal: String,
@@ -131,6 +133,8 @@ pub struct Price {
     pub final_price: String,
     #[serde(rename = "base")]
     pub base_price: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
     pub discount: Option<String>,
     #[serde(rename = "finalMoney")]
     pub final_money: FinalMoney,

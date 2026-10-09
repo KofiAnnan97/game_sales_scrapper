@@ -24,3 +24,4 @@ serde_json.workspace = true
 serde.workspace = true
 chrono.workspace = true
 rfd.workspace = true
+futures.workspace = true

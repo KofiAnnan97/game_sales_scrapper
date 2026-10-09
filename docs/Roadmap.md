@@ -10,18 +10,19 @@
         - [ ] Make sure storefront data is escaped
       - [ ] Use interactive hidden prompts
     - Performance
-      - [ ] Implement bounded current price checking
-        - [X] Implement search via multiple game ids for Steam games (email only)
-        - [X] Centralize and reuse http client
-          - [X] remove unnecessary instantiations are deleted
-          - [ ] Configure connection pooling, user agents and redirects when needed
+      - [X] Implement concurrency for price checking (limtt to 8)
+      - [X] Centralize and reuse http client
+        - [X] remove unnecessary instantiations are deleted
+        - [ ] Configure connection pooling, user agents and redirects when needed
       - [ ] Add response size limits to HTTP calls
       - [ ] Optimize fuzzy search algorithms
         - [X] Use rolling row implementation for 2D comparison matrix
         - [ ] Add limits to fuzzy search inputs
         - [X] Add performance benchmarks (time only)
+        - [ ] Separate concurrency between simple and fuzzy algos (Use hashmap for join) 
       - Caching improvements
-        - [ ] corrupted cached data is detected and handled with crashing
+        - [X] Search cache using concurrency
+        - [ ] corrupted cached data is detected and handled without crashing
         - [ ] avoid serializing the entire cache when practical
     - Reliability
       - [ ] Proper error handling for unwrap(), expect(), and panic!()
@@ -45,6 +46,9 @@
     - [X] Make log windows even of both sides if even (i.e if window = 20 then next 10 and previous 10 are cached)
     - [X] Added logic to include fallback image if image cannot be found for sales preview
     - [X] Added a base window tab and made all the other window tabs sequential by user input
+  - Command Line
+    - Performance
+      - [X] Implement search via multiple game ids for Steam games 
 
 - Bugs/Fixes
   - General

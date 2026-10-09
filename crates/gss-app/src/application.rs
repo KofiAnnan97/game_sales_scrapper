@@ -6,12 +6,12 @@ use std::path::Path;
 use std::sync::Arc;
 use std::time::Duration;
 
-use crate::app::constants::{LOADING_FRAMES_SIZE, STATUS_ERR};
+use crate::app::constants::{LOADING_FRAMES_SIZE, SKIP_STORE_SELECTION, STATUS_ERR};
 use crate::app::enums::{SortColumn, SortOrder, Tab, View};
 use crate::app::message::{MainMessage, Message};
 use crate::app::state::App;
 use crate::app::view::view as main_view;
-use crate::tabs::{search::SKIP_STORE_SELECTION, thresholds as thrshlds_view};
+use crate::tabs::thresholds as thrshlds_view;
 use crate::utils::actions_utils::{send_sales_email, update_cache};
 use crate::utils::file_utils::open_file;
 use crate::utils::log_utils::{LogLevel, Logger};
