@@ -19,7 +19,7 @@
         - [X] Use rolling row implementation for 2D comparison matrix
         - [ ] Add limits to fuzzy search inputs
         - [X] Add performance benchmarks (time only)
-        - [ ] Separate concurrency between simple and fuzzy algos (Use hashmap for join) 
+        - [X] Separate concurrency between exact and fuzzy game search 
       - Caching improvements
         - [X] Search cache using concurrency
         - [ ] corrupted cached data is detected and handled without crashing
@@ -96,6 +96,7 @@
         - In settings allow the user to send a test alert to confirm that the configuration
       - Allow user option to run application in background when closing application instead of completely exiting
       - Add functionality to get and set a debug level (value should be store in settings file)
+      - Add versioning for settings and threshold files. Add mapper to update to newer versions. 
 
 - Bugs/Fixes
   - General

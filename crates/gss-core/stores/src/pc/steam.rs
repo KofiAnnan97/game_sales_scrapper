@@ -25,9 +25,9 @@ use types::internal::store::DEFAULT_CONCURRENCY_LIMIT;
 use types::response::steam::{App, AppDetails, AppPrices, PriceOverview};
 
 #[allow(dead_code)]
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, PartialEq, Debug)]
 enum SearchPattern {
-    Simple,
+    Exact,
     FuzzyLevenshtein,
     FuzzySmithWatrerman,
 }
@@ -111,24 +111,23 @@ impl<'a> SteamApi for SteamClient<'a> {
             games_list = load_cached_games().unwrap_or_default();
         }
         let mut search_list: Vec<String> = Vec::new();
-        let search_type = SearchPattern::FuzzySmithWatrerman;
+        let search_type = SearchPattern::Exact;
 
         let semaphore = Arc::new(Semaphore::new(DEFAULT_CONCURRENCY_LIMIT));
-        let mut tasks: Vec<tokio::task::JoinHandle<Vec<String>>> = Vec::new();
         let cache_length = &games_list.len();
         let cache_chunk = cache_length / DEFAULT_CONCURRENCY_LIMIT;
         if cache_chunk > 0 {
             let game_chunks = games_list.chunks(cache_chunk);
-            for chunk in game_chunks {
-                let sem = Arc::clone(&semaphore);
-                let chunk = chunk.to_vec();
-                let keyphrase_owned = keyphrase.to_string();
-                let task = tokio::spawn(async move {
-                    let _permit = sem.acquire().await.ok();
-                    let mut temp_list: Vec<String> = Vec::new();
-                    match search_type {
-                        // TODO: Add ability to update search type for Steam (Simple => "EXACT")
-                        SearchPattern::Simple => {
+            match search_type {
+                SearchPattern::Exact => {
+                    let mut tasks: Vec<tokio::task::JoinHandle<Vec<String>>> = Vec::new();
+                    for chunk in game_chunks {
+                        let sem = Arc::clone(&semaphore);
+                        let chunk = chunk.to_vec();
+                        let keyphrase_owned = keyphrase.to_string();
+                        let task = tokio::spawn(async move {
+                            let _permit = sem.acquire().await.ok();
+                            let mut temp_list: Vec<String> = Vec::new();
                             let keyphrase_ignore_case = format!("(?i){}", keyphrase_owned);
                             let re = Regex::new(&keyphrase_ignore_case).unwrap();
                             for game in chunk.iter() {
@@ -138,56 +137,66 @@ impl<'a> SteamApi for SteamClient<'a> {
                                 }
                             }
                             temp_list
-                        }
-                        SearchPattern::FuzzyLevenshtein => {
-                            let mut fuzzy_thresholds: HashMap<String, f32> = HashMap::new();
-                            for app in chunk {
-                                let dist = fuzzy::levenshtein_distance(&keyphrase_owned, &app.name);
-                                if 1.0 - (dist / keyphrase_owned.len() as f32)
-                                    >= LEVENSTEIN_DIST_PERCENTAGE
-                                {
-                                    if fuzzy_thresholds.len() > SEARCH_SIZE_LIMIT / 2 {
-                                        break;
-                                    }
-                                    fuzzy_thresholds.insert(app.name.clone(), dist);
-                                }
-                            }
-                            temp_list = fuzzy_thresholds.keys().cloned().collect();
-                            temp_list.sort_by(|a, b| {
-                                fuzzy_thresholds[a].total_cmp(&fuzzy_thresholds[b])
-                            });
-                            fuzzy_thresholds.clear();
-                            temp_list
-                        }
-                        // TODO: Determine if this will be the main fuzzy search alternative
-                        SearchPattern::FuzzySmithWatrerman => {
-                            let mut fuzzy_thresholds: HashMap<String, f32> = HashMap::new();
-                            for app in chunk {
-                                let score = fuzzy::smith_waterman(&keyphrase_owned, &app.name);
-                                let percentage = score / (2 * keyphrase_owned.len()) as f32;
-                                if percentage > SMITH_WATERMAN_DIST_PERCENTAGE {
-                                    if fuzzy_thresholds.len() > SEARCH_SIZE_LIMIT / 2 {
-                                        break;
-                                    }
-                                    fuzzy_thresholds.insert(app.name.clone(), percentage);
-                                }
-                            }
-                            temp_list = fuzzy_thresholds.keys().cloned().collect();
-                            temp_list.sort_by(|a, b| {
-                                fuzzy_thresholds[a].total_cmp(&fuzzy_thresholds[b])
-                            });
-                            fuzzy_thresholds.clear();
-                            temp_list
-                        }
+                        });
+                        tasks.push(task);
                     }
-                });
-                tasks.push(task);
-            }
+                    let results = futures::future::join_all(tasks).await;
+                    for game_names in results.into_iter().take(SEARCH_SIZE_LIMIT).flatten() {
+                        search_list.extend(game_names);
+                    }
+                }
+                SearchPattern::FuzzyLevenshtein | SearchPattern::FuzzySmithWatrerman => {
+                    let mut tasks: Vec<tokio::task::JoinHandle<HashMap<String, f32>>> = Vec::new();
+                    for chunk in game_chunks {
+                        let sem = Arc::clone(&semaphore);
+                        let chunk = chunk.to_vec();
+                        let keyphrase_owned = keyphrase.to_string();
+                        let task = tokio::spawn(async move {
+                            let _permit = sem.acquire().await.ok();
+                            let mut fuzzy_thresholds: HashMap<String, f32> = HashMap::new();
+                            for app in chunk {
+                                if search_type == SearchPattern::FuzzyLevenshtein {
+                                    let dist =
+                                        fuzzy::levenshtein_distance(&keyphrase_owned, &app.name);
+                                    if 1.0 - (dist / keyphrase_owned.len() as f32)
+                                        >= LEVENSTEIN_DIST_PERCENTAGE
+                                    {
+                                        if fuzzy_thresholds.len() > SEARCH_SIZE_LIMIT / 2 {
+                                            break;
+                                        }
+                                        fuzzy_thresholds.insert(app.name.clone(), dist);
+                                    }
+                                } else if search_type == SearchPattern::FuzzySmithWatrerman {
+                                    let score = fuzzy::smith_waterman(&keyphrase_owned, &app.name);
+                                    let percentage = score / (2 * keyphrase_owned.len()) as f32;
+                                    if percentage > SMITH_WATERMAN_DIST_PERCENTAGE {
+                                        if fuzzy_thresholds.len() > SEARCH_SIZE_LIMIT / 2 {
+                                            break;
+                                        }
+                                        fuzzy_thresholds.insert(app.name.clone(), percentage);
+                                    }
+                                }
+                            }
+                            fuzzy_thresholds
+                        });
+                        tasks.push(task);
+                    }
+                    let mut combined_fuzzy_scores: HashMap<String, f32> = HashMap::new();
+                    let results = futures::future::join_all(tasks).await;
+                    for fuzzy_scores in results.into_iter().flatten() {
+                        combined_fuzzy_scores.extend(fuzzy_scores);
+                    }
+                    search_list = combined_fuzzy_scores.keys().cloned().collect();
+                    search_list.sort_by(|a, b| {
+                        combined_fuzzy_scores[a].total_cmp(&combined_fuzzy_scores[b])
+                    });
+                    combined_fuzzy_scores.clear();
 
-            let results = futures::future::join_all(tasks).await;
-            for game_names in results.into_iter().flatten() {
-                search_list.extend(game_names);
-            }
+                    if !keyphrase.is_empty() && !search_list.is_empty() {
+                        prioritize_fuzzy_results(&mut search_list, keyphrase);
+                    }
+                }
+            };
         }
         Ok(search_list)
     }
@@ -546,4 +555,24 @@ pub async fn get_bulk_filtered_price_details(
     SteamClient::new(client)
         .get_bulk_filtered_price_details(app_ids, desired_prices)
         .await
+}
+
+fn prioritize_fuzzy_results(search_list: &mut Vec<String>, keyphrase: &str) {
+    let mut exact_matches: Vec<String> = Vec::new();
+    let mut substring_matches: Vec<String> = Vec::new();
+    let mut remaining_matches: Vec<String> = Vec::new();
+
+    for title in search_list.drain(..) {
+        if title.eq_ignore_ascii_case(keyphrase) {
+            exact_matches.push(title);
+        } else if title.contains(keyphrase) || keyphrase.contains(&title) {
+            substring_matches.push(title);
+        } else {
+            remaining_matches.push(title);
+        }
+    }
+
+    search_list.extend(exact_matches);
+    search_list.extend(substring_matches);
+    search_list.extend(remaining_matches);
 }

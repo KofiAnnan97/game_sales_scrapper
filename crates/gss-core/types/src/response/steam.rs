@@ -14,8 +14,7 @@ pub struct App {
 pub struct AppDetails {
     pub success: bool,
     #[serde(rename = "data")]
-    #[serde(skip_serializing_if = "Option::is_none")]
-    #[serde(default)]
+    #[serde(skip_serializing_if = "Option::is_none", default)]
     pub app_data: Option<AppData>,
 }
 
@@ -27,8 +26,7 @@ pub struct AppData {
     pub steam_appid: u32,
     required_age: Age,
     is_free: bool,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    #[serde(default)]
+    #[serde(skip_serializing_if = "Option::is_none", default)]
     controller_support: Option<String>,
     detailed_description: String,
     about_the_game: String,
@@ -37,17 +35,14 @@ pub struct AppData {
     pub header_image: String,
     capsule_image: String,
     capsule_imagev5: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    #[serde(default)]
+    #[serde(skip_serializing_if = "Option::is_none", default)]
     website: Option<String>,
     pc_requirements: Requirements,
     mac_requirements: Requirements,
     linux_requirements: Requirements,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    #[serde(default)]
+    #[serde(skip_serializing_if = "Option::is_none", default)]
     legal_notice: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    #[serde(default)]
+    #[serde(skip_serializing_if = "Option::is_none", default)]
     pub price_overview: Option<PriceOverview>,
 }
 
@@ -67,7 +62,7 @@ pub enum Requirements {
 
 #[derive(Deserialize, Serialize, Debug)]
 pub struct AppPrices {
-    #[serde(flatten)]
+    #[serde(flatten, skip_serializing_if = "HashMap::is_empty", default)]
     pub prices: HashMap<String, ResponseData>,
 }
 
@@ -79,8 +74,7 @@ pub struct ResponseData {
 
 #[derive(Deserialize, Serialize, Debug)]
 pub struct PriceData {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    #[serde(default)]
+    #[serde(skip_serializing_if = "Option::is_none", default)]
     pub price_overview: Option<PriceOverview>,
 }
 
