@@ -149,7 +149,9 @@ pub fn create(title: &str, steam_cache: Vec<App>) -> PathBuf {
 }
 
 pub fn setup_tmp_environment(title: &str, steam_cache: Vec<App>) -> TempEnvironment {
-    let guard = test_lock().lock().unwrap();
+    let guard = test_lock()
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
     let temp_dir = create(title, steam_cache);
     let prev_project_path = retrieve_env_var(PROJECT_PATH_ENV);
     let prev_test_path = retrieve_env_var(TEST_PATH_ENV);
@@ -157,9 +159,11 @@ pub fn setup_tmp_environment(title: &str, steam_cache: Vec<App>) -> TempEnvironm
 
     unsafe {
         env::set_var(PROJECT_PATH_ENV, temp_dir.display().to_string());
-        env::set_var(TEST_PATH_ENV, temp_dir.display().to_string());
+        env::set_var(
+            TEST_PATH_ENV,
+            temp_dir.join(DEFAULT_TEST_DIR).display().to_string(),
+        );
     }
-    env::set_current_dir(&temp_dir).unwrap();
 
     TempEnvironment {
         _guard: guard,

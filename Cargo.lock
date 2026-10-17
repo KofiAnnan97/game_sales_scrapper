@@ -1362,12 +1362,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "exitcode"
-version = "1.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "de853764b47027c2e862a995c34978ffa63c1501f2e15f987ba11bd4f9bba193"
-
-[[package]]
 name = "exr"
 version = "1.74.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1423,9 +1417,6 @@ name = "files"
 version = "0.3.2-alpha"
 dependencies = [
  "csv",
- "dotenv",
- "dotenvy",
- "serde_json",
  "types",
 ]
 
@@ -1875,14 +1866,10 @@ dependencies = [
  "alerting",
  "clap",
  "constants",
- "dotenv",
- "dotenvy",
  "file_ops",
  "files",
  "futures",
  "properties",
- "rand 0.9.5",
- "regex",
  "reqwest",
  "serde_json",
  "stores",
@@ -1895,7 +1882,6 @@ name = "gss-tests"
 version = "0.3.2-alpha"
 dependencies = [
  "alerting",
- "clap",
  "constants",
  "dotenv",
  "dotenvy",
@@ -5064,12 +5050,10 @@ dependencies = [
  "chrono",
  "constants",
  "errors",
- "exitcode",
  "files",
  "futures",
  "mockall",
  "properties",
- "rand 0.9.5",
  "regex",
  "reqwest",
  "serde",
@@ -5544,7 +5528,9 @@ checksum = "b6f5e870be6c3b371b77fe0ee0bafb859fa4964b4404c27de1d380043c4dda20"
 name = "types"
 version = "0.3.2-alpha"
 dependencies = [
+ "reqwest",
  "serde",
+ "tokio",
 ]
 
 [[package]]

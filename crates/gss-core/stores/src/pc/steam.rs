@@ -111,7 +111,7 @@ impl<'a> SteamApi for SteamClient<'a> {
             games_list = load_cached_games().unwrap_or_default();
         }
         let mut search_list: Vec<String> = Vec::new();
-        let search_type = SearchPattern::Exact;
+        let search_type = SearchPattern::FuzzySmithWatrerman;
 
         let semaphore = Arc::new(Semaphore::new(DEFAULT_CONCURRENCY_LIMIT));
         let cache_length = &games_list.len();
@@ -435,7 +435,6 @@ async fn get_games(
         .await?
         .text()
         .await?;
-    // println!("Response: {:?}", &resp);
     let body: Value = serde_json::from_str(&resp)?;
     let app_list = match body
         .get("response")

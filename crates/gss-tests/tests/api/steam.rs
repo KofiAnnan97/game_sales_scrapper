@@ -1,3 +1,6 @@
+use std::path::PathBuf;
+
+use constants::stores::steam::CACHE_FILENAME;
 use gss_tests::utils::{file_operations, tmp_setup};
 use stores::pc::steam;
 
@@ -8,8 +11,15 @@ static TMP_DIR_TITLE: &str = "steam_api";
 
 #[tokio::test]
 async fn search_game() {
-    let _test_env =
-        tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, file_operations::load_steam_cache());
+    let original_cache: PathBuf = [&properties::get_data_path(), CACHE_FILENAME]
+        .iter()
+        .collect();
+    let _test_env = tmp_setup::setup_tmp_environment(
+        TMP_DIR_TITLE,
+        file_operations::load_steam_cache(&original_cache),
+    );
+    let _ = properties::load_properties();
+    properties::set_test_mode(true);
 
     let client = reqwest::Client::new();
     let search_list = steam::search_by_keyphrase(GAME_TITLE, &client)

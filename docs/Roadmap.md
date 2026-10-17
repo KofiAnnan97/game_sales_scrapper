@@ -62,6 +62,7 @@
   - [X] Add caching to GitHub Actions
   - [ ] Add more app focused tests where possible
   - [X] Restructure code to be more standardized for testing
+    - [X] Updated tests to support mutliple threads
  
 ### Backlog
 - Features/Updates

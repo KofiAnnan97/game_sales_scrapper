@@ -1,122 +1,35 @@
 use constants::operations::properties::*;
-use constants::operations::settings::{
-    ALIASES_ENABLED, ALLOW_ALIAS_REUSE_AFTER_CREATION, SELECTED_STORES, SETTINGS_FILENAME,
-};
-use constants::operations::thresholds::{ALIAS_MAP, THRESHOLD_FILENAME, THRESHOLDS};
-use constants::stores::steam::CACHE_FILENAME;
-use files::general;
-use properties;
-use serde_json::{Result, Value, json};
-use std::fs::{metadata, read_to_string};
-use std::path::{Path, PathBuf};
+use constants::operations::settings::{ALIASES_ENABLED, SELECTED_STORES};
+use constants::operations::thresholds::THRESHOLDS;
+use serde_json::{Result, Value};
+use std::fs::read_to_string;
+use std::path::Path;
 use types::{internal::data::GameThreshold, response::steam::App};
 
-pub fn get_data_path() -> String {
-    if !properties::is_testing_enabled() {
-        properties::set_test_mode(true);
-    }
-    let mut data_path = properties::get_test_path();
-    let path_buf: PathBuf = [&data_path, DATA_DIR].iter().collect();
-    data_path = path_buf.display().to_string();
-    general::create_dir(&data_path);
-    data_path
-}
-
-pub fn get_config_path() -> String {
-    if !properties::is_testing_enabled() {
-        properties::set_test_mode(true);
-    }
-    let mut config_path = properties::get_test_path();
-    let path_buf: PathBuf = [&config_path, CONFIG_DIR].iter().collect();
-    config_path = path_buf.display().to_string();
-    general::create_dir(&config_path);
-    config_path
-}
-
-pub fn get_threshold_path() -> String {
-    let path_buf: PathBuf = [get_data_path(), THRESHOLD_FILENAME.to_string()]
-        .iter()
-        .collect();
-    let threshold_path = path_buf.display().to_string();
-    let path_str = general::get_path(&threshold_path);
-    match metadata(&path_str) {
-        Ok(md) => {
-            if md.len() == 0 {
-                let data = json!({
-                    THRESHOLDS.to_string(): [],
-                    ALIAS_MAP.to_string(): {},
-                });
-                let data_str = serde_json::to_string_pretty(&data);
-                general::write_to_file(
-                    threshold_path.clone(),
-                    data_str.expect("Initial settings could not be created."),
-                );
-            }
-        }
-        Err(e) => eprintln!("Error: {}", e),
-    }
-    path_str
-}
-
-pub fn get_settings_path() -> String {
-    let mut settings_path = get_config_path();
-    let path_buf: PathBuf = [&settings_path, SETTINGS_FILENAME].iter().collect();
-    settings_path = path_buf.display().to_string();
-    general::get_path(&settings_path)
-}
-
-pub fn clear_settings() {
-    if !properties::is_testing_enabled() {
-        properties::set_test_mode(true);
-    }
-    let settings =
-        json!({SELECTED_STORES: [], ALIASES_ENABLED: 1, ALLOW_ALIAS_REUSE_AFTER_CREATION: 1});
-    let settings_str = serde_json::to_string_pretty(&settings);
-    general::write_to_file(get_settings_path(), settings_str.expect("Clear settings."));
-}
-
-pub fn clear_thresholds() {
-    if !properties::is_testing_enabled() {
-        properties::set_test_mode(true);
-    }
-    let thresholds = json!({
-        THRESHOLDS.to_string(): [],
-        ALIAS_MAP.to_string(): {}
-    });
-    let thresholds_str = serde_json::to_string_pretty(&thresholds);
-    general::write_to_file(
-        get_threshold_path(),
-        thresholds_str.expect("Clear thresholds."),
-    );
-}
-
-pub fn load_steam_cache() -> Vec<App> {
-    let path_buf: PathBuf = [get_data_path(), CACHE_FILENAME.to_string()]
-        .iter()
-        .collect();
-    let filepath = path_buf.display().to_string();
+pub fn load_steam_cache(path: &Path) -> Vec<App> {
+    let filepath = path.display().to_string();
     let data = read_to_string(filepath).unwrap();
     let body: Value = serde_json::from_str(&data).expect("Cannot parse steam cache for testing");
     let cache = serde_json::to_string(&body).unwrap();
     serde_json::from_str::<Vec<App>>(&cache).unwrap_or_default()
 }
 
-pub fn load_threshold_data() -> Result<Value> {
-    let filepath = get_threshold_path();
+pub fn load_threshold_data(path: &Path) -> Result<Value> {
+    let filepath = path.display().to_string();
     let data = read_to_string(filepath).unwrap();
     serde_json::from_str(&data)
 }
 
-pub fn load_thresholds() -> Vec<GameThreshold> {
-    let filepath = get_threshold_path();
+pub fn load_thresholds(path: &Path) -> Vec<GameThreshold> {
+    let filepath = path.display().to_string();
     let data = read_to_string(filepath).unwrap();
     let body: Value = serde_json::from_str(&data).expect("Cannot parse threshold for testing");
     let thresholds = serde_json::to_string(&body[THRESHOLDS]).unwrap();
     serde_json::from_str::<Vec<GameThreshold>>(&thresholds).unwrap_or_default()
 }
 
-pub fn load_stores() -> Vec<String> {
-    let filepath = get_settings_path();
+pub fn load_stores(path: &Path) -> Vec<String> {
+    let filepath = path.display().to_string();
     let data = read_to_string(filepath).unwrap();
     let body: Value =
         serde_json::from_str(&data).expect("Get selected stores - could not convert to JSON");
@@ -124,8 +37,8 @@ pub fn load_stores() -> Vec<String> {
     serde_json::from_str::<Vec<String>>(&selected).unwrap_or_default()
 }
 
-pub fn load_alias_state() -> bool {
-    let filepath = get_settings_path();
+pub fn load_alias_state(path: &Path) -> bool {
+    let filepath = path.display().to_string();
     let data = read_to_string(filepath).unwrap();
     let body: Value =
         serde_json::from_str(&data).expect("Get alias state - could not convert to JSON");
@@ -166,8 +79,4 @@ pub fn create_env_str(
         test_path_val = dir_path.join(DEFAULT_TEST_DIR).display()
     );
     env_str
-}
-
-pub fn teardown() {
-    properties::set_test_mode(false);
 }

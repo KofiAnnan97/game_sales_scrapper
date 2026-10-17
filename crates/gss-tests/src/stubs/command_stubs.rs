@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use constants::operations::{properties::DATA_DIR, thresholds::THRESHOLDS};
 use dotenv::dotenv as dotenv_linux;
@@ -7,13 +7,14 @@ use files::{csv, general};
 use serde_json::json;
 use types::internal::data::{GameThreshold, SaleInfo, SimpleGameThreshold};
 
-use crate::utils::file_operations::{self, get_threshold_path};
+use crate::utils::file_operations;
 
-pub fn add_fake_threshold(alias: &str, title: &str, price: f64) {
-    add_threshold(alias, title, 1, 2, "c", price);
+pub fn add_fake_threshold(threshold_path: &Path, alias: &str, title: &str, price: f64) {
+    add_threshold(threshold_path, alias, title, 1, 2, "c", price);
 }
 
 pub fn add_threshold(
+    threshold_path: &Path,
     alias: &str,
     title: &str,
     steam_id: u32,
@@ -30,7 +31,7 @@ pub fn add_threshold(
         currency: String::from("USD"),
         desired_price: price,
     };
-    let mut thresholds = file_operations::load_thresholds();
+    let mut thresholds = file_operations::load_thresholds(threshold_path);
     let mut unique = true;
     for threshold in &thresholds {
         if threshold.title == title {
@@ -41,13 +42,13 @@ pub fn add_threshold(
     if unique {
         thresholds.push(game_thresh);
     }
-    match file_operations::load_threshold_data() {
+    match file_operations::load_threshold_data(threshold_path) {
         Ok(data) => {
             let mut thresholds_data = data;
             *thresholds_data.get_mut(THRESHOLDS.to_string()).unwrap() = json!(thresholds);
             let thresholds_str = serde_json::to_string_pretty(&thresholds_data);
             general::write_to_file(
-                get_threshold_path(),
+                threshold_path.display().to_string(),
                 thresholds_str.expect("Cannot update thresholds for testing"),
             );
         }

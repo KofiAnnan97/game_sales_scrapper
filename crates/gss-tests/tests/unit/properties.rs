@@ -224,6 +224,7 @@ fn update_properties_from_env() {
         env::remove_var(PROJECT_PATH_ENV);
         env::remove_var(TEST_PATH_ENV);
     }
+    env::set_current_dir(&_tmp_env.temp_dir).unwrap();
 
     properties::update_properties_from_env();
     let updated_properties = properties::load_properties().expect("Updated properties should load");

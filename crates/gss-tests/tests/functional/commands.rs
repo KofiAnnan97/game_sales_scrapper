@@ -1,15 +1,18 @@
+use constants::operations::thresholds::THRESHOLD_FILENAME;
 use regex::Regex;
 use std::collections::HashMap;
 use std::io::Write;
 use std::process::{Command, Stdio};
 
+use constants::operations::properties::{CONFIG_DIR, DATA_DIR, DEFAULT_TEST_DIR};
+use constants::operations::settings::SETTINGS_FILENAME;
 use types::internal::store::GameStore;
 // use constants::stores::microsoft_store::BASE_URL as MS_BASE_URL;
 // use stores::pc::microsoft_store::{self, MockMicrosoftStoreApi};
 // use stores::pc::gog::MockGogApi;
 // use stores::pc::steam::MockSteamApi;
 use gss_tests::stubs::command_stubs;
-use gss_tests::utils::file_operations;
+use gss_tests::utils::{file_operations, tmp_setup};
 
 // Sample Game Data IDs
 static E33_GAME_TITLE: &str = "Clair Obscur: Expedition 33";
@@ -22,14 +25,12 @@ static SELECT_STORES_PRTN: &str = r"\[(X|\s)\]\s+(.*)";
 static GAME_THRESH_PTRN: &str = r"-\s+(.*)\s\[.*\]\s+=>\s+(\d+.\d+|\d+)";
 static PRICE_CHECK_PTRN: &str = r"-\s(?<title>.*)\s:\s\d+.\d+\s->\s\d+.\d+\s\(";
 
-fn setup() {
-    file_operations::clear_thresholds();
-    file_operations::clear_settings();
-}
+const TMP_DIR_TITLE: &str = "commands";
 
 #[test]
 fn config_cmd() {
-    setup();
+    let _tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, Vec::new());
+    let _ = properties::load_properties();
     let _ = Command::new("cargo")
         .args([
             "run",
@@ -47,11 +48,17 @@ fn config_cmd() {
         ])
         .output()
         .expect("failed to execute process");
-    let stores = file_operations::load_stores();
+
+    let settings_path = _tmp_env
+        .temp_dir
+        .join(CONFIG_DIR)
+        .join(SETTINGS_FILENAME)
+        .with_extension("json");
+    let stores = file_operations::load_stores(&settings_path);
+
     let mut steam_present = false;
     let mut gog_present = false;
     let mut ms_present = false;
-    //println!("{:?}", stores);
     for store_name in stores {
         if store_name == GameStore::STEAM.get_id() {
             steam_present = true;
@@ -64,18 +71,18 @@ fn config_cmd() {
     assert!(steam_present, "Steam should be a selected store");
     assert!(gog_present, "Gog should be a selected store");
     assert!(!ms_present, "MSC should not be a selected store");
-    let are_aliases_enabled = file_operations::load_alias_state();
+    let are_aliases_enabled = file_operations::load_alias_state(&settings_path);
     assert!(
         !are_aliases_enabled,
         "Aliases should not be enabled in settings"
     );
-    file_operations::teardown();
+    _tmp_env.tear_down();
 }
 
 #[tokio::test]
 #[ignore = "Not yet implemented"]
 async fn add_cmd() {
-    setup();
+    let _tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, Vec::new());
     // Check that add fails without config setup
     // let price_str = "19.99";
     // let add_wo_config = Command::new("cargo")
@@ -127,7 +134,7 @@ async fn add_cmd() {
 #[tokio::test]
 #[ignore = "Not yet implemented"]
 async fn bulk_insert_cmd() {
-    setup();
+    let _tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, Vec::new());
     let filename = "bulk-insert-test.csv";
     let _csv_path = command_stubs::get_sample_csv(filename);
 
@@ -168,11 +175,20 @@ async fn bulk_insert_cmd() {
 
 #[test]
 fn update_price_cmd() {
-    setup();
+    let _tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, Vec::new());
+    let _ = properties::load_properties();
+    properties::set_test_mode(true);
+    let thresholds_path = _tmp_env
+        .temp_dir
+        .join(DEFAULT_TEST_DIR)
+        .join(DATA_DIR)
+        .join(THRESHOLD_FILENAME)
+        .with_extension("json");
+
     let title = "A single game";
     let alias = "ASG";
     let price = 69.99;
-    command_stubs::add_fake_threshold(alias, title, price);
+    command_stubs::add_fake_threshold(&thresholds_path, alias, title, price);
 
     // update threshold using game title
     let mut new_price = "19.99";
@@ -193,7 +209,7 @@ fn update_price_cmd() {
         ])
         .output()
         .expect("failed to execute process");
-    let mut thresholds = file_operations::load_thresholds();
+    let mut thresholds = file_operations::load_thresholds(&thresholds_path);
     assert_eq!(1, thresholds.len(), "There should only be 1 threshold");
     assert_eq!(
         title, thresholds[0].title,
@@ -239,7 +255,7 @@ fn update_price_cmd() {
         .expect("Failed to wait for process to complete.");
     println!("STDOUT: {}", String::from_utf8_lossy(&choice_output.stdout));
     eprintln!("STDERR: {}", String::from_utf8_lossy(&choice_output.stderr));
-    thresholds = file_operations::load_thresholds();
+    thresholds = file_operations::load_thresholds(&thresholds_path);
     assert_eq!(
         title, thresholds[0].title,
         "The game title should be {title} not {}",
@@ -272,7 +288,7 @@ fn update_price_cmd() {
         ])
         .output()
         .expect("failed to execute process");
-    thresholds = file_operations::load_thresholds();
+    thresholds = file_operations::load_thresholds(&thresholds_path);
     assert_eq!(
         alias, thresholds[0].alias,
         "The game alias should be {alias} not {}",
@@ -285,17 +301,26 @@ fn update_price_cmd() {
         new_price,
         thresholds[0].desired_price
     );
-    file_operations::teardown();
+    _tmp_env.tear_down()
 }
 
 #[test]
 fn update_alias_cmd() {
-    setup();
+    let _tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, Vec::new());
+    let _ = properties::load_properties();
+    properties::set_test_mode(true);
+    let thresholds_path = _tmp_env
+        .temp_dir
+        .join(DEFAULT_TEST_DIR)
+        .join(DATA_DIR)
+        .join(THRESHOLD_FILENAME)
+        .with_extension("json");
+
     let title = "A single game";
     let alias = "ASG";
     let price = 69.99;
     let mut new_alias = "New ASG";
-    command_stubs::add_fake_threshold(alias, title, price);
+    command_stubs::add_fake_threshold(&thresholds_path, alias, title, price);
 
     // update threshold alias using game title
     let _ = Command::new("cargo")
@@ -315,7 +340,7 @@ fn update_alias_cmd() {
         ])
         .output()
         .expect("failed to execute process");
-    let mut thresholds = file_operations::load_thresholds();
+    let mut thresholds = file_operations::load_thresholds(&thresholds_path);
     assert_eq!(1, thresholds.len(), "There should only be 1 threshold");
     assert_eq!(
         title, thresholds[0].title,
@@ -359,7 +384,7 @@ fn update_alias_cmd() {
         .expect("Failed to wait for process to complete.");
     println!("STDOUT: {}", String::from_utf8_lossy(&choice_output.stdout));
     eprintln!("STDERR: {}", String::from_utf8_lossy(&choice_output.stderr));
-    thresholds = file_operations::load_thresholds();
+    thresholds = file_operations::load_thresholds(&thresholds_path);
     assert_eq!(
         title, thresholds[0].title,
         "The game title should be {title} not {}",
@@ -370,15 +395,25 @@ fn update_alias_cmd() {
         "The game alias should be {} not {}",
         new_alias, thresholds[0].alias
     );
+    _tmp_env.tear_down();
 }
 
 #[test]
 fn remove_cmd() {
-    setup();
+    let _tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, Vec::new());
+    let _ = properties::load_properties();
+    properties::set_test_mode(true);
+    let thresholds_path = _tmp_env
+        .temp_dir
+        .join(DEFAULT_TEST_DIR)
+        .join(DATA_DIR)
+        .join(THRESHOLD_FILENAME)
+        .with_extension("json");
+
     let title = "Soon to be removed";
     let alias = "SR";
     let price = 69.99;
-    command_stubs::add_fake_threshold(alias, title, price);
+    command_stubs::add_fake_threshold(&thresholds_path, alias, title, price);
 
     // Remove threshold by title
     let _ = Command::new("cargo")
@@ -395,7 +430,7 @@ fn remove_cmd() {
         ])
         .output()
         .expect("failed to execute process");
-    let mut thresholds = file_operations::load_thresholds();
+    let mut thresholds = file_operations::load_thresholds(&thresholds_path);
     assert_eq!(
         0,
         thresholds.len(),
@@ -403,7 +438,7 @@ fn remove_cmd() {
     );
 
     // Remove threshold using fuzzy matching
-    command_stubs::add_fake_threshold(alias, title, price);
+    command_stubs::add_fake_threshold(&thresholds_path, alias, title, price);
     let mut fuzzy_output = Command::new("cargo")
         .args([
             "run",
@@ -430,7 +465,7 @@ fn remove_cmd() {
         .expect("Failed to wait for process to complete.");
     println!("STDOUT: {}", String::from_utf8_lossy(&choice_output.stdout));
     eprintln!("STDERR: {}", String::from_utf8_lossy(&choice_output.stderr));
-    thresholds = file_operations::load_thresholds();
+    thresholds = file_operations::load_thresholds(&thresholds_path);
     assert_eq!(
         0,
         thresholds.len(),
@@ -438,7 +473,7 @@ fn remove_cmd() {
     );
 
     // Remove threshold by alias
-    command_stubs::add_fake_threshold(alias, title, price);
+    command_stubs::add_fake_threshold(&thresholds_path, alias, title, price);
     let _ = Command::new("cargo")
         .args([
             "run",
@@ -453,18 +488,19 @@ fn remove_cmd() {
         ])
         .output()
         .expect("failed to execute process");
-    thresholds = file_operations::load_thresholds();
+    thresholds = file_operations::load_thresholds(&thresholds_path);
     assert_eq!(
         0,
         thresholds.len(),
         "There should not be any thresholds present"
     );
-    file_operations::teardown();
+    _tmp_env.tear_down();
 }
 
 #[test]
 fn list_selected_stores_cmd() {
-    setup();
+    let _tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, Vec::new());
+    let _ = properties::load_properties();
     let _ = Command::new("cargo")
         .args([
             "run",
@@ -522,16 +558,25 @@ fn list_selected_stores_cmd() {
             );
         }
     }
-    file_operations::teardown();
+    _tmp_env.tear_down();
 }
 
 #[test]
 fn list_thresholds_cmd() {
-    setup();
+    let _tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, Vec::new());
+    let _ = properties::load_properties();
+    properties::set_test_mode(true);
+    let thresholds_path = _tmp_env
+        .temp_dir
+        .join(DEFAULT_TEST_DIR)
+        .join(DATA_DIR)
+        .join(THRESHOLD_FILENAME)
+        .with_extension("json");
+
     let title = "Listed game #1";
     let alias = "LG1";
     let price = 69.99;
-    command_stubs::add_fake_threshold(alias, title, price);
+    command_stubs::add_fake_threshold(&thresholds_path, alias, title, price);
 
     let lt_out = Command::new("cargo")
         .args([
@@ -565,13 +610,23 @@ fn list_thresholds_cmd() {
         expected[0].1,
         results[0].1
     );
-    file_operations::teardown();
+    _tmp_env.tear_down();
 }
 
 #[tokio::test]
 async fn check_prices() {
-    setup();
+    let _tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, Vec::new());
+    let _ = properties::load_properties();
+    properties::set_test_mode(true);
+    let thresholds_path = _tmp_env
+        .temp_dir
+        .join(DEFAULT_TEST_DIR)
+        .join(DATA_DIR)
+        .join(THRESHOLD_FILENAME)
+        .with_extension("json");
+
     command_stubs::add_threshold(
+        &thresholds_path,
         "E33",
         E33_GAME_TITLE,
         E33_STEAM_ID,
@@ -666,5 +721,5 @@ async fn check_prices() {
         "{} -> Game title should be {} not {}",
         ms_name, expected_title, actual_title
     );
-    file_operations::teardown();
+    _tmp_env.tear_down();
 }
