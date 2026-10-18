@@ -1,5 +1,6 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
+use constants::operations::properties::DATA_DIR;
 use constants::stores::steam::CACHE_FILENAME;
 use gss_tests::utils::{file_operations, tmp_setup};
 use stores::pc::steam;
@@ -11,12 +12,22 @@ static TMP_DIR_TITLE: &str = "steam_api";
 
 #[tokio::test]
 async fn search_game() {
-    let original_cache: PathBuf = [&properties::get_data_path(), CACHE_FILENAME]
+    let mut cache_filepath: PathBuf = [&properties::get_test_path(), DATA_DIR, CACHE_FILENAME]
         .iter()
         .collect();
+    if !Path::new(&cache_filepath).is_file() {
+        cache_filepath = [&properties::get_project_path(), DATA_DIR, CACHE_FILENAME]
+            .iter()
+            .collect();
+    }
+
+    if !Path::new(&cache_filepath).is_file() {
+        panic!("Could not find the cache file. Test cannot continue.")
+    }
+
     let _test_env = tmp_setup::setup_tmp_environment(
         TMP_DIR_TITLE,
-        file_operations::load_steam_cache(&original_cache),
+        file_operations::load_steam_cache(&cache_filepath),
     );
     let _ = properties::load_properties();
     properties::set_test_mode(true);
