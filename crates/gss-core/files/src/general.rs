@@ -1,13 +1,23 @@
 use std::fs::{self, File, OpenOptions, write};
-use std::io::prelude::*;
+use std::io::{ErrorKind, prelude::*};
 use std::path::{Path, PathBuf};
 
 pub fn get_path(path_str: &str) -> String {
     let path = Path::new(path_str);
     let mut is_new = false;
     if !path.is_file() {
-        File::create_new(path_str).expect("Failed to create/load file");
-        is_new = true;
+        match OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(path_str)
+        {
+            Ok(_) => is_new = true,
+            Err(e) => {
+                if e.kind() != ErrorKind::AlreadyExists {
+                    panic!("Failed to create/load file: {}", e);
+                }
+            }
+        }
     }
     let load_fp = path.display().to_string();
     if is_new {

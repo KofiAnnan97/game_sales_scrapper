@@ -43,7 +43,7 @@ jobs:
     - name: Cache Steam games
       run: cargo run --profile ci -p gss-cli --locked -- --update-cache
     - name: Run tests
-      run: cargo test --profile ci --locked -- --test-threads=4 --show-output
+      run: cargo test --profile ci --locked -- --test-threads=1 --show-output
   windows:
     needs: linux
     if: always()
@@ -82,4 +82,4 @@ jobs:
       - name: Cache Steam games
         run: cargo run --profile ci -p gss-cli --locked -- --update-cache
       - name: Run tests
-        run: cargo test --profile ci --locked -- --test-threads=4 --show-output
+        run: cargo test --profile ci --locked -- --test-threads=1 --show-output

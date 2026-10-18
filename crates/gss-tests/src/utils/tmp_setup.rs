@@ -28,11 +28,9 @@ pub fn retrieve_env_var(env_var: &str) -> Option<String> {
 }
 
 pub fn restore_env_var(env_var: &str, value: Option<String>) {
-    unsafe {
-        match value {
-            Some(data) => env::set_var(env_var, data),
-            None => env::remove_var(env_var),
-        }
+    match value {
+        Some(data) => unsafe { env::set_var(env_var, data) },
+        None => unsafe { env::remove_var(env_var) },
     }
 }
 

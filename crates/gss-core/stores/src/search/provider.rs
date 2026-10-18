@@ -22,7 +22,11 @@ pub enum SearchError<E> {
 impl SearchProvider {
     pub fn new(max_concurrency: usize) -> Result<Self, reqwest::Error> {
         let client = reqwest::Client::builder()
-            .user_agent(format!("{}/{}", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION")))
+            .user_agent(format!(
+                "{}/{}",
+                env!("CARGO_PKG_NAME"),
+                env!("CARGO_PKG_VERSION")
+            ))
             .timeout(Duration::from_secs(5))
             .connect_timeout(Duration::from_secs(5))
             .read_timeout(Duration::from_secs(5))

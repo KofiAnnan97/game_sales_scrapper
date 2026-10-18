@@ -1881,7 +1881,6 @@ dependencies = [
 name = "gss-tests"
 version = "0.3.2-alpha"
 dependencies = [
- "alerting",
  "constants",
  "dotenv",
  "dotenvy",
