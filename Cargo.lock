@@ -5528,9 +5528,7 @@ checksum = "b6f5e870be6c3b371b77fe0ee0bafb859fa4964b4404c27de1d380043c4dda20"
 name = "types"
 version = "0.3.2-alpha"
 dependencies = [
- "reqwest",
  "serde",
- "tokio",
 ]
 
 [[package]]

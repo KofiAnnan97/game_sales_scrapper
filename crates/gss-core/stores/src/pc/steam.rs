@@ -11,7 +11,7 @@ use async_trait::async_trait;
 use tokio::sync::Semaphore;
 use tokio::time::Duration;
 
-use crate::algorithms::fuzzy;
+use crate::search::fuzzy;
 use constants::operations::properties::PROP_STEAM_API_KEY;
 use constants::operations::thresholds::{
     LEVENSTEIN_DIST_PERCENTAGE, SMITH_WATERMAN_DIST_PERCENTAGE,
@@ -330,10 +330,24 @@ fn get_cache_path() -> String {
     general::get_path(&cache_file_path)
 }
 
+fn get_valid_apps(raw_app_list: &Value) -> Vec<App> {
+    let mut valid_apps: Vec<App> = Vec::new();
+    if let Some(games) = raw_app_list.as_array() {
+        for game in games.iter() {
+            match serde_json::from_value::<App>(game.clone()) {
+                Ok(app) => valid_apps.push(app),
+                Err(_) => continue,
+            }
+        }
+    }
+    valid_apps
+}
+
 fn load_cached_games() -> serde_json::Result<Vec<App>> {
     let filepath = get_cache_path();
     let data = read_to_string(filepath).unwrap();
-    serde_json::from_str::<Vec<App>>(&data)
+    let raw_cached_games: Value = serde_json::from_str(&data)?;
+    Ok(get_valid_apps(&raw_cached_games))
 }
 
 fn get_last_appid(cached_games: &[App]) -> u32 {
@@ -347,7 +361,8 @@ fn get_last_appid(cached_games: &[App]) -> u32 {
 }
 
 // Adds/updates entries in cache then empties the list contains potentially new games
-fn add_entries_to_cache(new_games: &mut Vec<App>, cached_games: &mut Vec<App>) {
+fn add_entries_to_cache(new_games: &mut Vec<App>, cached_games: &mut Vec<App>) -> bool {
+    let mut changed = false;
     // let mut game_idx = 0;
     for ng in new_games.iter() {
         let mut unique = true;
@@ -358,6 +373,7 @@ fn add_entries_to_cache(new_games: &mut Vec<App>, cached_games: &mut Vec<App>) {
                     cached_game.name = ng.name.to_string();
                     cached_game.last_modified = ng.last_modified;
                     cached_game.price_change_number = ng.price_change_number;
+                    changed = true;
                 }
                 // game_idx = i;
                 unique = false;
@@ -374,9 +390,11 @@ fn add_entries_to_cache(new_games: &mut Vec<App>, cached_games: &mut Vec<App>) {
                 last_modified: ng.last_modified,
                 price_change_number: ng.price_change_number,
             });
+            changed = true;
         }
     }
     new_games.clear();
+    changed
 }
 
 // Updated to return a boolean and propagate error
@@ -384,7 +402,7 @@ pub async fn update_cached_games(client: &reqwest::Client) -> Result<String, Api
     let mut games_list: Vec<App> = load_cached_games().unwrap_or_default();
     let last_appid = get_last_appid(&games_list);
     let mut temp: Vec<App> = get_games(client, NUM_OF_RESULTS, last_appid).await?;
-    add_entries_to_cache(&mut temp, &mut games_list);
+    let mut cache_changed = add_entries_to_cache(&mut temp, &mut games_list);
     let sliding_last_appid = properties::get_sliding_steam_appid();
     if temp.is_empty()
         || (sliding_last_appid < last_appid && games_list.len() > SLIDING_UPDATE_START_SIZE)
@@ -395,11 +413,13 @@ pub async fn update_cached_games(client: &reqwest::Client) -> Result<String, Api
         } else {
             properties::set_sliding_steam_appid(0);
         }
-        add_entries_to_cache(&mut temp, &mut games_list);
+        cache_changed |= add_entries_to_cache(&mut temp, &mut games_list);
     } else {
         properties::set_sliding_steam_appid(0);
     }
-    println!("Sorting entries...");
+    if !cache_changed {
+        return Ok("Cache already up to date".into());
+    }
     games_list.sort_by_key(|a| a.app_id);
     let data_str = serde_json::to_string_pretty(&games_list)?;
     general::write_to_file(get_cache_path(), data_str);
@@ -427,20 +447,27 @@ async fn get_games(
         ("format", "json"),
     ];
     let url = format!("{}{}", API_BASE_URL, APP_LIST_ENDPOINT);
-    let resp = client
+    let resp = match client
         .get(url)
         .timeout(Duration::from_secs(GAME_LIST_TIMEOUT_IN_SECS))
         .query(&query_string)
         .send()
-        .await?
-        .text()
-        .await?;
+        .await
+    {
+        Ok(response) => response.text().await?,
+        Err(_) => {
+            return Err(ApiError::Message(format!(
+                "Request failed - error sending request for url {}{}",
+                API_BASE_URL, APP_LIST_ENDPOINT
+            )));
+        }
+    };
     let body: Value = serde_json::from_str(&resp)?;
     let app_list = match body
         .get("response")
         .and_then(|response| response.get("apps"))
     {
-        Some(apps) if !apps.is_null() => serde_json::from_value::<Vec<App>>(apps.clone())?,
+        Some(apps) if !apps.is_null() => get_valid_apps(&body),
         _ => Vec::new(),
     };
     Ok(app_list)

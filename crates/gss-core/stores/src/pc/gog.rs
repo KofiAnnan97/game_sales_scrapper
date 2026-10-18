@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use serde::Deserialize;
 use serde_json::Value;
-use std::{f64, format};
+use std::{f64, result::Result};
 // use mockall::automock;
 use tokio::time::Duration;
 
@@ -204,7 +204,7 @@ pub async fn get_price_details(
 pub async fn search_game_by_title_v2(
     title: &str,
     http_client: &reqwest::Client,
-) -> std::result::Result<Vec<GameInfo>, ApiError> {
+) -> Result<Vec<GameInfo>, ApiError> {
     GogClient::new(http_client)
         .search_game_by_title_v2(title, SEARCH_LIMIT)
         .await

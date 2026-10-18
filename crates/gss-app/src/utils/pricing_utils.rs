@@ -1,18 +1,14 @@
 use iced::widget::image::Handle;
-use reqwest::Client;
 use std::collections::HashMap;
 use std::sync::Arc;
-use tokio::sync::Semaphore;
 
 use crate::utils::file_utils::load_url_image_with_fallback;
 use alerting::email;
 use constants::operations::settings::{GOG_STORE_ID, MICROSOFT_STORE_ID, STEAM_STORE_ID};
 use file_ops::thresholds;
 use stores::pc::{gog, microsoft_store, steam};
-use types::internal::{
-    data::SaleInfo,
-    store::{DEFAULT_CONCURRENCY_LIMIT, GameStore},
-};
+use stores::search::provider::SearchProvider;
+use types::internal::{data::SaleInfo, store::GameStore};
 
 #[derive(Debug, Clone)]
 pub struct StoreSale {
@@ -81,12 +77,17 @@ pub fn check_prices_for_display(store_sales: &[StoreSale]) -> HashMap<GameStore,
     by_store
 }
 
-pub async fn check_prices_for_email(use_html: bool) -> Result<String, String> {
+pub async fn check_prices_for_email(
+    use_html: bool,
+    search_provider: SearchProvider,
+) -> Result<String, String> {
     let mut steam_sales: Vec<SaleInfo> = Vec::new();
     let mut gog_sales: Vec<SaleInfo> = Vec::new();
     let mut microsoft_store_sales: Vec<SaleInfo> = Vec::new();
 
-    let store_sales = get_sales().await.unwrap_or_default();
+    let store_sales = get_sales(&Arc::new(search_provider))
+        .await
+        .unwrap_or_default();
     for sale in store_sales {
         match sale.store {
             GameStore::STEAM => steam_sales.push(sale.info),
@@ -180,45 +181,42 @@ pub fn compare_prices(store_sales: &[StoreSale]) -> Vec<SaleInfoCompare> {
     compiled_sales
 }
 
-pub async fn get_sales() -> Result<Vec<StoreSale>, String> {
+pub async fn get_sales(provider: &Arc<SearchProvider>) -> Result<Vec<StoreSale>, String> {
     let mut sales: Vec<StoreSale> = Vec::new();
     let thresholds = thresholds::load_thresholds().unwrap_or_else(|_e| Vec::new());
-    let http_client = Client::new();
 
-    let semaphore = Arc::new(Semaphore::new(DEFAULT_CONCURRENCY_LIMIT));
     let mut tasks: Vec<tokio::task::JoinHandle<(GameStore, Option<StoreSale>)>> = Vec::new();
 
     for game in thresholds.iter() {
         if game.steam_id != 0 {
-            let sem = Arc::clone(&semaphore);
             let steam_id = game.steam_id;
             let alias = game.alias.clone();
             let desired_price = game.desired_price;
-            let client = http_client.clone();
+            let steam_provider = Arc::clone(provider);
 
             let task = tokio::spawn(async move {
-                let _permit = sem.acquire().await.ok();
-                match steam::get_price_details(steam_id, &client).await {
-                    Ok(info) => {
-                        if desired_price >= info.current_price {
-                            let icon_handler =
-                                Some(load_url_image_with_fallback(&info.icon_link).await);
-                            let store_sale = StoreSale {
+                let result = steam_provider
+                    .result_search(|| async {
+                        steam::get_price_details(steam_id, &steam_provider.client).await
+                    })
+                    .await;
+
+                match result {
+                    Ok(info) if desired_price >= info.current_price => {
+                        let icon_handler =
+                            Some(load_url_image_with_fallback(&info.icon_link).await);
+                        (
+                            GameStore::STEAM,
+                            Some(StoreSale {
                                 store: GameStore::STEAM,
                                 info,
                                 alias,
                                 game_id: format!("{}_{}", STEAM_STORE_ID, steam_id),
                                 icon_handler,
-                            };
-                            (GameStore::STEAM, Some(store_sale))
-                        } else {
-                            (GameStore::STEAM, None)
-                        }
+                            }),
+                        )
                     }
-                    Err(e) => {
-                        eprintln!("Steam error for ID {}: {}", steam_id, e);
-                        (GameStore::STEAM, None)
-                    }
+                    _ => (GameStore::STEAM, None),
                 }
             });
             tasks.push(task);
@@ -227,65 +225,69 @@ pub async fn get_sales() -> Result<Vec<StoreSale>, String> {
 
     for game in thresholds.iter() {
         if game.gog_id != 0 {
-            let sem = Arc::clone(&semaphore);
             let title = game.title.clone();
             let gog_id = game.gog_id;
             let alias = game.alias.clone();
             let desired_price = game.desired_price;
-            let client = http_client.clone();
 
+            let gog_provider = Arc::clone(provider);
             let task = tokio::spawn(async move {
-                let _permit = sem.acquire().await.ok();
-                if let Some(info) = gog::get_price_details_v2(&title, &client).await {
-                    if desired_price >= info.current_price {
+                let result = gog_provider
+                    .option_search(|| async {
+                        gog::get_price_details_v2(&title, &gog_provider.client).await
+                    })
+                    .await;
+
+                match result {
+                    Some(info) if desired_price >= info.current_price => {
                         let icon_handler =
                             Some(load_url_image_with_fallback(&info.icon_link).await);
-                        let store_sale = StoreSale {
-                            store: GameStore::GOOD_OLD_GAMES,
-                            info,
-                            alias,
-                            game_id: format!("{}_{}", GOG_STORE_ID, gog_id),
-                            icon_handler,
-                        };
-                        (GameStore::GOOD_OLD_GAMES, Some(store_sale))
-                    } else {
-                        (GameStore::GOOD_OLD_GAMES, None)
+                        (
+                            GameStore::GOOD_OLD_GAMES,
+                            Some(StoreSale {
+                                store: GameStore::GOOD_OLD_GAMES,
+                                info,
+                                alias,
+                                game_id: format!("{}_{}", GOG_STORE_ID, gog_id),
+                                icon_handler,
+                            }),
+                        )
                     }
-                } else {
-                    (GameStore::GOOD_OLD_GAMES, None)
+                    _ => (GameStore::GOOD_OLD_GAMES, None),
                 }
             });
             tasks.push(task);
         }
-    }
 
-    for game in thresholds.iter() {
         if !game.microsoft_store_id.is_empty() {
-            let sem = Arc::clone(&semaphore);
             let store_id = game.microsoft_store_id.clone();
             let alias = game.alias.clone();
             let desired_price = game.desired_price;
-            let client = http_client.clone();
 
+            let ms_provider = Arc::clone(provider);
             let task = tokio::spawn(async move {
-                let _permit = sem.acquire().await.ok();
-                if let Some(info) = microsoft_store::get_price_details(&store_id, &client).await {
-                    if desired_price >= info.current_price {
+                let result = ms_provider
+                    .option_search(|| async {
+                        microsoft_store::get_price_details(&store_id, &ms_provider.client).await
+                    })
+                    .await;
+
+                match result {
+                    Some(info) if desired_price >= info.current_price => {
                         let icon_handler =
                             Some(load_url_image_with_fallback(&info.icon_link).await);
-                        let store_sale = StoreSale {
-                            store: GameStore::MICROSOFT_STORE_PC,
-                            info,
-                            alias,
-                            game_id: format!("{}_{}", MICROSOFT_STORE_ID, store_id),
-                            icon_handler,
-                        };
-                        (GameStore::MICROSOFT_STORE_PC, Some(store_sale))
-                    } else {
-                        (GameStore::MICROSOFT_STORE_PC, None)
+                        (
+                            GameStore::MICROSOFT_STORE_PC,
+                            Some(StoreSale {
+                                store: GameStore::MICROSOFT_STORE_PC,
+                                info,
+                                alias,
+                                game_id: format!("{}_{}", MICROSOFT_STORE_ID, store_id),
+                                icon_handler,
+                            }),
+                        )
                     }
-                } else {
-                    (GameStore::MICROSOFT_STORE_PC, None)
+                    _ => (GameStore::MICROSOFT_STORE_PC, None),
                 }
             });
             tasks.push(task);

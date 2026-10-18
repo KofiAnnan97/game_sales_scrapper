@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 
 use iced::window;
+use stores::search::provider::SearchProvider;
 use types::internal::data::{GameThreshold, SimpleGameThreshold};
 use types::internal::store::GameStore;
 
@@ -37,6 +38,7 @@ pub struct App {
     pub auto_advance_enabled: bool,
     pub default_log_level: String,
     //Search
+    pub search_provider: SearchProvider,
     pub search_query: String,
     pub add_alias: String,
     pub add_price: String,

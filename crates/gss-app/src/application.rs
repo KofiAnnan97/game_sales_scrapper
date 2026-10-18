@@ -1,11 +1,3 @@
-use file_ops::{settings, thresholds};
-use files::csv;
-use iced::{Element, Subscription, Task, Theme, exit, time, window};
-use std::collections::{HashMap, HashSet};
-use std::path::Path;
-use std::sync::Arc;
-use std::time::Duration;
-
 use crate::app::constants::{LOADING_FRAMES_SIZE, SKIP_STORE_SELECTION, STATUS_ERR};
 use crate::app::enums::{SortColumn, SortOrder, Tab, View};
 use crate::app::message::{MainMessage, Message};
@@ -20,8 +12,18 @@ use crate::views::logs::Screen;
 use crate::views::logs::{LoggingMessage, LoggingView};
 use crate::views::preview::{PreviewMessage, PreviewView};
 use crate::views::settings::Page;
+use file_ops::{settings, thresholds};
+use files::csv;
+use iced::{Element, Subscription, Task, Theme, exit, time, window};
+use reqwest::Client;
+use std::collections::{HashMap, HashSet};
+use std::path::Path;
+use std::sync::Arc;
+use std::time::Duration;
+use stores::search::provider::SearchProvider;
+use tokio::sync::Semaphore;
 use types::internal::data::{GameThreshold, SimpleGameThreshold};
-use types::internal::store::GameStore;
+use types::internal::store::{DEFAULT_CONCURRENCY_LIMIT, GameStore};
 
 impl App {
     pub fn new(log_file: String) -> (Self, Task<Message>) {
@@ -61,6 +63,12 @@ impl App {
             // TODO: get current default value or return DEBUG
             default_log_level: "DEBUG".into(),
             // Search
+            search_provider: SearchProvider::new(DEFAULT_CONCURRENCY_LIMIT).unwrap_or_else(|_| {
+                SearchProvider {
+                    client: Client::new(),
+                    semaphore: Arc::new(Semaphore::new(DEFAULT_CONCURRENCY_LIMIT)),
+                }
+            }),
             search_query: String::new(),
             add_alias: String::new(),
             add_price: String::new(),
@@ -482,8 +490,11 @@ impl App {
                         self.logger
                             .info(Screen::Search, &format!("Search {}", game_store.get_name()));
                         let game_store_clone = *game_store;
+                        let provider = Arc::new(self.search_provider.clone());
                         return Task::perform(
-                            perform_store_search(query, game_store_clone),
+                            async move {
+                                perform_store_search(query, game_store_clone, &provider).await
+                            },
                             move |result| {
                                 MainMessage::StoreSearchCompleted(game_store_clone, result).into()
                             },
@@ -676,12 +687,14 @@ impl App {
                 self.show_dialog = false;
                 self.is_caching_in_progress = true;
                 self.logger.info(Screen::Settings, "Updating cache ...");
-                Task::perform(update_cache(), |result| {
+                let client = self.search_provider.client.clone();
+                Task::perform(update_cache(client), |result| {
                     MainMessage::UpdateCacheResult(result).into()
                 })
             }
             MainMessage::UpdateCacheResult(result) => {
                 self.is_caching_in_progress = false;
+                self.logger.info(Screen::Settings, "Retrieving entries...");
                 match result {
                     Ok(output) => {
                         self.logger.info(Screen::Settings, &output);
@@ -863,7 +876,7 @@ impl App {
 
             PreviewMessage::SendEmail => {
                 self.logger.info(Screen::Sales, "Attempting to send email.");
-                Task::perform(send_sales_email(), |result| {
+                Task::perform(send_sales_email(self.search_provider.clone()), |result| {
                     MainMessage::SendEmailResult(result).into()
                 })
             }
@@ -1036,9 +1049,11 @@ impl App {
             .map(|(store_id, _)| {
                 let query = query.clone();
                 let store_id = *store_id;
-                Task::perform(perform_store_search(query, store_id), move |result| {
-                    MainMessage::StoreSearchCompleted(store_id, result).into()
-                })
+                let provider = Arc::new(self.search_provider.clone());
+                Task::perform(
+                    async move { perform_store_search(query, store_id, &provider).await },
+                    move |result| MainMessage::StoreSearchCompleted(store_id, result).into(),
+                )
             })
             .collect();
 

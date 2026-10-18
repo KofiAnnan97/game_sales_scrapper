@@ -8,8 +8,8 @@ use crate::settings::{self, get_alias_reuse_state};
 use constants::operations::settings::ALLOW_ALIAS_REUSE_AFTER_CREATION;
 use constants::operations::thresholds::*;
 use files::general;
-use stores::algorithms::fuzzy;
 use stores::pc::steam; //, gog, microsoft_store};
+use stores::search::fuzzy;
 use types::internal::{data::GameThreshold, store::GameStore};
 use types::response::{gog::GameInfo as GOGGameInfo, microsoft_store::ProductInfo, steam::App};
 

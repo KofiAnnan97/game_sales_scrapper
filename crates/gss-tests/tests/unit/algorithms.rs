@@ -1,5 +1,5 @@
 use std::time::Instant;
-use stores::algorithms::fuzzy::*;
+use stores::search::fuzzy::*;
 
 const MIN_ACCEPTABLE_PERCENT: f32 = 0.6;
 

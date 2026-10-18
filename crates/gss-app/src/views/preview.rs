@@ -1,15 +1,17 @@
+use std::sync::Arc;
 use std::time::Duration;
 
+use constants::icons::RETRY;
+use constants::operations::settings::{GOG_STORE_NAME, MICROSOFT_STORE_NAME, STEAM_STORE_NAME};
 use iced::widget::{
     Button, Checkbox, Column, Container, Scrollable, TextInput, button, center, column, container,
     pick_list, row, scrollable, stack, text,
 };
 use iced::{Alignment, Element, Font, Length, Task, clipboard, font};
-
-use constants::icons::RETRY;
-use constants::operations::settings::{GOG_STORE_NAME, MICROSOFT_STORE_NAME, STEAM_STORE_NAME};
+use stores::search::provider::SearchProvider;
+use tokio::sync::Semaphore;
 use types::internal::filtering::*;
-use types::internal::store::GameStore;
+use types::internal::store::{DEFAULT_CONCURRENCY_LIMIT, GameStore};
 
 use crate::app::constants::{LOADING_FRAMES_SIZE, STATUS_ERR};
 use crate::components::custom_styles::{self as cs, bold_text};
@@ -72,6 +74,7 @@ pub enum PreviewMessage {
     HideDialog,
 }
 pub struct PreviewView {
+    search_provider: SearchProvider,
     active_view: PreviewDisplayed,
     sales_cache: SalesCache,
     cmp_sales_mode: bool,
@@ -92,6 +95,10 @@ pub struct PreviewView {
 impl Default for PreviewView {
     fn default() -> Self {
         Self {
+            search_provider: SearchProvider {
+                client: Default::default(),
+                semaphore: Arc::new(Semaphore::new(DEFAULT_CONCURRENCY_LIMIT)),
+            },
             active_view: PreviewDisplayed::Sales,
             sales_cache: SalesCache::default(),
             cmp_sales_mode: false,
@@ -189,8 +196,12 @@ impl PreviewView {
                 if self.sales_cache.store_sales.is_empty() {
                     self.is_price_check_in_progress = true;
                     self.price_check_loading_frame = 0;
+                    let provider = Arc::new(self.search_provider.clone());
                     Task::batch(vec![
-                        Task::perform(get_sales(), PreviewMessage::GetSales),
+                        Task::perform(
+                            async move { get_sales(&provider).await },
+                            PreviewMessage::GetSales,
+                        ),
                         Task::done(PreviewMessage::SendLogEvent(
                             LogLevel::INFO,
                             "Checking games for potential sales".into(),
@@ -241,8 +252,12 @@ impl PreviewView {
                 self.is_price_check_in_progress = true;
                 self.price_check_loading_frame = 0;
                 self.sales_cache.clear();
+                let provider = Arc::new(self.search_provider.clone());
                 Task::batch(vec![
-                    Task::perform(get_sales(), PreviewMessage::GetSales),
+                    Task::perform(
+                        async move { get_sales(&provider).await },
+                        PreviewMessage::GetSales,
+                    ),
                     Task::done(PreviewMessage::SendLogEvent(
                         LogLevel::DEBUG,
                         "Refreshing sales".into(),
@@ -380,11 +395,6 @@ impl PreviewView {
         } else if self.filtered_sale_idxs.is_empty() {
             sales_rows = sales_rows.push(text("No games could be found with applied filters."));
         } else {
-            // if self.filtered_sale_idxs.is_empty() {
-            // for (idx, sale) in self.sales_cache.store_sales.iter().enumerate() {
-            //     sales_rows = sales_rows.push(game_sale_row(sale, idx));
-            // }
-            //}
             for (i, sale_idx) in self.filtered_sale_idxs.iter().enumerate() {
                 let sale = &self.sales_cache.store_sales[*sale_idx];
                 sales_rows = sales_rows.push(game_sale_row(sale, i));
