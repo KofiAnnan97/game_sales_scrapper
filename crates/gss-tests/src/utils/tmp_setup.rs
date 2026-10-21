@@ -28,11 +28,9 @@ pub fn retrieve_env_var(env_var: &str) -> Option<String> {
 }
 
 pub fn restore_env_var(env_var: &str, value: Option<String>) {
-    unsafe {
-        match value {
-            Some(data) => env::set_var(env_var, data),
-            None => env::remove_var(env_var),
-        }
+    match value {
+        Some(data) => unsafe { env::set_var(env_var, data) },
+        None => unsafe { env::remove_var(env_var) },
     }
 }
 
@@ -74,6 +72,12 @@ pub fn create(title: &str, steam_cache: Vec<App>) -> PathBuf {
         ALLOW_ALIAS_REUSE_AFTER_CREATION.to_string(): 1
     }))
     .expect("Failed to write settings for testing");
+
+    if !steam_cache.is_empty() {
+        println!("Steam cache contains {} titles", steam_cache.len());
+    } else {
+        println!("Steam cache is empty.")
+    }
 
     let thresholds_json = serde_json::to_string_pretty(&json!({
         THRESHOLDS.to_string(): [],
@@ -149,7 +153,9 @@ pub fn create(title: &str, steam_cache: Vec<App>) -> PathBuf {
 }
 
 pub fn setup_tmp_environment(title: &str, steam_cache: Vec<App>) -> TempEnvironment {
-    let guard = test_lock().lock().unwrap();
+    let guard = test_lock()
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
     let temp_dir = create(title, steam_cache);
     let prev_project_path = retrieve_env_var(PROJECT_PATH_ENV);
     let prev_test_path = retrieve_env_var(TEST_PATH_ENV);
@@ -157,9 +163,11 @@ pub fn setup_tmp_environment(title: &str, steam_cache: Vec<App>) -> TempEnvironm
 
     unsafe {
         env::set_var(PROJECT_PATH_ENV, temp_dir.display().to_string());
-        env::set_var(TEST_PATH_ENV, temp_dir.display().to_string());
+        env::set_var(
+            TEST_PATH_ENV,
+            temp_dir.join(DEFAULT_TEST_DIR).display().to_string(),
+        );
     }
-    env::set_current_dir(&temp_dir).unwrap();
 
     TempEnvironment {
         _guard: guard,

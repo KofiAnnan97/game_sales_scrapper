@@ -3,8 +3,9 @@ use iced::widget::center;
 use iced::widget::{Button, Column, Container, Scrollable, checkbox, column, container, row, text};
 use iced::{Alignment, Element, Length};
 
+use crate::app::message::Message;
+use crate::app::state::App;
 use crate::views::logs::LoggingMessage;
-use crate::{App, Message};
 
 #[derive(Debug, Clone)]
 pub struct LogItem {
@@ -14,7 +15,7 @@ pub struct LogItem {
     pub checked: bool,
 }
 
-pub fn checkable_logs(app: &crate::App) -> Container<'_, Message> {
+pub fn checkable_logs(app: &App) -> Container<'_, Message> {
     let checkboxes = app
         .logging_view
         .log_items

@@ -1,9 +1,11 @@
 use clap::parser::ValueSource;
 use clap::{Arg, ArgAction, ArgMatches, Command, arg, command};
+use reqwest::Client;
 use serde_json::Value;
 use std::collections::HashMap;
 use std::io::{self, Write};
-
+use std::sync::Arc;
+use tokio::sync::Semaphore;
 // Internal libraries
 use alerting::email;
 use constants::cli::args::*;
@@ -17,9 +19,9 @@ use gss_cli::{
     check_prices, gog_insert_sequence, microsoft_store_insert_sequence, print_test_flag,
     steam_insert_sequence, storefront_check,
 };
-use stores::pc::steam;
+use stores::{pc::steam, search::provider::SearchProvider};
 use types::internal::data::SimpleGameThreshold;
-use types::internal::store::GameStore;
+use types::internal::store::{DEFAULT_CONCURRENCY_LIMIT, GameStore};
 
 // Main function
 #[tokio::main]
@@ -40,6 +42,12 @@ async fn main() {
         .action(ArgAction::Set)
         .value_parser(clap::value_parser!(String))
         .required(true);
+
+    let search_provider =
+        SearchProvider::new(DEFAULT_CONCURRENCY_LIMIT).unwrap_or_else(|_| SearchProvider {
+            client: Client::new(),
+            semaphore: Arc::new(Semaphore::new(DEFAULT_CONCURRENCY_LIMIT)),
+        });
 
     let cmd : ArgMatches = command!()
         .about("A simple script for checking prices on games.")
@@ -479,16 +487,15 @@ async fn main() {
             };
             let title = add_args.get_one::<String>("title").unwrap().clone();
             let price = *add_args.get_one::<f64>("price").unwrap();
-            let http_client = reqwest::Client::new();
             for store in selected_stores {
                 if store == GameStore::STEAM {
-                    steam_insert_sequence(&alias, &title, price, &http_client).await;
+                    steam_insert_sequence(&alias, &title, price, &search_provider).await;
                 }
                 if store == GameStore::GOOD_OLD_GAMES {
-                    gog_insert_sequence(&alias, &title, price, &http_client).await;
+                    gog_insert_sequence(&alias, &title, price, &search_provider).await;
                 }
                 if store == GameStore::MICROSOFT_STORE_PC {
-                    microsoft_store_insert_sequence(&alias, &title, price, &http_client).await;
+                    microsoft_store_insert_sequence(&alias, &title, price, &search_provider).await;
                 }
             }
         }
@@ -501,7 +508,6 @@ async fn main() {
                 Ok(gl) => game_list = gl,
                 Err(e) => eprintln!("Could not parse file: {}\n{}", file_path, e),
             }
-            let http_client = reqwest::Client::new();
             for game in game_list.iter() {
                 println!("INSERT GAME -> \"{}\"", game.name);
                 let title = &game.name;
@@ -509,13 +515,14 @@ async fn main() {
                 let price: f64 = game.price;
                 for store in selected_stores.iter() {
                     if store == &GameStore::STEAM {
-                        steam_insert_sequence(&alias, title, price, &http_client).await;
+                        steam_insert_sequence(&alias, title, price, &search_provider).await;
                     }
                     if store == &GameStore::GOOD_OLD_GAMES {
-                        gog_insert_sequence(&alias, title, price, &http_client).await;
+                        gog_insert_sequence(&alias, title, price, &search_provider).await;
                     }
                     if store == &GameStore::MICROSOFT_STORE_PC {
-                        microsoft_store_insert_sequence(&alias, title, price, &http_client).await;
+                        microsoft_store_insert_sequence(&alias, title, price, &search_provider)
+                            .await;
                     }
                 }
             }
@@ -548,20 +555,21 @@ async fn main() {
                 settings::list_selected_stores();
             } else if cmd.get_flag(UPDATE_CACHE) {
                 println!("Caching started (this might take a while)...");
-                match steam::update_cached_games().await {
+                println!("Retrieving entries...");
+                match steam::update_cached_games(&search_provider.client).await {
                     Ok(result) => println!("{}", result),
                     Err(e) => eprintln!("Caching could not be completed due to {:?}", e),
                 }
             } else if cmd.get_flag(CHECK_PRICES) {
                 let use_html = false;
-                let prices_str = check_prices(use_html).await;
+                let prices_str = check_prices(use_html, &Arc::new(search_provider)).await;
                 if !prices_str.is_empty() {
                     println!("------------\nCHECK PRICES\n------------\n{}", prices_str);
                 }
             } else if cmd.get_flag(SEND_EMAIL) {
                 email::params_check();
                 let use_html = true;
-                let sales_str = check_prices(use_html).await;
+                let sales_str = check_prices(use_html, &Arc::new(search_provider)).await;
                 let html_body = email::create_html_body(&sales_str);
                 println!("Email Contents:\n{}", html_body);
                 if sales_str.is_empty() {

@@ -1,4 +1,8 @@
-use crate::utils::{file_operations, tmp_setup};
+use std::path::{Path, PathBuf};
+
+use constants::operations::properties::DATA_DIR;
+use constants::stores::steam::CACHE_FILENAME;
+use gss_tests::utils::{file_operations, tmp_setup};
 use stores::pc::steam;
 
 // Constants
@@ -8,10 +12,28 @@ static TMP_DIR_TITLE: &str = "steam_api";
 
 #[tokio::test]
 async fn search_game() {
-    let _test_env =
-        tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, file_operations::load_steam_cache());
+    let mut cache_filepath: PathBuf = [&properties::get_test_path(), DATA_DIR, CACHE_FILENAME]
+        .iter()
+        .collect();
+    if !Path::new(&cache_filepath).is_file() {
+        cache_filepath = [&properties::get_project_path(), DATA_DIR, CACHE_FILENAME]
+            .iter()
+            .collect();
+    }
 
-    let search_list = steam::search_by_keyphrase(GAME_TITLE)
+    if !Path::new(&cache_filepath).is_file() {
+        panic!("Could not find the cache file. Test cannot continue.")
+    }
+
+    let _test_env = tmp_setup::setup_tmp_environment(
+        TMP_DIR_TITLE,
+        file_operations::load_steam_cache(&cache_filepath),
+    );
+    let _ = properties::load_properties();
+    properties::set_test_mode(true);
+
+    let client = reqwest::Client::new();
+    let search_list = steam::search_by_keyphrase(GAME_TITLE, &client)
         .await
         .unwrap_or_else(|_| Vec::new());
     let mut is_game_present = false;

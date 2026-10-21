@@ -6,11 +6,13 @@ use iced::widget::{
 use iced::{Element, Length};
 use types::internal::store::GameStore;
 
+use crate::app::constants::LOADING_FRAMES_SIZE;
+use crate::app::message::{MainMessage, Message};
+use crate::app::state::App;
 use crate::components::custom_styles::{backdrop, highlight_on_click_style};
 use crate::components::custom_widgets::{message_dialog, text_loading_indicator};
 use crate::utils::log_utils::LogLevel;
 use crate::views::logs::LoggingMessage;
-use crate::{LOADING_FRAMES_SIZE, MainMessage, Message};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Page {
@@ -21,7 +23,7 @@ pub enum Page {
     Stores(GameStore),
 }
 
-pub fn view(app: &crate::App) -> Element<'_, Message> {
+pub fn view(app: &App) -> Element<'_, Message> {
     let store_arrow_orientation = if app.store_settings_expanded {
         DOWN_ARROW
     } else {
@@ -120,7 +122,7 @@ pub fn view(app: &crate::App) -> Element<'_, Message> {
     }
 }
 
-pub fn store_selection(app: &crate::App) -> Column<'_, Message> {
+pub fn store_selection(app: &App) -> Column<'_, Message> {
     app.available_stores
         .iter()
         .fold(column![], |column, game_store| {
@@ -134,7 +136,7 @@ pub fn store_selection(app: &crate::App) -> Column<'_, Message> {
         })
 }
 
-pub fn alias_settings(app: &crate::App) -> Column<'_, Message> {
+pub fn alias_settings(app: &App) -> Column<'_, Message> {
     column![
         Checkbox::new(app.alias_enabled)
             .label("Enable aliases")
@@ -147,7 +149,7 @@ pub fn alias_settings(app: &crate::App) -> Column<'_, Message> {
     ]
 }
 
-fn general_settings(app: &crate::App) -> Element<'_, Message> {
+fn general_settings(app: &App) -> Element<'_, Message> {
     let content = column![
         row![
             if app.test_mode {
@@ -213,7 +215,7 @@ fn general_settings(app: &crate::App) -> Element<'_, Message> {
     .into()
 }
 
-fn email_settings(app: &crate::App) -> Element<'_, Message> {
+fn email_settings(app: &App) -> Element<'_, Message> {
     let content = column![
         column![
             text("Recipient email"),
@@ -315,7 +317,7 @@ fn email_settings(app: &crate::App) -> Element<'_, Message> {
 //         .into()
 // }
 
-fn logging_settings(app: &crate::App) -> Element<'_, Message> {
+fn logging_settings(app: &App) -> Element<'_, Message> {
     column![
         row![
             text("Default Log Level: "),
@@ -333,7 +335,7 @@ fn logging_settings(app: &crate::App) -> Element<'_, Message> {
     .into()
 }
 
-fn steam_settings(app: &crate::App) -> Element<'_, Message> {
+fn steam_settings(app: &App) -> Element<'_, Message> {
     let cache_loading = text_loading_indicator(
         "Retrieve games to cache",
         app.caching_loading_frame,

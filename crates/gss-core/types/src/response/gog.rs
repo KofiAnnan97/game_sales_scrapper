@@ -44,6 +44,7 @@ pub struct PriceOverview {
 pub struct GameInfo {
     pub id: String,
     pub title: String,
+    #[serde(skip_serializing_if = "Option::is_none", default)]
     pub price: Option<Price>,
     #[serde(rename = "coverHorizontal")]
     pub c_horizontal: String,
@@ -51,26 +52,48 @@ pub struct GameInfo {
     pub store_link: String,
     #[serde(rename = "coverVertical")]
     c_vertical: String,
+    #[serde(skip_serializing_if = "Vec::is_empty", default)]
     developers: Vec<String>,
+    #[serde(skip_serializing_if = "Vec::is_empty", default)]
     editions: Vec<Editions>,
+    #[serde(skip_serializing_if = "Vec::is_empty", default)]
     features: Vec<HashMap<String, String>>,
+    #[serde(rename = "galaxyBackgroundImage")]
+    galaxy_background_image: Option<String>,
+    #[serde(skip_serializing_if = "Vec::is_empty", default)]
     genres: Vec<HashMap<String, String>>,
-    #[serde(rename = "operatingSystems")]
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    logo: Option<String>,
+    #[serde(
+        rename = "operatingSystems",
+        skip_serializing_if = "Vec::is_empty",
+        default
+    )]
     os: Vec<String>,
     #[serde(rename = "productState")]
     product_state: String,
     #[serde(rename = "productType")]
     product_type: String,
+    #[serde(skip_serializing_if = "Vec::is_empty", default)]
     publishers: Vec<String>,
+    #[serde(skip_serializing_if = "Vec::is_empty", default)]
     ratings: Vec<HashMap<String, String>>,
     #[serde(rename = "releaseDate")]
     release_date: String,
+    #[serde(rename = "reviewsCount")]
+    reviews_count: u32,
     #[serde(rename = "reviewsRating")]
     reviews_rating: u32,
+    #[serde(skip_serializing_if = "Vec::is_empty", default)]
     screenshots: Vec<String>,
     slug: String,
-    #[serde(rename = "storeReleaseDate")]
-    store_release_date: String,
+    #[serde(
+        rename = "storeReleaseDate",
+        skip_serializing_if = "Option::is_none",
+        default
+    )]
+    store_release_date: Option<String>,
+    #[serde(skip_serializing_if = "Vec::is_empty", default)]
     tags: Vec<HashMap<String, String>>,
     #[serde(rename = "userPreferredLanguage")]
     user_pref_lang: UserPreferredLanguage,
@@ -99,17 +122,20 @@ impl GameInfoBuilder {
             developers: vec![],
             editions: vec![],
             features: vec![],
+            galaxy_background_image: None,
             genres: vec![],
+            logo: None,
             os: vec![],
             product_state: "".to_string(),
             product_type: "".to_string(),
             publishers: vec![],
             ratings: vec![],
             release_date: "".to_string(),
+            reviews_count: 0,
             reviews_rating: 0,
             screenshots: vec![],
             slug: "".to_string(),
-            store_release_date: "".to_string(),
+            store_release_date: None,
             tags: vec![],
             user_pref_lang: Default::default(),
         }
@@ -131,6 +157,7 @@ pub struct Price {
     pub final_price: String,
     #[serde(rename = "base")]
     pub base_price: String,
+    #[serde(skip_serializing_if = "Option::is_none", default)]
     pub discount: Option<String>,
     #[serde(rename = "finalMoney")]
     pub final_money: FinalMoney,

@@ -22,8 +22,7 @@ reqwest = { workspace = true, features = ["json", "cookies"] }
 serde_json.workspace = true
 serde = { workspace = true, features = ["derive"] }
 regex.workspace = true
-exitcode.workspace = true
-rand.workspace = true
 chrono.workspace = true
 mockall.workspace = true
 async-trait.workspace = true
+futures.workspace = true

@@ -1,27 +1,27 @@
-use reqwest::Client;
+use std::sync::Arc;
 
 use stores::pc::{gog, microsoft_store, steam};
+use stores::search::provider::SearchProvider;
 use types::internal::store::GameStore;
 
-use crate::StoreSearchResult;
-
-static MAX_RESULTS: usize = 20;
+use crate::app::constants::MAX_RESULTS;
+use crate::app::enums::StoreSearchResult;
 
 pub async fn perform_store_search(
     query: String,
     game_store: GameStore,
+    provider: &Arc<SearchProvider>,
 ) -> Result<Vec<StoreSearchResult>, String> {
     if query.trim().is_empty() {
         return Err(String::from("Please enter a search query."));
     }
-    let http_client = Client::new();
     let mut results = Vec::new();
 
     match game_store {
-        GameStore::STEAM => match steam::search_by_keyphrase(&query).await {
+        GameStore::STEAM => match steam::search_by_keyphrase(&query, &provider.client).await {
             Ok(list) => {
                 for title in list.into_iter().take(MAX_RESULTS) {
-                    let steam_id = steam::check_game(&title)
+                    let steam_id = steam::check_game(&title, &provider.client)
                         .await
                         .map(|app| app.app_id)
                         .unwrap_or(0);
@@ -31,7 +31,7 @@ pub async fn perform_store_search(
             Err(e) => return Err(format!("Steam search error: {}", e)),
         },
         GameStore::GOOD_OLD_GAMES => {
-            match gog::search_game_by_title_v2(&query, &http_client).await {
+            match gog::search_game_by_title_v2(&query, &provider.client).await {
                 Ok(list) => {
                     for game_info in list.into_iter().take(MAX_RESULTS) {
                         if game_info.price.is_some()
@@ -56,7 +56,7 @@ pub async fn perform_store_search(
             }
         }
         GameStore::MICROSOFT_STORE_PC => {
-            match microsoft_store::search_game_by_title(&query, &http_client).await {
+            match microsoft_store::search_game_by_title(&query, &provider.client).await {
                 Ok(list) => {
                     for info in list.into_iter().take(MAX_RESULTS) {
                         if info.price_info.price.is_some() && info.price_info.price.unwrap() > 0. {

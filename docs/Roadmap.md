@@ -9,20 +9,23 @@
         - [ ] Render `<script>` as text
         - [ ] Make sure storefront data is escaped
       - [ ] Use interactive hidden prompts
+      - [X] Fixed caching request showing steam api key in plaintext
     - Performance
-      - [ ] Implement bounded current price checking
-        - [ ] Implement search via multiple game ids for Steam games
-        - [ ] Centralize and reuse 
-          - [ ] remove unncessary instantiations are deleted
-          - [ ] Configure connection pooling, user agents and redirects when needed
+      - [X] Implement concurrency for price checking (limtt to 8)
+      - [X] Centralize and reuse http client
+        - [X] remove unnecessary instantiations are deleted
+        - [X] Configure connection pooling and user agents 
+        - [ ] Configure redirects when needed
       - [ ] Add response size limits to HTTP calls
-      - [ ] Optimize fuzzy search algorithms
-        - [ ] Use rolling row implementation for 2D comparison matrix
+      - Optimize fuzzy search algorithms
+        - [X] Use rolling row implementation for 2D comparison matrix
         - [ ] Add limits to fuzzy search inputs
-        - [ ] Add performance benchmarks
+        - [X] Add performance benchmarks (time only)
+        - [X] Separate concurrency between exact and fuzzy game search 
       - Caching improvements
-        - [ ] corrupted cached data is detected and handled with crashing
-        - [ ] avoid serializing the entire cache when practical
+        - [X] Search cache using concurrency
+        - [X] Corrupted cached data is detected and handled without crashing
+        - [X] Avoid serializing the entire cache when practical
     - Reliability
       - [ ] Proper error handling for unwrap(), expect(), and panic!()
         - [ ] Have recoverable failures with typed errors
@@ -45,15 +48,21 @@
     - [X] Make log windows even of both sides if even (i.e if window = 20 then next 10 and previous 10 are cached)
     - [X] Added logic to include fallback image if image cannot be found for sales preview
     - [X] Added a base window tab and made all the other window tabs sequential by user input
-
+  - Command Line
+    - Performance
+      - [X] Implement search via multiple game ids for Steam games
 - Bugs/Fixes
   - General
+    - [X] Steam data does not seem to always send the correct steam app id when retrieving game data. More robust checking and error handling was added.
+    - [X] Sales preview doesn't exit when the user hits the close button
     - [ ] Handle games thresholds with corrupted or incorrect data (try to run search on fake query with incorrect store ids)
   - Application
     - [ ] Only update settings if needed (currently always update)
-
 - Testing:
   - [X] Add caching to GitHub Actions
+  - [ ] Add more app focused tests where possible
+  - [X] Restructure code to be more standardized for testing
+    - [X] Updated tests to support mutliple threads
  
 ### Backlog
 - Features/Updates
@@ -88,7 +97,7 @@
         - In settings allow the user to send a test alert to confirm that the configuration
       - Allow user option to run application in background when closing application instead of completely exiting
       - Add functionality to get and set a debug level (value should be store in settings file)
-
+      - Add versioning for settings and threshold files. Add mapper to update to newer versions.
 - Bugs/Fixes
   - General
     - Update dependencies and resolve any potential issues
@@ -96,8 +105,7 @@
     - Add functionality to get and set a debug level (value should be store in settings file)
     - Add feedback Prune all logs button in Settings
     - Add message dialog for failure for updating cache (Steam settings)
-    - Add message dialog for failed storefront calls 
-
+    - Add message dialog for failed storefront calls
 - Testing
   - In Scope
     - Mock api calls for user commands (check prices) -> may need to moved out to later

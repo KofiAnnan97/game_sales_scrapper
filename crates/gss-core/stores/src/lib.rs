@@ -1,5 +1,6 @@
-pub mod algorithms {
+pub mod search {
     pub mod fuzzy;
+    pub mod provider;
 }
 
 pub mod pc {

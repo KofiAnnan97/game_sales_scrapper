@@ -8,13 +8,12 @@ use iced_aw::iced_aw_font;
 
 use types::internal::data::SaleInfo;
 
-use crate::Message;
+use crate::app::message::Message;
 use crate::components::custom_styles::{
     best_price_style, bold_text, cmp_row_style, custom_button_style, dialog_style,
     normal_price_style, rounded_background,
 };
 use crate::utils::pricing_utils::{SaleInfoCompare, StoreSale};
-// Butttons
 
 pub fn submenu_button(label: &str) -> Element<'_, Message> {
     row![

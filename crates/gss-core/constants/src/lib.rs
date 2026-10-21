@@ -12,6 +12,7 @@ pub mod operations {
 pub mod stores {
     pub mod gog;
     pub mod microsoft_store;
+    pub mod search;
     pub mod steam;
 }
 

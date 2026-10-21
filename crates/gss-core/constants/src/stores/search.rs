@@ -1,0 +1,4 @@
+pub static DEFAULT_CONNECT_TIMEOUT: u64 = 30;
+pub static DEFAULT_READ_TIMEOUT: u64 = 25;
+pub static DEFAULT_POOL_IDLE_TIMEOUT: u64 = 15;
+pub static DEFAUL_MAX_IDLE_PER_HOST: usize = 10;

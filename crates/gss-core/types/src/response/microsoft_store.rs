@@ -7,9 +7,15 @@ pub struct ProductInfo {
     pub product_id: String,
     pub title: String,
     description: String,
+    #[serde(skip_serializing_if = "Vec::is_empty", default)]
     categories: Vec<String>,
-    #[serde(rename = "publisherName")]
+    #[serde(
+        rename = "publisherName",
+        skip_serializing_if = "Option::is_none",
+        default
+    )]
     publisher_name: Option<String>,
+    #[serde(skip_serializing_if = "Vec::is_empty", default)]
     images: Vec<Image>,
     #[serde(rename = "averageRating")]
     average_rating: f64,
@@ -23,16 +29,25 @@ pub struct ProductInfo {
     #[serde(rename = "isGamingAppOnly")]
     is_gaming_app_only: bool,
     installer: HashMap<String, String>,
-    #[serde(rename = "skusSummary")]
+    #[serde(rename = "skusSummary", skip_serializing_if = "Vec::is_empty", default)]
     pub skus_summary: Vec<Option<SkusSummary>>,
-    #[serde(rename = "releaseDateUtc")]
+    #[serde(
+        rename = "releaseDateUtc",
+        skip_serializing_if = "Option::is_none",
+        default
+    )]
     release_date_utc: Option<String>,
+    #[serde(skip_serializing_if = "Vec::is_empty", default)]
     previews: Vec<Preview>,
     #[serde(rename = "priceInfo")]
     pub price_info: PriceInfo,
     #[serde(rename = "typeTag")]
     type_tag: String,
-    #[serde(rename = "ratingCountFormatted")]
+    #[serde(
+        rename = "ratingCountFormatted",
+        skip_serializing_if = "Option::is_none",
+        default
+    )]
     rating_count_formatted: Option<String>,
     #[serde(rename = "iconUrl")]
     icon_url: String,
@@ -42,6 +57,7 @@ pub struct ProductInfo {
     pub box_icon_url: String,
     #[serde(rename = "iconUrlBackground")]
     icon_url_background: String,
+    #[serde(skip_serializing_if = "Vec::is_empty", default)]
     screenshots: Vec<Screenshots>,
     #[serde(rename = "encodedTitle")]
     encoded_title: String,
@@ -71,7 +87,11 @@ pub struct ProductInfo {
     is_spark_product: bool,
     #[serde(rename = "isAndroid")]
     is_android: bool,
-    #[serde(rename = "redirectUrl")]
+    #[serde(
+        rename = "redirectUrl",
+        skip_serializing_if = "Option::is_none",
+        default
+    )]
     pub redirect_url: Option<String>,
     #[serde(rename = "isHardware")]
     is_hardware: bool,
@@ -164,10 +184,11 @@ pub struct GameInfo {
     short_description: String,
     #[serde(rename = "categoryId")]
     category_id: String,
-    #[serde(rename = "categoryIds")]
+    #[serde(rename = "categoryIds", skip_serializing_if = "Vec::is_empty", default)]
     category_ids: Vec<String>,
     #[serde(rename = "approximateSizeInBytes")]
     approximate_size_in_bytes: i64,
+    #[serde(skip_serializing_if = "Vec::is_empty", default)]
     capabilities: Vec<String>,
     #[serde(rename = "developerName")]
     developer_name: String,
@@ -182,7 +203,11 @@ pub struct GameInfo {
     max_install_size_in_bytes: i64,
     #[serde(rename = "mediaType")]
     media_type: String,
-    #[serde(rename = "promoMessage")]
+    #[serde(
+        rename = "promoMessage",
+        skip_serializing_if = "Option::is_none",
+        default
+    )]
     promo_message: Option<String>,
     #[serde(rename = "publisherId")]
     publisher_id: String,
@@ -190,10 +215,15 @@ pub struct GameInfo {
     rating_count: i32,
     #[serde(rename = "additionalLicenseTerms")]
     additional_license_terms: String,
-    #[serde(rename = "appWebsiteUrl")]
+    #[serde(
+        rename = "appWebsiteUrl",
+        skip_serializing_if = "Option::is_none",
+        default
+    )]
     app_website_url: Option<String>,
     #[serde(rename = "disclaimerText")]
     disclaimer_text: String,
+    #[serde(skip_serializing_if = "Vec::is_empty", default)]
     features: Vec<String>,
     #[serde(rename = "gamingOptionsXboxLive")]
     gaming_options_xbox_live: bool,
@@ -205,12 +235,21 @@ pub struct GameInfo {
     is_msixvc: bool,
     #[serde(rename = "lastUpdateDateUtc")]
     last_update_date_utc: String,
-    #[serde(rename = "permissionsRequired")]
+    #[serde(
+        rename = "permissionsRequired",
+        skip_serializing_if = "Vec::is_empty",
+        default
+    )]
     permissions_required: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none", default)]
     platforms: Option<Vec<String>>,
     #[serde(rename = "privacyUrl")]
     privacy_url: String,
-    #[serde(rename = "productRatings")]
+    #[serde(
+        rename = "productRatings",
+        skip_serializing_if = "Vec::is_empty",
+        default
+    )]
     product_ratings: Vec<ProductRating>,
     #[serde(rename = "publisherAddress")]
     publisher_address: String,
@@ -218,14 +257,22 @@ pub struct GameInfo {
     publisher_copyright: String,
     #[serde(rename = "publisherPhoneNumber")]
     publisher_phone_number: String,
-    #[serde(rename = "supportedLanguages")]
+    #[serde(
+        rename = "supportedLanguages",
+        skip_serializing_if = "Vec::is_empty",
+        default
+    )]
     supported_languages: Vec<String>,
-    #[serde(rename = "supportUris")]
+    #[serde(rename = "supportUris", skip_serializing_if = "Vec::is_empty", default)]
     support_uris: Vec<HashMap<String, String>>,
     #[serde(rename = "systemRequirements")]
     system_requirements: SystemRequirements,
     version: String,
-    #[serde(rename = "warningMessage")]
+    #[serde(
+        rename = "warningMessage",
+        skip_serializing_if = "Option::is_none",
+        default
+    )]
     warning_message: Option<Vec<HashMap<String, String>>>,
     #[serde(rename = "pdpImageUrl")]
     pub pdp_image_url: String,
@@ -233,39 +280,68 @@ pub struct GameInfo {
     pub product_id: String,
     pub title: String,
     description: String,
+    #[serde(skip_serializing_if = "Vec::is_empty", default)]
     categories: Vec<String>,
-    #[serde(rename = "publisherName")]
+    #[serde(
+        rename = "publisherName",
+        skip_serializing_if = "Option::is_none",
+        default
+    )]
     publisher_name: Option<String>,
+    #[serde(skip_serializing_if = "Vec::is_empty", default)]
     images: Vec<Image>,
     #[serde(rename = "averageRating")]
     average_rating: f64,
     pub price: f64,
     #[serde(rename = "displayPrice")]
     pub display_price: String,
-    #[serde(rename = "strikethroughPrice")]
+    #[serde(
+        rename = "strikethroughPrice",
+        skip_serializing_if = "Option::is_none",
+        default
+    )]
     pub strikethrough_price: Option<String>,
     #[serde(rename = "productFamilyName")]
     product_family_name: String,
-    #[serde(rename = "packageFamilyNames")]
+    #[serde(
+        rename = "packageFamilyNames",
+        skip_serializing_if = "Vec::is_empty",
+        default
+    )]
     package_family_names: Vec<String>,
     #[serde(rename = "isGamingAppOnly")]
     is_gaming_app_only: bool,
+    #[serde(skip_serializing_if = "HashMap::is_empty", default)]
     installer: HashMap<String, String>,
-    #[serde(rename = "skusSummary")]
+    #[serde(rename = "skusSummary", skip_serializing_if = "Vec::is_empty", default)]
     pub skus_summary: Vec<Option<SkusSummary>>,
-    #[serde(rename = "releaseDateUtc")]
+    #[serde(
+        rename = "releaseDateUtc",
+        skip_serializing_if = "Option::is_none",
+        default
+    )]
     release_date_utc: Option<String>,
-    #[serde(rename = "eventsInfo")]
+    #[serde(rename = "eventsInfo", skip_serializing_if = "Vec::is_empty", default)]
     events_info: Vec<String>,
+    #[serde(skip_serializing_if = "Vec::is_empty", default)]
     previews: Vec<Preview>,
     #[serde(rename = "priceInfo")]
     pub price_info: PriceInfo,
-    #[serde(rename = "ratingCountFormatted")]
+    #[serde(
+        rename = "ratingCountFormatted",
+        skip_serializing_if = "Option::is_none",
+        default
+    )]
     rating_count_formatted: Option<String>,
-    #[serde(rename = "allowedPlatforms")]
+    #[serde(
+        rename = "allowedPlatforms",
+        skip_serializing_if = "Vec::is_empty",
+        default
+    )]
     allowed_platforms: Vec<String>,
     #[serde(rename = "productType")]
     product_type: String,
+    #[serde(skip_serializing_if = "Vec::is_empty", default)]
     skus: Vec<SKU>,
     #[serde(rename = "catalogSource")]
     catalog_source: String,
@@ -275,11 +351,17 @@ pub struct GameInfo {
     poster_art_url: String,
     #[serde(rename = "boxArtUrl")]
     pub box_icon_url: String,
-    #[serde(rename = "heroImageUrl")]
+    #[serde(
+        rename = "heroImageUrl",
+        skip_serializing_if = "Option::is_none",
+        default
+    )]
     hero_image_url: Option<String>,
     #[serde(rename = "iconUrlBackground")]
     icon_url_background: String,
+    #[serde(skip_serializing_if = "Vec::is_empty", default)]
     trailers: Vec<Trailers>,
+    #[serde(skip_serializing_if = "Vec::is_empty", default)]
     screenshots: Vec<Screenshots>,
     #[serde(rename = "encodedTitle")]
     encoded_title: String,
@@ -309,7 +391,11 @@ pub struct GameInfo {
     is_spark_product: bool,
     #[serde(rename = "isAndroid")]
     is_android: bool,
-    #[serde(rename = "redirectUrl")]
+    #[serde(
+        rename = "redirectUrl",
+        skip_serializing_if = "Option::is_none",
+        default
+    )]
     pub redirect_url: Option<String>,
     #[serde(rename = "isHardware")]
     is_hardware: bool,
@@ -323,7 +409,7 @@ pub struct GameInfo {
     page_title_localization: String,
     #[serde(rename = "disableDownload")]
     disable_download: bool,
-    #[serde(rename = "cardActions")]
+    #[serde(rename = "cardActions", skip_serializing_if = "Vec::is_empty", default)]
     card_actions: Vec<String>,
 }
 
@@ -345,14 +431,27 @@ pub struct Screenshots {
 
 #[derive(Deserialize, Serialize, Debug)]
 pub struct Image {
-    #[serde(rename = "imageType")]
+    #[serde(rename = "imageType", skip_serializing_if = "Option::is_none", default)]
     image_type: Option<String>,
-    #[serde(rename = "backgroundColor")]
+    #[serde(
+        rename = "backgroundColor",
+        skip_serializing_if = "Option::is_none",
+        default
+    )]
     background_color: Option<String>,
-    #[serde(rename = "foregroundColor")]
+    #[serde(
+        rename = "foregroundColor",
+        skip_serializing_if = "Option::is_none",
+        default
+    )]
     foreground_color: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none", default)]
     caption: Option<String>,
-    #[serde(rename = "imagePositionInfo")]
+    #[serde(
+        rename = "imagePositionInfo",
+        skip_serializing_if = "Option::is_none",
+        default
+    )]
     image_position_info: Option<String>,
     url: String,
     height: i32,
@@ -362,15 +461,21 @@ pub struct Image {
 #[derive(Deserialize, Serialize, Debug)]
 pub struct SkusSummary {
     msrp: Option<f64>,
-    #[serde(rename = "displayRP")]
+    #[serde(rename = "displayRP", skip_serializing_if = "Option::is_none", default)]
     display_msrp: Option<String>,
-    #[serde(rename = "salePrices")]
+    #[serde(
+        rename = "salePrices",
+        skip_serializing_if = "Option::is_none",
+        default
+    )]
     sale_prices: Option<Vec<SalePrice>>,
+    #[serde(skip_serializing_if = "Option::is_none", default)]
     included_with: Option<HashMap<String, String>>,
 }
 
 #[derive(Deserialize, Serialize, Debug)]
 pub struct SalePrice {
+    #[serde(skip_serializing_if = "Option::is_none", default)]
     conditions: Option<Conditions>,
     price: f64,
     #[serde(rename = "displayPrice")]
@@ -383,6 +488,7 @@ pub struct SalePrice {
 pub struct Conditions {
     #[serde(rename = "type")]
     condition_type: String,
+    #[serde(skip_serializing_if = "Option::is_none", default)]
     id: Option<Vec<String>>,
 }
 
@@ -390,14 +496,27 @@ pub struct Conditions {
 pub struct Preview {
     #[serde(rename = "$type")]
     preview_type: String,
-    #[serde(rename = "imageType")]
+    #[serde(rename = "imageType", skip_serializing_if = "Option::is_none", default)]
     image_type: Option<String>,
-    #[serde(rename = "backgroundColor")]
+    #[serde(
+        rename = "backgroundColor",
+        skip_serializing_if = "Option::is_none",
+        default
+    )]
     background_color: Option<String>,
-    #[serde(rename = "foregroundColor")]
+    #[serde(
+        rename = "foregroundColor",
+        skip_serializing_if = "Option::is_none",
+        default
+    )]
     foreground_color: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none", default)]
     caption: Option<String>,
-    #[serde(rename = "imagePositionInfo")]
+    #[serde(
+        rename = "imagePositionInfo",
+        skip_serializing_if = "Option::is_none",
+        default
+    )]
     image_position_info: Option<String>,
     url: String,
     height: i32,
@@ -406,9 +525,11 @@ pub struct Preview {
 
 #[derive(Deserialize, Serialize, Debug)]
 pub struct PriceInfo {
+    #[serde(skip_serializing_if = "Option::is_none", default)]
     pub msrp: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none", default)]
     pub price: Option<f64>,
-    #[serde(rename = "badgeText")]
+    #[serde(rename = "badgeText", skip_serializing_if = "Option::is_none", default)]
     pub badge_text: Option<String>,
     #[serde(rename = "forceToDisplayPrice")]
     pub force_to_display_price: bool,
@@ -439,13 +560,29 @@ pub struct ProductRating {
     restrict_metadata: bool,
     #[serde(rename = "restrictPurchase")]
     restrict_purchase: bool,
-    #[serde(rename = "ratingDescriptors")]
+    #[serde(
+        rename = "ratingDescriptors",
+        skip_serializing_if = "Option::is_none",
+        default
+    )]
     rating_descriptors: Option<Vec<String>>,
-    #[serde(rename = "ratingDescriptorLogoUrls")]
+    #[serde(
+        rename = "ratingDescriptorLogoUrls",
+        skip_serializing_if = "Option::is_none",
+        default
+    )]
     rating_descriptor_logo_urls: Option<Vec<String>>,
-    #[serde(rename = "ratingDisclaimers")]
+    #[serde(
+        rename = "ratingDisclaimers",
+        skip_serializing_if = "Option::is_none",
+        default
+    )]
     rating_disclaimers: Option<Vec<HashMap<String, String>>>,
-    #[serde(rename = "interactiveElements")]
+    #[serde(
+        rename = "interactiveElements",
+        skip_serializing_if = "Vec::is_empty",
+        default
+    )]
     interactive_elements: Vec<String>,
     #[serde(rename = "longName")]
     long_name: String,
@@ -465,6 +602,7 @@ pub struct SystemRequirements {
 #[derive(Deserialize, Serialize, Debug)]
 pub struct Minimum {
     title: String,
+    #[serde(skip_serializing_if = "Vec::is_empty", default)]
     items: Vec<Item>,
 }
 
@@ -475,7 +613,11 @@ pub struct Item {
     item_code: String,
     name: String,
     description: String,
-    #[serde(rename = "isValidationPassed")]
+    #[serde(
+        rename = "isValidationPassed",
+        skip_serializing_if = "Option::is_none",
+        default
+    )]
     is_validation_passed: Option<bool>,
     priority: String,
 }
@@ -483,6 +625,7 @@ pub struct Item {
 #[derive(Deserialize, Serialize, Debug)]
 pub struct Recommended {
     title: String,
+    #[serde(skip_serializing_if = "Vec::is_empty", default)]
     items: Vec<Item>,
 }
 
@@ -490,6 +633,7 @@ pub struct Recommended {
 pub struct SKU {
     #[serde(rename = "skuId")]
     sku_id: String,
+    #[serde(skip_serializing_if = "Vec::is_empty", default)]
     actions: Vec<String>,
     #[serde(rename = "availabilityId")]
     availability_id: String,
@@ -500,10 +644,19 @@ pub struct SKU {
     fulfillment_data: Option<String>,
     #[serde(rename = "skuType")]
     sku_type: String,
+    #[serde(skip_serializing_if = "Option::is_none", default)]
     msrp: Option<f64>,
-    #[serde(rename = "displayMSRP")]
+    #[serde(
+        rename = "displayMSRP",
+        skip_serializing_if = "Option::is_none",
+        default
+    )]
     display_msrp: Option<String>,
-    #[serde(rename = "salePrices")]
+    #[serde(
+        rename = "salePrices",
+        skip_serializing_if = "Option::is_none",
+        default
+    )]
     sale_prices: Option<Vec<SalePrice>>,
 }
 

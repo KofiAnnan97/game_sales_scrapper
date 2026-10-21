@@ -4,10 +4,8 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
 
-use crate::Error;
-
-const NO_IMAGE: &[u8] = include_bytes!("../../resources/no_image.png");
-static IMAGE_FROM_URL_TIMEOUT: u64 = 90;
+use crate::app::constants::{IMAGE_FROM_URL_TIMEOUT, NO_IMAGE};
+use crate::app::enums::Error;
 
 pub fn open_file(
     window: &dyn Window,
