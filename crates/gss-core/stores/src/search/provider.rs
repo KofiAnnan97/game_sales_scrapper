@@ -3,6 +3,11 @@ use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::{AcquireError, Semaphore};
 
+use constants::stores::search::{
+    DEFAUL_MAX_IDLE_PER_HOST, DEFAULT_CONNECT_TIMEOUT, DEFAULT_POOL_IDLE_TIMEOUT,
+    DEFAULT_READ_TIMEOUT,
+};
+
 #[derive(Debug, Clone)]
 pub struct SearchProvider {
     pub client: reqwest::Client,
@@ -27,11 +32,10 @@ impl SearchProvider {
                 env!("CARGO_PKG_NAME"),
                 env!("CARGO_PKG_VERSION")
             ))
-            .timeout(Duration::from_secs(5))
-            .connect_timeout(Duration::from_secs(5))
-            .read_timeout(Duration::from_secs(5))
-            .pool_idle_timeout(Duration::from_secs(5))
-            .pool_max_idle_per_host(10)
+            .connect_timeout(Duration::from_secs(DEFAULT_CONNECT_TIMEOUT))
+            .read_timeout(Duration::from_secs(DEFAULT_READ_TIMEOUT))
+            .pool_idle_timeout(Duration::from_secs(DEFAULT_POOL_IDLE_TIMEOUT))
+            .pool_max_idle_per_host(DEFAUL_MAX_IDLE_PER_HOST)
             .build()?;
 
         Ok(Self {

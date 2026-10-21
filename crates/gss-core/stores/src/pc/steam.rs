@@ -427,7 +427,6 @@ pub async fn update_cached_games(client: &reqwest::Client) -> Result<String, Api
 }
 
 // API Functions
-// TODO: If request fails don't prove url with steam key
 async fn get_games(
     client: &reqwest::Client,
     max_results: u32,
@@ -446,7 +445,7 @@ async fn get_games(
         ("last_appid", &last_appid.to_string()),
         ("format", "json"),
     ];
-    let url = format!("{}{}", API_BASE_URL, APP_LIST_ENDPOINT);
+    let url = format!("{}{}/", API_BASE_URL, APP_LIST_ENDPOINT);
     let resp = match client
         .get(url)
         .timeout(Duration::from_secs(GAME_LIST_TIMEOUT_IN_SECS))
@@ -467,7 +466,7 @@ async fn get_games(
         .get("response")
         .and_then(|response| response.get("apps"))
     {
-        Some(apps) if !apps.is_null() => get_valid_apps(&body),
+        Some(apps) if !apps.is_null() => get_valid_apps(apps),
         _ => Vec::new(),
     };
     Ok(app_list)

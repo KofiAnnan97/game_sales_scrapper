@@ -74,7 +74,9 @@ pub fn create(title: &str, steam_cache: Vec<App>) -> PathBuf {
     .expect("Failed to write settings for testing");
 
     if !steam_cache.is_empty() {
-        println!("Steam cache contains {} titles", &steam_cache.len());
+        println!("Steam cache contains {} titles", steam_cache.len());
+    } else {
+        println!("Steam cache is empty.")
     }
 
     let thresholds_json = serde_json::to_string_pretty(&json!({
