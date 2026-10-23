@@ -52,7 +52,7 @@ impl SalesCache {
     }
 }
 
-pub fn get_simple_prices_str(store_name: &str, sales: Vec<SaleInfo>) -> String {
+pub fn get_simple_prices_str(store_name: GameStore, sales: Vec<SaleInfo>) -> String {
     let mut prices_str = String::new();
     sales.iter().for_each(|game| {
         prices_str.push_str(&format!(
@@ -97,32 +97,34 @@ pub async fn check_prices_for_email(
     }
 
     let mut output = String::new();
-
     if !steam_sales.is_empty() {
-        let store_name = GameStore::STEAM.get_name();
         if use_html {
-            output.push_str(&email::create_store_cards(store_name, steam_sales));
+            output.push_str(&email::create_store_cards(GameStore::STEAM, steam_sales));
         } else {
-            output.push_str(&get_simple_prices_str(store_name, steam_sales));
+            output.push_str(&get_simple_prices_str(GameStore::STEAM, steam_sales));
         }
     }
     if !gog_sales.is_empty() {
-        let store_name = GameStore::GOOD_OLD_GAMES.get_name();
         if use_html {
-            output.push_str(&email::create_store_cards(store_name, gog_sales));
+            output.push_str(&email::create_store_cards(
+                GameStore::GOOD_OLD_GAMES,
+                gog_sales,
+            ));
         } else {
-            output.push_str(&get_simple_prices_str(store_name, gog_sales));
+            output.push_str(&get_simple_prices_str(GameStore::GOOD_OLD_GAMES, gog_sales));
         }
     }
     if !microsoft_store_sales.is_empty() {
-        let store_name = GameStore::MICROSOFT_STORE_PC.get_name();
         if use_html {
             output.push_str(&email::create_store_cards(
-                store_name,
+                GameStore::MICROSOFT_STORE_PC,
                 microsoft_store_sales,
             ));
         } else {
-            output.push_str(&get_simple_prices_str(store_name, microsoft_store_sales));
+            output.push_str(&get_simple_prices_str(
+                GameStore::MICROSOFT_STORE_PC,
+                microsoft_store_sales,
+            ));
         }
     }
 

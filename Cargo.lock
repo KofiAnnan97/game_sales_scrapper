@@ -89,6 +89,7 @@ dependencies = [
  "lettre",
  "properties",
  "types",
+ "url",
 ]
 
 [[package]]
@@ -1886,6 +1887,7 @@ dependencies = [
  "dotenvy",
  "file_ops",
  "files",
+ "gss-app",
  "properties",
  "rand 0.9.5",
  "regex",

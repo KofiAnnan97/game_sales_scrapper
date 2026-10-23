@@ -3,11 +3,12 @@
 ### Release 0.3.2 Alpha (Code Hardening)
 - Features/Updates
   - General
+    - New functionality
+      - [ ] Add a cacheless alternative to Steam search (use concurrency to check mutliple chunks of requests at once)
     - Security
       - Fix HTML injection for generated email content
-        - [ ] Reject `javascript:`
-        - [ ] Render `<script>` as text
-        - [ ] Make sure storefront data is escaped
+        - [X] Reject `javascript:` and `<script>`
+        - [X] Make sure storefront data is escaped
       - [ ] Use interactive hidden prompts
       - [X] Fixed caching request showing steam api key in plaintext
     - Performance

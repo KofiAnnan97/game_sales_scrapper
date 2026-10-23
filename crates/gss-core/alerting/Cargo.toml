@@ -16,3 +16,4 @@ constants = { path = "../constants" }
 
 # External crates
 lettre.workspace = true
+url.workspace = true
