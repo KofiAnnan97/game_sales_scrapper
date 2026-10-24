@@ -1,5 +1,6 @@
 use clap::parser::ValueSource;
 use clap::{Arg, ArgAction, ArgMatches, Command, arg, command};
+use properties::env_vars;
 use reqwest::Client;
 use serde_json::Value;
 use std::collections::HashMap;
@@ -18,7 +19,7 @@ use file_ops::{settings, thresholds};
 use files::csv;
 use gss_cli::{
     check_prices, gog_insert_sequence, microsoft_store_insert_sequence, print_test_flag,
-    steam_insert_sequence, storefront_check,
+    print_title, steam_insert_sequence, storefront_check,
 };
 use stores::{pc::steam, search::provider::SearchProvider};
 use types::internal::data::SimpleGameThreshold;
@@ -426,9 +427,31 @@ async fn main() {
                         }
                     }
 
-                    // Reveal secrets
+                    // Reveal secrets (gated by last 12 characters of decrypt key)
                     let reveal_secrets = properties_args.value_source(REVEAL_SECRETS).unwrap();
-                    let hidden: bool = reveal_secrets != ValueSource::CommandLine;
+                    let mut confirm_str = String::new();
+                    if reveal_secrets == ValueSource::CommandLine {
+                        print!("Are you sure? This will print out sensitive data (Y/N) : ");
+                        let _ = io::stdout().flush();
+                        io::stdin()
+                            .read_line(&mut confirm_str)
+                            .expect("Failed to read user input");
+                    }
+
+                    let mut hidden = true;
+                    if confirm_str.trim().eq_ignore_ascii_case("Y")
+                        || confirm_str.trim().eq_ignore_ascii_case("Yes")
+                    {
+                        hidden = match rpassword::prompt_password(
+                            "Provide the last 12 characters of the decryption key: ",
+                        ) {
+                            Ok(last_chars) => {
+                                let key = env_vars::get_decrypt_key(properties::get_project_path());
+                                !(last_chars.len() == 12 && last_chars == key[key.len() - 12..])
+                            }
+                            Err(_) => true,
+                        }
+                    }
 
                     // List properties
                     let list_properties = properties_args.value_source(LIST_PROPERTIES).unwrap();
@@ -438,7 +461,7 @@ async fn main() {
                                 let properties_str = serde_json::to_string(&properties).unwrap();
                                 let lookup: HashMap<String, Value> =
                                     serde_json::from_str(&properties_str).unwrap();
-                                println!("PROPERTIES:\n-----------");
+                                print_title("PROPERTIES");
                                 let test_mode = lookup.get(PROP_TEST_MODE).unwrap_or_default();
                                 match test_mode.as_i64() {
                                     Some(1) => println!(
@@ -577,7 +600,8 @@ async fn main() {
                 let use_html = false;
                 let prices_str = check_prices(use_html, &Arc::new(search_provider)).await;
                 if !prices_str.is_empty() {
-                    println!("------------\nCHECK PRICES\n------------\n{}", prices_str);
+                    print_title("CHECK PRICES");
+                    println!("{}", prices_str);
                 }
             } else if cmd.get_flag(SEND_EMAIL) {
                 email::params_check();

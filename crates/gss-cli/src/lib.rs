@@ -26,8 +26,17 @@ pub fn storefront_check() -> Vec<GameStore> {
 
 pub fn print_test_flag() {
     if properties::is_testing_enabled() {
-        println!("------------------------\n* TEST MODE IS ENABLED *\n------------------------");
+        print_title("* TEST MODE IS ENABLED *");
     }
+}
+
+pub fn print_title(title: &str) {
+    println!(
+        "+{}+\n| {} |\n+{}+",
+        "-".repeat(title.len()+2),
+        title,
+        "-".repeat(title.len()+2)
+    );
 }
 
 pub fn get_simple_prices_str(store_name: GameStore, sales: Vec<SaleInfo>) -> String {
@@ -39,7 +48,10 @@ pub fn get_simple_prices_str(store_name: GameStore, sales: Vec<SaleInfo>) -> Str
         ));
     }
     if !prices_str.is_empty() {
-        let header_str = format!("\n{} game(s) that met your desired price:", store_name);
+        let header_str = format!(
+            "\n{} game(s) that met your desired price:",
+            store_name.get_name()
+        );
         prices_str = header_str + &prices_str;
     }
     prices_str

@@ -36,7 +36,7 @@
     - Performance
       - [X] Implement search via multiple game ids for Steam games
     - Security
-      - [ ] Determine whether --reveal-screts should be deprecated or can't be printed in logs/CI
+      - [X] Gated --reveal-screts flag so execution is intentional
     - Reliability
       - [ ] Return meaningful exits codes for unrecoverable errors
   - Application
@@ -82,6 +82,7 @@
       - make the base closeable window disappear when it is the only one
     - Add user controls in settings to change the number of logs per page and the maximum number of pages cached, how may files are cached.
       - Should include warning that increasing these values may increase memory usage and slow down the application.
+    - For settings create an option_dialog that allows the user to continue updating settings after saving or exit entirely
     - New Features
       - Add automated pruning through a scheduler (Logging Settings)
       - Add auto advance to the next store as a togglable option when a radial button is selected
