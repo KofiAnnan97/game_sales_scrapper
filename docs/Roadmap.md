@@ -9,7 +9,7 @@
       - Fix HTML injection for generated email content
         - [X] Reject `javascript:` and `<script>`
         - [X] Make sure storefront data is escaped
-      - [ ] Use interactive hidden prompts
+      - [X] Use interactive hidden prompts for secrets
       - [X] Fixed caching request showing steam api key in plaintext
     - Performance
       - [X] Implement concurrency for price checking (limtt to 8)
@@ -33,6 +33,8 @@
         - [ ] Individual storefront failures are isolated
       - [ ] Add cargo deny to audit workflow
   - Command Line
+    - Performance
+      - [X] Implement search via multiple game ids for Steam games
     - Security
       - [ ] Determine whether --reveal-screts should be deprecated or can't be printed in logs/CI
     - Reliability
@@ -49,9 +51,6 @@
     - [X] Make log windows even of both sides if even (i.e if window = 20 then next 10 and previous 10 are cached)
     - [X] Added logic to include fallback image if image cannot be found for sales preview
     - [X] Added a base window tab and made all the other window tabs sequential by user input
-  - Command Line
-    - Performance
-      - [X] Implement search via multiple game ids for Steam games
 - Bugs/Fixes
   - General
     - [X] Steam data does not seem to always send the correct steam app id when retrieving game data. More robust checking and error handling was added.
@@ -74,6 +73,8 @@
     - Retrieve pricing data from game editions on GOG
     - Add the option to send emails through AWS SES
     - Remove/reduce duplicate code between the app and cli
+    - Add rate limiting to search provider
+    - Store decrypt key using OS specific credential solution
   - Application  
     - Add loading animation of image for preview game icons 
       - Add a timeout which sets the image to a square missing image icon instead

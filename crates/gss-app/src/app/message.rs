@@ -35,7 +35,7 @@ pub enum MainMessage {
     SmtpUserChanged(String),
     SmtpPasswordChanged(String),
     ToggleTestMode(bool),
-    ToggleSensitiveData(bool),
+    ToggleSensitiveData(),
     SaveSettings,
     SearchQueryChanged(String),
     StartSearch,

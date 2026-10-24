@@ -6,6 +6,7 @@ use std::collections::HashMap;
 use std::io::{self, Write};
 use std::sync::Arc;
 use tokio::sync::Semaphore;
+
 // Internal libraries
 use alerting::email;
 use constants::cli::args::*;
@@ -126,7 +127,7 @@ async fn main() {
                             Arg::new(SET_API_KEY)
                                 .short('a')
                                 .long(SET_API_KEY)
-                                .action(ArgAction::Set)
+                                .action(ArgAction::SetTrue)
                                 .conflicts_with_all(["test_mode"])
                                 .required(false)
                                 .help("Set Steam API key in properties")                      
@@ -371,13 +372,15 @@ async fn main() {
                             .read_line(&mut user)
                             .expect("Failed to read user input");
                         user = user[0..user.len() - 1].to_string();
-                        let mut pass = String::new();
-                        print!("SMTP Password: ");
-                        let _ = io::stdout().flush();
-                        io::stdin()
-                            .read_line(&mut pass)
-                            .expect("Failed to read user input");
-                        pass = pass[0..pass.len() - 1].to_string();
+                        let pass = match rpassword::prompt_password("SMTP Password: ") {
+                            Ok(smtp_pass) => smtp_pass,
+                            Err(_) => {
+                                println!(
+                                    "An error occurred while setting the SMTP password. No changes were made."
+                                );
+                                String::new()
+                            }
+                        };
                         properties::set_stmp_vars(host, port_num, email, user, pass);
                     }
 
@@ -390,10 +393,20 @@ async fn main() {
                     }
 
                     // Set Steam api key
-                    if let Some(key) = properties_args.get_one::<String>(SET_API_KEY) {
-                        let prev_key = properties::get_steam_api_key(false);
-                        if !key.is_empty() && prev_key != *key {
-                            properties::set_steam_api_key(key.to_string());
+                    let steam_key = properties_args.value_source(SET_API_KEY).unwrap();
+                    if steam_key == ValueSource::CommandLine {
+                        match rpassword::prompt_password("Provide Steam API Key: ") {
+                            Ok(new_key) => {
+                                let prev_key = properties::get_steam_api_key(false);
+                                if !new_key.is_empty() && prev_key != new_key {
+                                    properties::set_steam_api_key(new_key);
+                                }
+                            }
+                            Err(_) => {
+                                eprintln!(
+                                    "An error occurred while setting the Steam API Key. No changes were made."
+                                )
+                            }
                         }
                     }
 

@@ -9,7 +9,7 @@ use types::internal::store::GameStore;
 use crate::app::constants::LOADING_FRAMES_SIZE;
 use crate::app::message::{MainMessage, Message};
 use crate::app::state::App;
-use crate::components::custom_styles::{backdrop, highlight_on_click_style};
+use crate::components::custom_styles::{self as cs, backdrop, highlight_on_click_style};
 use crate::components::custom_widgets::{message_dialog, text_loading_indicator};
 use crate::utils::log_utils::LogLevel;
 use crate::views::logs::LoggingMessage;
@@ -269,25 +269,23 @@ fn email_settings(app: &App) -> Element<'_, Message> {
         .spacing(8),
         column![
             text("SMTP password"),
-            if app.reveal_sensitive_data {
+            row![
                 TextInput::new("Enter SMTP password", &app.smtp_password)
                     .on_input(|input| MainMessage::SmtpPasswordChanged(input).into())
+                    .secure(!app.reveal_sensitive_data)
                     .padding(5)
-                    .width(Length::Fill)
-            } else {
-                TextInput::new("Enter SMTP password", &app.smtp_password)
-                    .padding(5)
-                    .width(Length::Fill)
-            },
+                    .width(Length::Fill),
+                Button::new(cs::bold_text(if app.reveal_sensitive_data {
+                    "0_0"
+                } else {
+                    ">_<"
+                }))
+                .on_press(MainMessage::ToggleSensitiveData().into())
+                .padding(4),
+            ]
+            .spacing(4),
         ]
         .spacing(4),
-        row![
-            Checkbox::new(app.reveal_sensitive_data)
-                .label("Reveal sensitive data")
-                .on_toggle(|toggle| MainMessage::ToggleSensitiveData(toggle).into())
-                .spacing(10)
-        ]
-        .padding(10),
     ]
     .spacing(12)
     .padding(10);
@@ -357,27 +355,25 @@ fn steam_settings(app: &App) -> Element<'_, Message> {
     };
 
     let content = column![
-        column![
+        row![
             text("Steam API key"),
-            if app.reveal_sensitive_data {
-                TextInput::new("Enter Steam API key", &app.steam_api_key)
-                    .on_input(|input| MainMessage::SteamApiKeyChanged(input).into())
-                    .padding(5)
-                    .width(Length::Fill)
+            TextInput::new("Enter Steam API key", &app.steam_api_key)
+                .on_input(|input| MainMessage::SteamApiKeyChanged(input).into())
+                .secure(!app.reveal_sensitive_data)
+                .padding(5)
+                .width(Length::Fill),
+            Button::new(cs::bold_text(if app.reveal_sensitive_data {
+                "0_0"
             } else {
-                TextInput::new("Enter Steam API key", &app.steam_api_key)
-                    .padding(5)
-                    .width(Length::Fill)
-            },
-            Checkbox::new(app.reveal_sensitive_data)
-                .label("Reveal sensitive data")
-                .on_toggle(|toggle| MainMessage::ToggleSensitiveData(toggle).into())
-                .spacing(10)
+                ">_<"
+            }))
+            .on_press(MainMessage::ToggleSensitiveData().into())
+            .padding(4),
         ]
         .spacing(4),
         cache_button_with_msg,
     ]
-    .spacing(12);
+    .spacing(8);
 
     let scrollable_content = Scrollable::new(content).height(Length::Fill);
 

@@ -1,3 +1,4 @@
+// Unicode characters
 pub static CHECK_MARK: &str = "✔";
 pub static UP_ARROW: &str = "▲";
 pub static DOWN_ARROW: &str = "▼";
@@ -7,3 +8,4 @@ pub static RIGHT_ARROW_LONG: &str = "→";
 pub static FLOPPY_DISK: &str = "💾";
 pub static TRASH_BIN: &str = "🗑️";
 pub static RETRY: &str = "🔁";
+pub static EYE: &str = "👁️";
