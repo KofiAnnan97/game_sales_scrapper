@@ -33,9 +33,9 @@ pub fn print_test_flag() {
 pub fn print_title(title: &str) {
     println!(
         "+{}+\n| {} |\n+{}+",
-        "-".repeat(title.len()+2),
+        "-".repeat(title.len() + 2),
         title,
-        "-".repeat(title.len()+2)
+        "-".repeat(title.len() + 2)
     );
 }
 

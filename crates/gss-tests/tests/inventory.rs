@@ -1,6 +1,7 @@
 // Unit Testing
 pub mod unit {
     pub mod algorithms;
+    pub mod app;
     pub mod env_vars;
     pub mod passwords;
     pub mod properties;

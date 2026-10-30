@@ -3,7 +3,7 @@ pub const ALLOWED_STORE_DOMAINS: &[&str] =
 
 pub const ALLOWED_IMAGE_DOMAINS: &[&str] = &[
     "shared.akamai.steamstatic.com",
-    "cdn.akamai.steamstatic.com",
+    "images.gog-statics.com",
     "store-images.s-microsoft.com",
 ];
 

@@ -260,7 +260,9 @@ pub async fn get_sales(provider: &Arc<SearchProvider>) -> Result<Vec<StoreSale>,
             });
             tasks.push(task);
         }
+    }
 
+    for game in thresholds.iter() {
         if !game.microsoft_store_id.is_empty() {
             let store_id = game.microsoft_store_id.clone();
             let alias = game.alias.clone();

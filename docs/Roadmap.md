@@ -60,7 +60,7 @@
     - [ ] Only update settings if needed (currently always update)
 - Testing:
   - [X] Add caching to GitHub Actions
-  - [ ] Add more app focused tests where possible
+  - [X] Add more app focused tests where possible
   - [X] Restructure code to be more standardized for testing
     - [X] Updated tests to support mutliple threads
  
