@@ -1,3 +1,12 @@
+pub const ALLOWED_STORE_DOMAINS: &[&str] =
+    &["store.steampowered.com", "www.gog.com", "www.xbox.com"];
+
+pub const ALLOWED_IMAGE_DOMAINS: &[&str] = &[
+    "shared.akamai.steamstatic.com",
+    "images.gog-statics.com",
+    "store-images.s-microsoft.com",
+];
+
 pub static EMAIL_STYLESHEET: &str = r#"
 <style>
 *{

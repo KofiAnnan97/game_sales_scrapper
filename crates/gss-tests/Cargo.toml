@@ -12,6 +12,7 @@ stores = { path = "../gss-core/stores" }
 types = { path = "../gss-core/types" }
 properties = { path = "../gss-core/properties" }
 constants = { path = "../gss-core/constants" }
+gss-app = { path = "../gss-app" }
 
 # External crates
 reqwest = { workspace = true, features = ["json", "blocking"] }

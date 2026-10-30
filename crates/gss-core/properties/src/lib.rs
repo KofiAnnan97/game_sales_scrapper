@@ -252,27 +252,27 @@ fn get_string_var(var_name: &str) -> String {
                 String::new()
             }
         },
-        Err(_) => panic!("Failed to load string from properties file."),
+        Err(_) => panic!("Failed to load '{}' from properties file.", var_name),
     }
 }
 
 fn get_integer_var(var_name: &str) -> i64 {
     let default_int: i64 = 0;
     match load_properties() {
-        Ok(properties) => {
-            //let var = properties.get(var_name);
-            match properties.get(var_name) {
-                Some(var) => var.as_i64().unwrap_or(default_int),
-                None => {
-                    eprintln!(
-                        "Failed to parse \"{}\" (defaulting to {}). Please check that this is an integer.",
-                        var_name, default_int
-                    );
-                    default_int
-                }
+        Ok(properties) => match properties.get(var_name) {
+            Some(var) => var.as_i64().unwrap_or(default_int),
+            None => {
+                eprintln!(
+                    "Failed to parse \"{}\" (defaulting to {}). Please check that this is an integer.",
+                    var_name, default_int
+                );
+                default_int
             }
-        }
-        Err(_) => panic!("Failed to load integer from properties file."),
+        },
+        Err(_) => panic!(
+            "Failed to load integer '{}' from properties file.",
+            var_name
+        ),
     }
 }
 

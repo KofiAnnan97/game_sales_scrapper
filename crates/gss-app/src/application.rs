@@ -48,13 +48,13 @@ impl App {
             alias_enabled: settings::get_alias_state(),
             alias_reuse_enabled: settings::get_alias_reuse_state(),
             reveal_sensitive_data: false,
-            steam_api_key: properties::get_steam_api_key(true),
+            steam_api_key: properties::get_steam_api_key(false),
             recipient_email: properties::get_recipient(),
             smtp_host: properties::get_smtp_host(),
             smtp_port: properties::get_smtp_port().to_string(),
             smtp_email: properties::get_smtp_email(),
             smtp_user: properties::get_smtp_user(),
-            smtp_password: properties::get_smtp_pwd(true),
+            smtp_password: properties::get_smtp_pwd(false),
             project_path: properties::get_project_path(),
             test_path: properties::get_test_path(),
             test_mode: properties::is_testing_enabled(),
@@ -311,8 +311,8 @@ impl App {
                 self.smtp_password = value;
                 Task::none()
             }
-            MainMessage::ToggleSensitiveData(reveal) => {
-                self.set_reveal_sensitive_data(reveal);
+            MainMessage::ToggleSensitiveData() => {
+                self.reveal_sensitive_data = !self.reveal_sensitive_data;
                 Task::none()
             }
             MainMessage::ToggleTestMode(enabled) => {
@@ -639,16 +639,12 @@ impl App {
                             smtp_port,
                             self.smtp_email.clone(),
                             self.smtp_user.clone(),
-                            if self.reveal_sensitive_data {
-                                self.smtp_password.clone()
-                            } else {
-                                String::new()
-                            },
+                            self.smtp_password.clone(),
                         );
                     }
                     self.logger.info(Screen::Settings, "Saving email settings");
                 } else if self.settings_page == Page::Stores(GameStore::STEAM) {
-                    if self.reveal_sensitive_data && !self.steam_api_key.is_empty() {
+                    if !self.steam_api_key.is_empty() {
                         properties::set_steam_api_key(self.steam_api_key.clone());
                     }
                     self.logger.info(Screen::Settings, "Saving Steam settings");
@@ -953,13 +949,13 @@ impl App {
         self.selected_stores = settings::get_selected_stores();
         self.alias_enabled = settings::get_alias_state();
         self.alias_reuse_enabled = settings::get_alias_reuse_state();
-        self.steam_api_key = properties::get_steam_api_key(!self.reveal_sensitive_data);
+        self.steam_api_key = properties::get_steam_api_key(false);
         self.recipient_email = properties::get_recipient();
         self.smtp_host = properties::get_smtp_host();
         self.smtp_port = properties::get_smtp_port().to_string();
         self.smtp_email = properties::get_smtp_email();
         self.smtp_user = properties::get_smtp_user();
-        self.smtp_password = properties::get_smtp_pwd(!self.reveal_sensitive_data);
+        self.smtp_password = properties::get_smtp_pwd(false);
         self.project_path = properties::get_project_path();
         self.test_path = properties::get_test_path();
         self.test_mode = properties::is_testing_enabled();
@@ -996,11 +992,6 @@ impl App {
             });
             true
         }
-    }
-
-    fn set_reveal_sensitive_data(&mut self, reveal: bool) {
-        self.reveal_sensitive_data = reveal;
-        self.refresh_state();
     }
 
     pub(crate) fn view_thresholds(&self) -> Element<'_, Message> {

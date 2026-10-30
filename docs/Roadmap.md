@@ -3,12 +3,13 @@
 ### Release 0.3.2 Alpha (Code Hardening)
 - Features/Updates
   - General
+    - New functionality
+      - [ ] Add a cacheless alternative to Steam search (use concurrency to check mutliple chunks of requests at once)
     - Security
       - Fix HTML injection for generated email content
-        - [ ] Reject `javascript:`
-        - [ ] Render `<script>` as text
-        - [ ] Make sure storefront data is escaped
-      - [ ] Use interactive hidden prompts
+        - [X] Reject `javascript:` and `<script>`
+        - [X] Make sure storefront data is escaped
+      - [X] Use interactive hidden prompts for secrets
       - [X] Fixed caching request showing steam api key in plaintext
     - Performance
       - [X] Implement concurrency for price checking (limtt to 8)
@@ -32,8 +33,10 @@
         - [ ] Individual storefront failures are isolated
       - [ ] Add cargo deny to audit workflow
   - Command Line
+    - Performance
+      - [X] Implement search via multiple game ids for Steam games
     - Security
-      - [ ] Determine whether --reveal-screts should be deprecated or can't be printed in logs/CI
+      - [X] Gated --reveal-screts flag so execution is intentional
     - Reliability
       - [ ] Return meaningful exits codes for unrecoverable errors
   - Application
@@ -48,9 +51,6 @@
     - [X] Make log windows even of both sides if even (i.e if window = 20 then next 10 and previous 10 are cached)
     - [X] Added logic to include fallback image if image cannot be found for sales preview
     - [X] Added a base window tab and made all the other window tabs sequential by user input
-  - Command Line
-    - Performance
-      - [X] Implement search via multiple game ids for Steam games
 - Bugs/Fixes
   - General
     - [X] Steam data does not seem to always send the correct steam app id when retrieving game data. More robust checking and error handling was added.
@@ -60,7 +60,7 @@
     - [ ] Only update settings if needed (currently always update)
 - Testing:
   - [X] Add caching to GitHub Actions
-  - [ ] Add more app focused tests where possible
+  - [X] Add more app focused tests where possible
   - [X] Restructure code to be more standardized for testing
     - [X] Updated tests to support mutliple threads
  
@@ -73,6 +73,8 @@
     - Retrieve pricing data from game editions on GOG
     - Add the option to send emails through AWS SES
     - Remove/reduce duplicate code between the app and cli
+    - Add rate limiting to search provider
+    - Store decrypt key using OS specific credential solution
   - Application  
     - Add loading animation of image for preview game icons 
       - Add a timeout which sets the image to a square missing image icon instead
@@ -80,6 +82,7 @@
       - make the base closeable window disappear when it is the only one
     - Add user controls in settings to change the number of logs per page and the maximum number of pages cached, how may files are cached.
       - Should include warning that increasing these values may increase memory usage and slow down the application.
+    - For settings create an option_dialog that allows the user to continue updating settings after saving or exit entirely
     - New Features
       - Add automated pruning through a scheduler (Logging Settings)
       - Add auto advance to the next store as a togglable option when a radial button is selected

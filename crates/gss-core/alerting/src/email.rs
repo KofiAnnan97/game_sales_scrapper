@@ -1,15 +1,19 @@
 use lettre::message::{MultiPart, SinglePart};
 use lettre::transport::smtp::authentication::{Credentials, Mechanism};
 use lettre::{Message, SmtpTransport, Transport};
+use std::net::IpAddr;
+use url::Url;
 
-use constants::alerting::email::{EMAIL_STYLESHEET, HTML_BODY_HEADER};
+use constants::alerting::email::{
+    ALLOWED_IMAGE_DOMAINS, ALLOWED_STORE_DOMAINS, EMAIL_STYLESHEET, HTML_BODY_HEADER,
+};
 use constants::operations::properties::{
     PROP_RECIPIENT_EMAIL, PROP_SMTP_EMAIL, PROP_SMTP_HOST, PROP_SMTP_PASSWORD, PROP_SMTP_PORT,
     PROP_SMTP_USERNAME,
 };
-use constants::operations::settings::{GOG_STORE_NAME, MICROSOFT_STORE_NAME, STEAM_STORE_NAME};
 use properties;
 use types::internal::data::SaleInfo;
+use types::internal::store::GameStore;
 
 pub fn params_check() {
     // Get email parameters
@@ -78,12 +82,16 @@ pub fn send_plain_text_msg(recipient: &str, subject: &str, body: &str) {
 }
 
 pub fn create_game_card(info: SaleInfo, store_name: &str) -> String {
-    let icon_link = info.icon_link;
-    let game_title = info.title;
-    let old_price = info.original_price;
-    let new_price = info.current_price;
-    let discount = info.discount_percentage;
-    let store_page_link = info.store_page_link;
+    let icon_link = validate_url(&info.icon_link, ALLOWED_IMAGE_DOMAINS)
+        .map(escape_html_char)
+        .unwrap_or_default();
+    let game_title = escape_html_char(&info.title);
+    let old_price = escape_html_char(&info.original_price.to_string());
+    let new_price = escape_html_char(&info.current_price.to_string());
+    let discount = escape_html_char(&info.discount_percentage.to_string());
+    let store_page_link = validate_url(&info.store_page_link, ALLOWED_STORE_DOMAINS)
+        .map(escape_html_char)
+        .unwrap_or_default();
 
     let game_card = format!(
         r#"
@@ -121,13 +129,8 @@ pub fn create_game_card(info: SaleInfo, store_name: &str) -> String {
     game_card
 }
 
-pub fn create_store_cards(store_name: &str, sales: Vec<SaleInfo>) -> String {
-    let simple_name = match store_name {
-        STEAM_STORE_NAME => "Steam",
-        GOG_STORE_NAME => "GOG",
-        MICROSOFT_STORE_NAME => "Microsoft Store",
-        _ => "",
-    };
+pub fn create_store_cards(store_name: GameStore, sales: Vec<SaleInfo>) -> String {
+    let simple_name = store_name.get_name();
 
     let mut store_cards = format!(
         r#"
@@ -198,5 +201,61 @@ pub fn send_html_msg(recipient: &str, subject: &str, body: &str) -> Result<Strin
     match mailer.send(&email) {
         Ok(_) => Ok("Email send attempt completed successfully".into()),
         Err(e) => Err(format!("Failed to send email - {}", e)),
+    }
+}
+
+fn escape_html_char(input: &str) -> String {
+    let mut escaped = String::with_capacity(input.len());
+
+    for ch in input.chars() {
+        match ch {
+            '&' => escaped.push_str("&amp;"),
+            '<' => escaped.push_str("&lt;"),
+            '>' => escaped.push_str("&gt;"),
+            '"' => escaped.push_str("&quot;"),
+            '\'' => escaped.push_str("&#x27;"),
+            _ => escaped.push(ch),
+        }
+    }
+
+    escaped
+}
+
+pub fn validate_url<'a>(input: &'a str, allowed_domains: &[&str]) -> Option<&'a str> {
+    if input.is_empty()
+        || input
+            .chars()
+            .any(|c| c.is_control() || c.is_whitespace() || c == '\\')
+    {
+        return None;
+    }
+
+    match Url::parse(input) {
+        Ok(url) => {
+            // Reject non HTTPs schemes
+            if url.scheme() != "https" && url.scheme() != "http" {
+                return None;
+            }
+
+            // Reject user credentials
+            if !url.username().is_empty() || url.password().is_some() {
+                return None;
+            }
+
+            // Reject all ports in url
+            if url.port().is_some() {
+                return None;
+            }
+
+            if let Some(url_host) = url.host_str()
+                && url_host.parse::<IpAddr>().is_err()
+                && allowed_domains.contains(&url_host)
+            {
+                Some(input)
+            } else {
+                None
+            }
+        }
+        Err(_) => None,
     }
 }

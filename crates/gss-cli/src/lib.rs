@@ -26,11 +26,20 @@ pub fn storefront_check() -> Vec<GameStore> {
 
 pub fn print_test_flag() {
     if properties::is_testing_enabled() {
-        println!("------------------------\n* TEST MODE IS ENABLED *\n------------------------");
+        print_title("* TEST MODE IS ENABLED *");
     }
 }
 
-pub fn get_simple_prices_str(store_name: &str, sales: Vec<SaleInfo>) -> String {
+pub fn print_title(title: &str) {
+    println!(
+        "+{}+\n| {} |\n+{}+",
+        "-".repeat(title.len() + 2),
+        title,
+        "-".repeat(title.len() + 2)
+    );
+}
+
+pub fn get_simple_prices_str(store_name: GameStore, sales: Vec<SaleInfo>) -> String {
     let mut prices_str = String::new();
     for game in sales.iter() {
         prices_str.push_str(&format!(
@@ -39,7 +48,10 @@ pub fn get_simple_prices_str(store_name: &str, sales: Vec<SaleInfo>) -> String {
         ));
     }
     if !prices_str.is_empty() {
-        let header_str = format!("\n{} game(s) that met your desired price:", store_name);
+        let header_str = format!(
+            "\n{} game(s) that met your desired price:",
+            store_name.get_name()
+        );
         prices_str = header_str + &prices_str;
     }
     prices_str
@@ -165,32 +177,34 @@ pub async fn check_prices(use_html: bool, provider: &Arc<SearchProvider>) -> Str
 
     // Format output
     let mut output = String::new();
-
     if !steam_sales.is_empty() {
-        let store_name = GameStore::STEAM.get_name();
         if use_html {
-            output.push_str(&email::create_store_cards(store_name, steam_sales));
+            output.push_str(&email::create_store_cards(GameStore::STEAM, steam_sales));
         } else {
-            output.push_str(&get_simple_prices_str(store_name, steam_sales));
+            output.push_str(&get_simple_prices_str(GameStore::STEAM, steam_sales));
         }
     }
     if !gog_sales.is_empty() {
-        let store_name = GameStore::GOOD_OLD_GAMES.get_name();
         if use_html {
-            output.push_str(&email::create_store_cards(store_name, gog_sales));
+            output.push_str(&email::create_store_cards(
+                GameStore::GOOD_OLD_GAMES,
+                gog_sales,
+            ));
         } else {
-            output.push_str(&get_simple_prices_str(store_name, gog_sales));
+            output.push_str(&get_simple_prices_str(GameStore::GOOD_OLD_GAMES, gog_sales));
         }
     }
     if !microsoft_store_sales.is_empty() {
-        let store_name = GameStore::MICROSOFT_STORE_PC.get_name();
         if use_html {
             output.push_str(&email::create_store_cards(
-                store_name,
+                GameStore::MICROSOFT_STORE_PC,
                 microsoft_store_sales,
             ));
         } else {
-            output.push_str(&get_simple_prices_str(store_name, microsoft_store_sales));
+            output.push_str(&get_simple_prices_str(
+                GameStore::MICROSOFT_STORE_PC,
+                microsoft_store_sales,
+            ));
         }
     }
     output

@@ -50,3 +50,5 @@ iced_aw = { version = "0.14.1", features = ["full"] }
 mockall = "0.14.0"
 async-trait = "0.1.89"
 rfd = "0.17.2"
+url = "2.5.8"
+rpassword = "7.5.4"

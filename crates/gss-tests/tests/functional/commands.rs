@@ -525,7 +525,6 @@ fn list_selected_stores_cmd() {
             "gss-cli",
             "--",
             "--list-selected-stores",
-            "--test_flag",
         ])
         .output()
         .expect("failed to execute process");
