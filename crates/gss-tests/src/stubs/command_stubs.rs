@@ -1,8 +1,7 @@
 use std::path::{Path, PathBuf};
 
 use constants::operations::{properties::DATA_DIR, thresholds::THRESHOLDS};
-use dotenv::dotenv as dotenv_linux;
-use dotenvy::dotenv as dotenv_windows;
+use dotenvy::dotenv;
 use files::{csv, general};
 use serde_json::json;
 use types::internal::data::{GameThreshold, SaleInfo, SimpleGameThreshold};
@@ -67,11 +66,7 @@ pub fn get_sample_csv(filename: &str) -> String {
             price: 7.99,
         },
     ];
-    if cfg!(target_os = "windows") {
-        dotenv_windows().ok();
-    } else if cfg!(target_os = "linux") {
-        dotenv_linux().ok();
-    }
+    dotenv().ok();
     let test_path = properties::get_test_path();
     let path_buf: PathBuf = [&test_path, DATA_DIR, filename].iter().collect();
     let csv_path = path_buf.display().to_string();

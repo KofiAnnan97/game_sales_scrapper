@@ -664,7 +664,7 @@ impl App {
                         (level, details)
                     }
                     Err(err) => {
-                        self.logger.error(Screen::Sales, &err);
+                        self.logger.error(Screen::Sales, &err.to_string());
                         level = STATUS_ERR.into();
                         details = "An issue occured trying send an email. Please check your email settings or connection.".into();
                         (level, details)

@@ -256,6 +256,7 @@ pub fn get_app_logs() -> Vec<String> {
     let mut log_names: Vec<String> = Vec::new();
     if let Ok(dir) = fs::read_dir(get_log_path()) {
         for d in dir {
+            // TODO: Handle file metadata errors instead of panicking
             if let Some(entry) = d.ok()
                 && entry.file_type().unwrap().is_file()
             {

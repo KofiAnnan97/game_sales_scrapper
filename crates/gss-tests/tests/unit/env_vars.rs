@@ -58,7 +58,7 @@ fn check_environment_variables() {
     }
     env::set_current_dir(&_tmp_env.temp_dir).unwrap();
 
-    let vars = env_vars::get_variables();
+    let vars = env_vars::get_variables().expect("Environment variables should load");
     println!("Test Environment Variables: {:?}", vars);
     if vars.is_empty() {
         unreachable!("No environment variables found.");
@@ -77,17 +77,17 @@ fn check_environment_variables() {
             let decrypt_key = get_decrypt_key(properties::get_project_path());
             assert_eq!(
                 steam_api_key_val,
-                api_key.unwrap().get_value(Some(&decrypt_key)),
+                api_key.unwrap().get_value(Some(&decrypt_key)).unwrap(),
                 "Environment variable should be {} not {}",
                 STEAM_API_KEY_ENV,
-                api_key.unwrap().get_value(Some(&decrypt_key))
+                api_key.unwrap().get_value(Some(&decrypt_key)).unwrap()
             );
             assert_eq!(
                 smtp_password_val,
-                pass.unwrap().get_value(Some(&decrypt_key)),
+                pass.unwrap().get_value(Some(&decrypt_key)).unwrap(),
                 "Environment variable should be {} not {}",
                 SMTP_PASSWORD_ENV,
-                pass.unwrap().get_value(Some(&decrypt_key))
+                pass.unwrap().get_value(Some(&decrypt_key)).unwrap()
             );
         });
         match pwd_decode {
@@ -185,7 +185,7 @@ fn no_variables() {
     }
     env::set_current_dir(&_tmp_env.temp_dir).unwrap();
 
-    let vars = env_vars::get_variables();
+    let vars = env_vars::get_variables().expect("Environment variables should load");
     println!("Test Environment Variables: {:?}", vars);
 
     let api_key = vars.get(STEAM_API_KEY_ENV).and_then(EnvVar::as_password);
@@ -202,17 +202,17 @@ fn no_variables() {
         let decrypt_key = get_decrypt_key(properties::get_project_path());
         assert_eq!(
             steam_api_key_val,
-            api_key.unwrap().get_value(Some(&decrypt_key)),
+            api_key.unwrap().get_value(Some(&decrypt_key)).unwrap(),
             "Environment variable should be {} not {}",
             STEAM_API_KEY_ENV,
-            api_key.unwrap().get_value(Some(&decrypt_key))
+            api_key.unwrap().get_value(Some(&decrypt_key)).unwrap()
         );
         assert_eq!(
             smtp_password_val,
-            pass.unwrap().get_value(Some(&decrypt_key)),
+            pass.unwrap().get_value(Some(&decrypt_key)).unwrap(),
             "Environment variable should be {} not {}",
             SMTP_PASSWORD_ENV,
-            pass.unwrap().get_value(Some(&decrypt_key))
+            pass.unwrap().get_value(Some(&decrypt_key)).unwrap()
         );
     });
     match pwd_decode {
@@ -312,7 +312,7 @@ fn read_custom_env_file() {
     let env_data = format!("{}=\"{}\"\n", env_var_name, env_var_value);
     general::write_file(&_tmp_env.temp_dir, env_filename, &env_data);
 
-    env_vars::load_dotenv(Some(env_filename));
+    env_vars::load_dotenv(Some(env_filename)).expect("Custom dotenv file should load");
     assert_eq!(
         env::var(env_var_name).unwrap(),
         env_var_value,

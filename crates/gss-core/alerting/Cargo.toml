@@ -13,6 +13,7 @@ test = false
 types = { path = "../types" }
 properties = { path = "../properties" }
 constants = { path = "../constants" }
+errors = { path = "../errors" }
 
 # External crates
 lettre.workspace = true

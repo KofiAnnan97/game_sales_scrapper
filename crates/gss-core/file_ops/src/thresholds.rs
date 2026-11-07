@@ -42,12 +42,14 @@ pub fn get_path() -> String {
 
 pub fn load_data() -> Result<Value> {
     let filepath = get_path();
+    // TODO: Propagate file read errors instead of panicking
     let data = read_to_string(filepath).unwrap();
     serde_json::from_str(&data)
 }
 
 pub fn load_thresholds() -> Result<Vec<GameThreshold>> {
     let filepath = get_path();
+    // TODO: Propagate file and JSON parsing errors instead of panicking
     let data = read_to_string(filepath).unwrap();
     let body: Value =
         serde_json::from_str(&data).expect("Load thresholds - could not convert to JSON");
@@ -57,6 +59,7 @@ pub fn load_thresholds() -> Result<Vec<GameThreshold>> {
 
 pub fn load_alias_map() -> Result<HashMap<String, Vec<String>>> {
     let filepath = get_path();
+    // TODO: Propagate file and JSON parsing errors instead of panicking
     let data = read_to_string(filepath).unwrap();
     let body: Value =
         serde_json::from_str(&data).expect("Load alias map - could not convert to JSON");
@@ -68,6 +71,7 @@ pub fn update_thresholds(thresholds: Vec<GameThreshold>) {
     match load_data() {
         Ok(data) => {
             let mut thresholds_data = data;
+            // TODO: Propagate errors when the thresholds key is missing
             *thresholds_data.get_mut(THRESHOLDS.to_string()).unwrap() = json!(thresholds);
             let thresholds_str = serde_json::to_string_pretty(&thresholds_data);
             general::write_to_file(
@@ -83,6 +87,7 @@ pub fn update_alias_map(alias_map: HashMap<String, Vec<String>>) {
     match load_data() {
         Ok(data) => {
             let mut alias_data = data;
+            // TODO: Propagate errors when the alias map key is missing
             *alias_data.get_mut(ALIAS_MAP.to_string()).unwrap() = json!(alias_map);
             let alias_str = serde_json::to_string_pretty(&alias_data);
             general::write_to_file(get_path(), alias_str.expect("Cannot update alais map"));
@@ -136,6 +141,7 @@ pub fn update_threshold_alias(game_title: String, new_alias: &str) -> bool {
     match load_data() {
         Ok(data) => {
             let mut alias_data = data;
+            // TODO: Propagate errors when required threshold keys are missing
             *alias_data.get_mut(ALIAS_MAP.to_string()).unwrap() = json!(alias_map);
             *alias_data.get_mut(THRESHOLDS.to_string()).unwrap() = json!(thresholds);
             let alias_map_str = serde_json::to_string_pretty(&alias_data);
@@ -182,6 +188,7 @@ pub fn update_threshold_alias_fuzzy(game_title: String, new_alias: &str) {
         let mut input = String::new();
         print!("Update alias by index or type \'c\' to cancel: ");
         let _ = io::stdout().flush();
+        // TODO: Propagate terminal input errors instead of panicking
         io::stdin()
             .read_line(&mut input)
             .expect("Failed to read user input");
@@ -257,6 +264,7 @@ pub async fn add_steam_game(new_alias: String, app: App, price: f64, client: &re
     }
 }
 
+// TODO: Propagate invalid GOG game IDs instead of panicking
 pub fn add_gog_game(new_alias: String, game: &GOGGameInfo, price: f64) {
     let mut thresholds = load_thresholds().unwrap_or_else(|_e| Vec::new());
     let mut unique: bool = true;
@@ -352,6 +360,7 @@ pub fn set_game_alias() -> String {
         let mut input = String::new();
         print!("Do you want to assign an alias [Y\\N]? ");
         let _ = io::stdout().flush();
+        // TODO: Propagate terminal input errors instead of panicking
         io::stdin()
             .read_line(&mut input)
             .expect("Failed to permission to assign alias.");
@@ -359,6 +368,7 @@ pub fn set_game_alias() -> String {
             print!("Alias name: ");
             let _ = io::stdout().flush();
             let mut alias_name = String::new();
+            // TODO: Propagate terminal input errors instead of panicking
             io::stdin()
                 .read_line(&mut alias_name)
                 .expect("Failed to read alias.");
@@ -433,6 +443,7 @@ pub fn update_price_fuzzy(title: &str, price: f64) {
         let mut input = String::new();
         print!("Update price by index or type \'c\' to cancel: ");
         let _ = io::stdout().flush();
+        // TODO: Propagate terminal input errors instead of panicking
         io::stdin()
             .read_line(&mut input)
             .expect("Failed to read user input");
@@ -595,6 +606,7 @@ pub fn remove_fuzzy(title: &str) {
         let mut input = String::new();
         print!("Remove game title by index or type \'c\' to cancel: ");
         let _ = io::stdout().flush();
+        // TODO: Propagate terminal input errors instead of panicking
         io::stdin()
             .read_line(&mut input)
             .expect("Failed to read user input");

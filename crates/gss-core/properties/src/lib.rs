@@ -15,12 +15,12 @@ use constants::operations::properties::{
     PROP_TEST_PATH, PROPERTIES_FILENAME, RECIPIENT_EMAIL_ENV, SMTP_EMAIL_ENV, SMTP_HOST_ENV,
     SMTP_PASSWORD_ENV, SMTP_PORT_ENV, SMTP_USERNAME_ENV, STEAM_API_KEY_ENV, TEST_PATH_ENV,
 };
-
 // Retrieve paths
 
 pub fn get_properties_path() -> String {
     let mut project_path = env_vars::get_project_path();
     if project_path.is_empty() {
+        // TODO: Propagate current-directory errors instead of panicking
         project_path = std::env::current_dir().unwrap().display().to_string();
     }
     let mut path_buf: PathBuf = [&project_path, CONFIG_DIR].iter().collect();
@@ -34,31 +34,39 @@ pub fn get_properties_path() -> String {
     match metadata(&path_str) {
         Ok(md) => {
             if md.len() == 0 {
-                let vars = env_vars::get_variables();
+                let vars_result = env_vars::get_variables();
                 let mut generic_test_path = String::new();
-                if vars.is_empty() {
-                    let path_buf: PathBuf = [&project_path, DEFAULT_TEST_DIR].iter().collect();
-                    generic_test_path = path_buf.display().to_string();
-                    general::create_dir(&generic_test_path);
+                match vars_result {
+                    Ok(vars) => {
+                        if vars.is_empty() {
+                            let path_buf: PathBuf =
+                                [&project_path, DEFAULT_TEST_DIR].iter().collect();
+                            generic_test_path = path_buf.display().to_string();
+                            general::create_dir(&generic_test_path);
+                        }
+                        let properties = json!({
+                            PROP_STEAM_API_KEY : if let Some(EnvVar::Secret(steam_key)) = vars.get(STEAM_API_KEY_ENV) && let Ok(data) = steam_key.get_value(None){ data } else { String::new() },
+                            PROP_RECIPIENT_EMAIL: if let Some(EnvVar::Text(recipient)) = vars.get(RECIPIENT_EMAIL_ENV) { &recipient } else { "" },
+                            PROP_SMTP_HOST: if let Some(EnvVar::Text(host)) = vars.get(SMTP_HOST_ENV) { &host } else { "" },
+                            PROP_SMTP_PORT: if let Some(EnvVar::Number(port)) = vars.get(SMTP_PORT_ENV) { *port } else { 0u16 },
+                            PROP_SMTP_EMAIL: if let Some(EnvVar::Text(email)) = vars.get(SMTP_EMAIL_ENV) { &email } else { "" },
+                            PROP_SMTP_USERNAME: if let Some(EnvVar::Text(user)) = vars.get(SMTP_USERNAME_ENV) { &user } else { "" },
+                            PROP_SMTP_PASSWORD: if let Some(EnvVar::Secret(smtp_pwd)) = vars.get(SMTP_PASSWORD_ENV) && let Ok(data) = smtp_pwd.get_value(None) { data } else { String::new() },
+                            PROP_PROJECT_PATH: &project_path,
+                            PROP_TEST_PATH: if let Some(EnvVar::Text(test_path)) = vars.get(TEST_PATH_ENV) { &test_path} else { &generic_test_path },
+                            PROP_SLIDING_STEAM_APPID: 0,
+                            PROP_TEST_MODE: 0
+                        });
+
+                        match serde_json::to_string_pretty(&properties) {
+                            Ok(properties_str) => {
+                                general::write_to_file(properties_path.to_string(), properties_str)
+                            }
+                            Err(_) => println!("Initial properties could not be created."),
+                        }
+                    }
+                    Err(e) => eprintln!("CONFIG_ERROR: {}", e),
                 }
-                let properties = json!({
-                    PROP_STEAM_API_KEY : if let Some(EnvVar::Secret(steam_key)) = vars.get(STEAM_API_KEY_ENV) { steam_key.get_value(None) } else { String::new() },
-                    PROP_RECIPIENT_EMAIL: if let Some(EnvVar::Text(recipient)) = vars.get(RECIPIENT_EMAIL_ENV) { &recipient } else { "" },
-                    PROP_SMTP_HOST: if let Some(EnvVar::Text(host)) = vars.get(SMTP_HOST_ENV) { &host } else { "" },
-                    PROP_SMTP_PORT: if let Some(EnvVar::Number(port)) = vars.get(SMTP_PORT_ENV) { *port } else { 0u16 },
-                    PROP_SMTP_EMAIL: if let Some(EnvVar::Text(email)) = vars.get(SMTP_EMAIL_ENV) { &email } else { "" },
-                    PROP_SMTP_USERNAME: if let Some(EnvVar::Text(user)) = vars.get(SMTP_USERNAME_ENV) { &user } else { "" },
-                    PROP_SMTP_PASSWORD: if let Some(EnvVar::Secret(smtp_pwd)) = vars.get(SMTP_PASSWORD_ENV) { smtp_pwd.get_value(None) } else { String::new() },
-                    PROP_PROJECT_PATH: &project_path,
-                    PROP_TEST_PATH: if let Some(EnvVar::Text(test_path)) = vars.get(TEST_PATH_ENV) { &test_path} else { &generic_test_path },
-                    PROP_SLIDING_STEAM_APPID: 0,
-                    PROP_TEST_MODE: 0
-                });
-                let properties_str = serde_json::to_string_pretty(&properties);
-                general::write_to_file(
-                    properties_path.to_string(),
-                    properties_str.expect("Initial properties could not be created."),
-                );
             }
         }
         Err(e) => eprintln!("Error: {}", e),
@@ -101,6 +109,13 @@ pub fn get_log_path() -> String {
 // Properties Functions
 
 pub fn update_properties_from_env() {
+    // TODO: Propagate this error up
+    if let Err(err) = env_vars::load_dotenv(Some(ENV_FILENAME)) {
+        eprintln!("Could not load {ENV_FILENAME}: {err}");
+        return;
+    }
+
+    let properties_path = get_properties_path();
     let prev_steam_key = get_steam_api_key(false);
     let prev_recipient = get_recipient();
     let prev_host = get_smtp_host();
@@ -111,7 +126,26 @@ pub fn update_properties_from_env() {
     let prev_project_path = get_project_path();
     let prev_test_path = get_test_path();
 
-    let vars = env_vars::get_variables();
+    let vars = match env_vars::get_variables() {
+        Ok(data) if !data.is_empty() => data,
+        Err(err) => {
+            eprintln!("Could not load environment variables: {err}");
+            return;
+        }
+        _ => {
+            eprintln!("Cannot find environment variables. Missing file: {ENV_FILENAME}.");
+            return;
+        }
+    };
+
+    if let Some((name, message)) = vars.iter().find_map(|(name, value)| match value {
+        EnvVar::Invalid(message) => Some((name, message)),
+        _ => None,
+    }) {
+        eprintln!("Invalid environment variable {name}: {message}");
+        return;
+    }
+
     if !vars.is_empty() {
         let curr_steam_key = vars.get(STEAM_API_KEY_ENV).and_then(EnvVar::as_password);
         let curr_recipient = vars.get(RECIPIENT_EMAIL_ENV).and_then(EnvVar::as_str);
@@ -124,10 +158,20 @@ pub fn update_properties_from_env() {
         let curr_test_path = vars.get(TEST_PATH_ENV).and_then(EnvVar::as_str);
 
         let key_str = env_vars::get_decrypt_key(env_vars::get_project_path());
-        let steam_api_key_updated = curr_steam_key.is_some()
-            && prev_steam_key != curr_steam_key.unwrap().get_value(Some(&key_str));
-        let smtp_pwd_updated =
-            curr_pwd.is_some() && prev_pwd != curr_pwd.unwrap().get_value(Some(&key_str));
+        let steam_api_key_updated = if let Some(key) = curr_steam_key
+            && let Ok(data) = key.get_value(Some(&key_str))
+        {
+            prev_steam_key != data
+        } else {
+            false
+        };
+        let smtp_pwd_updated = if let Some(key) = curr_pwd
+            && let Ok(data) = key.get_value(Some(&key_str))
+        {
+            prev_pwd != data
+        } else {
+            false
+        };
 
         let properties_changed = steam_api_key_updated
             || smtp_pwd_updated
@@ -145,38 +189,26 @@ pub fn update_properties_from_env() {
 
         if properties_changed {
             let properties = json!({
-                PROP_STEAM_API_KEY : if steam_api_key_updated {
-                    curr_steam_key.unwrap().get_value(None)
+                PROP_STEAM_API_KEY : if let Some(key) = curr_steam_key {
+                    match key.get_value(None) {
+                        Ok(pass)
+                            if steam_api_key_updated => pass,
+                        _ => get_string_var(PROP_STEAM_API_KEY),
+                    }
                 } else {
                     get_string_var(PROP_STEAM_API_KEY)
                 },
-                PROP_RECIPIENT_EMAIL: if let Some(recipient) = curr_recipient && recipient == prev_recipient {
-                    recipient
-                } else {
-                    &prev_recipient
-                },
-                PROP_SMTP_HOST: if let Some(host) = curr_host && host == prev_host {
-                    host
-                } else {
-                    &prev_host
-                },
-                PROP_SMTP_PORT: if let Some(port) = curr_port && port == prev_port {
-                    port
-                } else {
-                    prev_port
-                },
-                PROP_SMTP_EMAIL: if let Some(email) = curr_email && email == prev_email {
-                    email
-                } else {
-                    &prev_email
-                },
-                PROP_SMTP_USERNAME: if let Some(user) = curr_user && user == prev_user {
-                    user
-                } else {
-                    &prev_user
-                },
-                PROP_SMTP_PASSWORD: if smtp_pwd_updated {
-                    curr_pwd.unwrap().get_value(None)
+                PROP_RECIPIENT_EMAIL: curr_recipient.unwrap_or(&prev_recipient),
+                PROP_SMTP_HOST: curr_host.unwrap_or(&prev_host),
+                PROP_SMTP_PORT: curr_port.unwrap_or(prev_port),
+                PROP_SMTP_EMAIL: curr_email.unwrap_or(&prev_email),
+                PROP_SMTP_USERNAME: curr_user.unwrap_or(&prev_user),
+                PROP_SMTP_PASSWORD: if let Some(pass) = curr_pwd {
+                    match pass.get_value(None) {
+                        Ok(data)
+                            if smtp_pwd_updated => data,
+                        _ => get_string_var(PROP_SMTP_PASSWORD)
+                    }
                 } else {
                     get_string_var(PROP_SMTP_PASSWORD)
                 },
@@ -193,18 +225,16 @@ pub fn update_properties_from_env() {
                 PROP_SLIDING_STEAM_APPID: get_sliding_steam_appid(),
                 PROP_TEST_MODE: get_test_mode(),
             });
-            let properties_str = serde_json::to_string_pretty(&properties);
-            general::write_to_file(
-                get_properties_path(),
-                properties_str.expect("Properties could not be updated."),
-            );
+            match serde_json::to_string_pretty(&properties) {
+                Ok(properties_str) => general::write_to_file(properties_path, properties_str),
+                Err(_) => eprintln!("Properties could not be set using env file."),
+            }
         }
-    } else {
-        eprintln!("Cannot find environment variables. Missing file: {ENV_FILENAME}.");
     }
 }
 
 pub fn load_properties() -> Result<Value> {
+    // TODO: Propagate file read errors instead of panicking
     let data = read_to_string(get_properties_path()).unwrap();
     let body: Value = serde_json::from_str(&data)?;
     Ok(body)
@@ -236,6 +266,7 @@ fn get_secret_var(var_name: &str) -> Option<Password> {
                 None
             }
         },
+        // TODO: Return result instead of panic
         Err(_) => panic!("Failed to load secret from properties file"),
     }
 }
@@ -243,6 +274,7 @@ fn get_secret_var(var_name: &str) -> Option<Password> {
 fn get_string_var(var_name: &str) -> String {
     match load_properties() {
         Ok(properties) => match properties.get(var_name) {
+            // TODO: Validate property types instead of panicking on non-string values
             Some(result) => result.as_str().unwrap().to_string(),
             None => {
                 eprintln!(
@@ -252,6 +284,7 @@ fn get_string_var(var_name: &str) -> String {
                 String::new()
             }
         },
+        // TODO: Return result instead of panic
         Err(_) => panic!("Failed to load '{}' from properties file.", var_name),
     }
 }
@@ -270,6 +303,7 @@ fn get_integer_var(var_name: &str) -> i64 {
             }
         },
         Err(_) => panic!(
+            // TODO: Return result instead of panic
             "Failed to load integer '{}' from properties file.",
             var_name
         ),
@@ -288,6 +322,7 @@ pub fn get_steam_api_key(hidden: bool) -> String {
 
         let key_str = get_decrypt_key(get_project_path());
         key.get_value(Some(&key_str))
+            .unwrap_or_else(|_| String::new())
     } else {
         String::new()
     }
@@ -323,6 +358,7 @@ pub fn get_smtp_pwd(hidden: bool) -> String {
         }
         let key_str = get_decrypt_key(get_project_path());
         key.get_value(Some(&key_str))
+            .unwrap_or_else(|_| String::new())
     } else {
         String::new()
     }
@@ -340,6 +376,7 @@ pub fn get_project_path() -> String {
                 project_path
             );
         }
+        // TODO: Propagate current-directory errors instead of panicking
         project_path = std::env::current_dir().unwrap().display().to_string();
         set_project_path(&project_path);
     }
@@ -384,19 +421,25 @@ pub fn is_testing_enabled() -> bool {
     state == 1
 }
 
+// TODO: Validate required property keys before unwrapping them in setters.
 // Setters
 
 pub fn set_steam_api_key(api_key: String) {
     match load_properties() {
         Ok(data) => {
             let mut properties = data;
-            let steam_key = Password::new(&get_decrypt_key(get_project_path()), api_key);
-            *properties.get_mut(PROP_STEAM_API_KEY).unwrap() = json!(&steam_key.get_value(None));
-            let properties_str = serde_json::to_string_pretty(&properties);
-            general::write_to_file(
-                get_properties_path(),
-                properties_str.expect("Sliding steam appid property could not be created/updated."),
-            );
+            match Password::new(&get_decrypt_key(get_project_path()), api_key) {
+                Ok(steam_key) if let Ok(data) = steam_key.get_value(None) => {
+                    *properties.get_mut(PROP_STEAM_API_KEY).unwrap() = json!(&data);
+                    match serde_json::to_string_pretty(&properties) {
+                        Ok(properties_str) => {
+                            general::write_to_file(get_properties_path(), properties_str);
+                        }
+                        Err(_) => eprintln!("Property steam api key could not be set."),
+                    }
+                }
+                _ => (),
+            }
         }
         Err(e) => eprintln!("Error: {}", e),
     }
@@ -407,11 +450,10 @@ pub fn set_recipient(email_str: &str) {
         Ok(data) => {
             let mut properties = data;
             *properties.get_mut(PROP_RECIPIENT_EMAIL).unwrap() = json!(email_str);
-            let properties_str = serde_json::to_string_pretty(&properties);
-            general::write_to_file(
-                get_properties_path(),
-                properties_str.expect("recipient email property could not be created/updated."),
-            );
+            match serde_json::to_string_pretty(&properties) {
+                Ok(properties_str) => general::write_to_file(get_properties_path(), properties_str),
+                Err(_) => eprintln!("Property set recipient could not be set."),
+            }
         }
         Err(e) => eprintln!("Error: {}", e),
     }
@@ -434,14 +476,17 @@ pub fn set_stmp_vars(host: String, port: u16, email: String, user: String, pass:
                 *properties.get_mut(PROP_SMTP_USERNAME).unwrap() = json!(user);
             }
             if !pass.is_empty() {
-                let smtp_pwd = Password::new(&get_decrypt_key(get_project_path()), pass);
-                *properties.get_mut(PROP_SMTP_PASSWORD).unwrap() = json!(&smtp_pwd.get_value(None));
+                match Password::new(&get_decrypt_key(get_project_path()), pass) {
+                    Ok(val) if let Ok(data) = val.get_value(None) => {
+                        *properties.get_mut(PROP_SMTP_PASSWORD).unwrap() = json!(&data)
+                    }
+                    _ => (),
+                }
             }
-            let properties_str = serde_json::to_string_pretty(&properties);
-            general::write_to_file(
-                get_properties_path(),
-                properties_str.expect("Refresh steam appid property could not be created."),
-            );
+            match serde_json::to_string_pretty(&properties) {
+                Ok(properties_str) => general::write_to_file(get_properties_path(), properties_str),
+                Err(_) => eprintln!("Smtp properties could not be set."),
+            }
         }
         Err(e) => eprintln!("Error: {}", e),
     }
@@ -449,7 +494,8 @@ pub fn set_stmp_vars(host: String, port: u16, email: String, user: String, pass:
 
 pub fn set_project_path(path: &str) {
     if !Path::new(&path).is_dir() {
-        panic!(
+        // TODO: Return result instead of print
+        eprintln!(
             "Project path was not set because '{}' is not a directory.",
             path
         );
@@ -458,11 +504,10 @@ pub fn set_project_path(path: &str) {
         Ok(data) => {
             let mut properties = data;
             *properties.get_mut(PROP_PROJECT_PATH).unwrap() = json!(path);
-            let properties_str = serde_json::to_string_pretty(&properties);
-            general::write_to_file(
-                get_properties_path(),
-                properties_str.expect("Project path property could not be created/updated."),
-            );
+            match serde_json::to_string_pretty(&properties) {
+                Ok(properties_str) => general::write_to_file(get_properties_path(), properties_str),
+                Err(_) => eprintln!("Project path property could not be set."),
+            }
         }
         Err(e) => eprintln!("Error: {}", e),
     }
@@ -480,11 +525,10 @@ pub fn set_test_path(path: &str) {
         Ok(data) => {
             let mut properties = data;
             *properties.get_mut(PROP_TEST_PATH).unwrap() = json!(path);
-            let properties_str = serde_json::to_string_pretty(&properties);
-            general::write_to_file(
-                get_properties_path(),
-                properties_str.expect("Test path property could not be created/updated."),
-            );
+            match serde_json::to_string_pretty(&properties) {
+                Ok(properties_str) => general::write_to_file(get_properties_path(), properties_str),
+                Err(_) => eprintln!("Test path property could not be created/updated."),
+            }
         }
         Err(e) => eprintln!("Error: {}", e),
     }
@@ -495,11 +539,10 @@ pub fn set_sliding_steam_appid(steam_appid: u32) {
         Ok(data) => {
             let mut properties = data;
             *properties.get_mut(PROP_SLIDING_STEAM_APPID).unwrap() = json!(steam_appid);
-            let properties_str = serde_json::to_string_pretty(&properties);
-            general::write_to_file(
-                get_properties_path(),
-                properties_str.expect("Sliding steam appid property could not be created/updated."),
-            );
+            match serde_json::to_string_pretty(&properties) {
+                Ok(properties_str) => general::write_to_file(get_properties_path(), properties_str),
+                Err(_) => eprintln!("Sliding steam appid property could not be set."),
+            }
         }
         Err(e) => eprintln!("Error: {}", e),
     }
@@ -511,11 +554,10 @@ pub fn set_test_mode(is_enabled: bool) {
             let mut properties = data;
             let enabled = if is_enabled { 1 } else { 0 };
             *properties.get_mut(PROP_TEST_MODE).unwrap() = json!(enabled);
-            let properties_str = serde_json::to_string_pretty(&properties);
-            general::write_to_file(
-                get_properties_path(),
-                properties_str.expect("Test mode property could not be created."),
-            );
+            match serde_json::to_string_pretty(&properties) {
+                Ok(properties_str) => general::write_to_file(get_properties_path(), properties_str),
+                Err(_) => todo!("Test mode property could not be set."),
+            }
         }
         Err(e) => eprintln!("Error: {}", e),
     }

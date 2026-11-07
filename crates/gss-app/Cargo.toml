@@ -17,6 +17,7 @@ stores = { path = "../gss-core/stores" }
 types = { path = "../gss-core/types" }
 properties = { path = "../gss-core/properties" }
 constants = { path = "../gss-core/constants" }
+errors = { path = "../gss-core/errors" }
 
 # External crates
 iced.workspace = true

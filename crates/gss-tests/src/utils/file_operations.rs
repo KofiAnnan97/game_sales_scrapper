@@ -16,6 +16,7 @@ pub fn load_steam_cache(path: &Path) -> Vec<App> {
 
 pub fn load_threshold_data(path: &Path) -> Result<Value> {
     let filepath = path.display().to_string();
+    // TODO: Propagate file read errors instead of panicking
     let data = read_to_string(filepath).unwrap();
     serde_json::from_str(&data)
 }

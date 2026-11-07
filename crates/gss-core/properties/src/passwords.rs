@@ -1,7 +1,7 @@
 use aes_gcm::aead::{Aead, OsRng};
 use aes_gcm::{AeadCore, Aes256Gcm, Key, KeyInit, Nonce};
 use base64::prelude::*;
-use core::panic;
+use errors::secrets::{DecryptError, SecretsError};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PasswordState {
@@ -17,11 +17,12 @@ pub struct Password {
 }
 
 impl Password {
-    pub fn new(key_str: &str, pwd: String) -> Self {
-        Password {
-            value: encrypt(key_str, pwd),
+    pub fn new(key_str: &str, pwd: String) -> Result<Self, SecretsError> {
+        let password = Password {
+            value: encrypt(key_str, pwd)?,
             state: PasswordState::Encrypted,
-        }
+        };
+        Ok(password)
     }
 
     pub fn new_encrypted(pwd_encrypted: String) -> Self {
@@ -39,21 +40,21 @@ impl Password {
         self.state = new_state;
     }
 
-    pub fn get_value(&self, key_str: Option<&str>) -> String {
+    pub fn get_value(&self, key_str: Option<&str>) -> Result<String, SecretsError> {
         match self.state {
-            PasswordState::Hidden => "\u{2219}".repeat(24),
+            PasswordState::Hidden => Ok("\u{2219}".repeat(24)),
             PasswordState::Encrypted => {
                 if let Some(key) = key_str {
-                    decrypt(key, self.value.to_owned())
+                    Ok(decrypt(key, self.value.to_owned())?)
                 } else {
-                    self.value.to_owned()
+                    Ok(self.value.to_owned())
                 }
             }
             PasswordState::PlainText => {
                 if let Some(key) = key_str {
-                    decrypt(key, self.value.to_owned())
+                    Ok(decrypt(key, self.value.to_owned())?)
                 } else {
-                    String::new()
+                    Err(SecretsError::Message("Key could not be decrypted.".into()))
                 }
             }
         }
@@ -61,38 +62,41 @@ impl Password {
 }
 
 // Encryption and Decryption uses AES-256 GCM and Base64
-fn encrypt(key_str: &str, plaintext: String) -> String {
+fn encrypt(key_str: &str, plaintext: String) -> Result<String, SecretsError> {
+    if key_str.len() != 32 {
+        return Err(SecretsError::Message(
+            "Encryption key must be exactly 32 bytes".into(),
+        ));
+    }
     let key = Key::<Aes256Gcm>::from_slice(key_str.as_bytes());
     let cipher = Aes256Gcm::new(key);
     let nonce = Aes256Gcm::generate_nonce(&mut OsRng);
-    let cipher_vec = cipher
-        .encrypt(&nonce, plaintext.as_bytes())
-        .expect("Failed to encrypt");
+    let cipher_vec = cipher.encrypt(&nonce, plaintext.as_bytes())?;
     let mut encrypted_vec: Vec<u8> = nonce.to_vec();
     encrypted_vec.extend_from_slice(&cipher_vec);
     let mut encrypted = hex::encode(encrypted_vec);
     encrypted = BASE64_STANDARD.encode(encrypted.as_bytes());
-    encrypted
+    Ok(encrypted)
 }
 
-fn decrypt(key_str: &str, encrypted_text: String) -> String {
+fn decrypt(key_str: &str, encrypted_text: String) -> Result<String, DecryptError> {
     if encrypted_text.is_empty() {
-        return String::new();
+        return Err(DecryptError::Message("Encrypted key is empty".into()));
     }
     if key_str.is_empty() || key_str.len() != 32 {
-        panic!("Decrypt key is empty or incorrectly formatted")
+        return Err(DecryptError::Message(
+            "Decrypt key must not be empty and exactly 32 bytes".into(),
+        ));
     }
     let key = Key::<Aes256Gcm>::from_slice(key_str.as_bytes());
-    let base64_decode = BASE64_STANDARD
-        .decode(encrypted_text.as_bytes())
-        .expect("Failed to base64 decode");
-    let decode_str = String::from_utf8(base64_decode).expect("Failed base64 decode");
-    let encrypted_vec = hex::decode(decode_str).expect("Failed to decode hex string");
+    let base64_decode = BASE64_STANDARD.decode(encrypted_text.as_bytes())?;
+    let decode_str = String::from_utf8(base64_decode)?;
+    let encrypted_vec = hex::decode(decode_str)
+        .map_err(|err| DecryptError::Message(format!("Invalid encrypted key format: {err}")))?;
     let (nonce_arr, ciphered_vec) = encrypted_vec.split_at(12);
     let nonce = Nonce::from_slice(nonce_arr);
     let cipher = Aes256Gcm::new(key);
-    let plaintext_vec = cipher
-        .decrypt(nonce, ciphered_vec)
-        .expect("Failed to decrypt");
-    String::from_utf8(plaintext_vec).expect("Failed to decode password")
+    let plaintext_vec = cipher.decrypt(nonce, ciphered_vec)?;
+    let key = String::from_utf8(plaintext_vec)?;
+    Ok(key)
 }

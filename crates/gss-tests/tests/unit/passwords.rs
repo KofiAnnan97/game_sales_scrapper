@@ -8,10 +8,10 @@ static ENCRYPTED_PASSWORD: &str = "MzEwYzA2NzU1OTBjMmIxYjFhNWQ1NmJhODA4MmE0NWZlY
 
 #[test]
 fn encryption_test() {
-    let encrypted = Password::new(KEY_STR, PLAINTEXT_PASSWORD.to_string());
+    let encrypted = Password::new(KEY_STR, PLAINTEXT_PASSWORD.to_string()).unwrap();
     assert_eq!(
         PLAINTEXT_PASSWORD,
-        encrypted.get_value(Some(KEY_STR)),
+        encrypted.get_value(Some(KEY_STR)).unwrap(),
         "Passwords was not encrypted correctly"
     );
 }
@@ -19,7 +19,7 @@ fn encryption_test() {
 #[test]
 fn decryption_test_successful() {
     let pass = Password::new_encrypted(ENCRYPTED_PASSWORD.to_string());
-    let decrypt = pass.get_value(Some(KEY_STR));
+    let decrypt = pass.get_value(Some(KEY_STR)).unwrap();
     assert_eq!(
         PLAINTEXT_PASSWORD, decrypt,
         "Passwords was not decrypted correctly"
@@ -27,13 +27,8 @@ fn decryption_test_successful() {
 }
 
 #[test]
-#[should_panic]
 fn decryption_test_fails() {
     let key_str = Alphanumeric.sample_string(&mut rand::rng(), 32);
     let pass: Password = Password::new_encrypted(ENCRYPTED_PASSWORD.to_string());
-    assert_ne!(
-        PLAINTEXT_PASSWORD,
-        pass.get_value(Some(&key_str)),
-        "This test should panic during decryption"
-    );
+    assert!(pass.get_value(Some(&key_str)).is_err());
 }

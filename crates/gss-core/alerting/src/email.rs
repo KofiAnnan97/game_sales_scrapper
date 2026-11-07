@@ -11,11 +11,12 @@ use constants::operations::properties::{
     PROP_RECIPIENT_EMAIL, PROP_SMTP_EMAIL, PROP_SMTP_HOST, PROP_SMTP_PASSWORD, PROP_SMTP_PORT,
     PROP_SMTP_USERNAME,
 };
+use errors::alert::AlertError;
 use properties;
 use types::internal::data::SaleInfo;
 use types::internal::store::GameStore;
 
-pub fn params_check() {
+pub fn params_check() -> Result<(), AlertError> {
     // Get email parameters
     let recipient = properties::get_recipient();
     let smtp_host = properties::get_smtp_host();
@@ -45,14 +46,19 @@ pub fn params_check() {
         err_msg.push_str(&format!("  - {}\n", PROP_SMTP_PASSWORD));
     }
     if !err_msg.is_empty() {
-        panic!(
+        return Err(AlertError::Message(format!(
             "Cannot send email without the following properties:\n{}",
             err_msg
-        );
+        )));
     }
+    Ok(())
 }
 
-pub fn send_plain_text_msg(recipient: &str, subject: &str, body: &str) {
+pub fn send_plain_text_msg(
+    recipient: &str,
+    subject: &str,
+    body: &str,
+) -> Result<String, AlertError> {
     let smtp_host = properties::get_smtp_host();
     let smtp_port: u16 = properties::get_smtp_port();
     let smtp_email = properties::get_smtp_email();
@@ -60,24 +66,22 @@ pub fn send_plain_text_msg(recipient: &str, subject: &str, body: &str) {
     let smtp_pwd = properties::get_smtp_pwd(false);
 
     let email = Message::builder()
-        .from(smtp_email.parse().unwrap())
-        .to(recipient.parse().unwrap())
+        .from(smtp_email.parse()?)
+        .to(recipient.parse()?)
         .subject(subject)
-        .body(body.to_string())
-        .unwrap();
+        .body(body.to_string())?;
 
     let creds = Credentials::new(smtp_user, smtp_pwd);
 
-    let mailer = SmtpTransport::starttls_relay(&smtp_host)
-        .unwrap()
+    let mailer = SmtpTransport::starttls_relay(&smtp_host)?
         .credentials(creds)
         .port(smtp_port)
         .authentication(vec![Mechanism::Login])
         .build();
 
     match mailer.send(&email) {
-        Ok(_) => println!("Email sent successfully"),
-        Err(e) => eprintln!("Failed to send email: {e}"),
+        Ok(_) => Ok("Email sent successfully".into()),
+        Err(e) => Err(AlertError::Message(format!("Failed to send email: {e}"))),
     }
 }
 
@@ -138,7 +142,7 @@ pub fn create_store_cards(store_name: GameStore, sales: Vec<SaleInfo>) -> String
     <div class="store">
     <h2 class="storefront">{0}</h2>
     "#,
-        store_name
+        simple_name
     );
     for game in sales {
         store_cards.push_str(&create_game_card(game, simple_name));
@@ -175,7 +179,7 @@ pub fn create_html_body(sales_info_html: &str) -> String {
     html_body
 }
 
-pub fn send_html_msg(recipient: &str, subject: &str, body: &str) -> Result<String, String> {
+pub fn send_html_msg(recipient: &str, subject: &str, body: &str) -> Result<String, AlertError> {
     let smtp_host = properties::get_smtp_host();
     let smtp_port: u16 = properties::get_smtp_port();
     let smtp_email = properties::get_smtp_email();
@@ -183,16 +187,14 @@ pub fn send_html_msg(recipient: &str, subject: &str, body: &str) -> Result<Strin
     let smtp_pwd = properties::get_smtp_pwd(false);
 
     let email = Message::builder()
-        .from(smtp_email.parse().unwrap())
-        .to(recipient.parse().unwrap())
+        .from(smtp_email.parse()?)
+        .to(recipient.parse()?)
         .subject(subject)
-        .multipart(MultiPart::alternative().singlepart(SinglePart::html(body.to_string())))
-        .unwrap();
+        .multipart(MultiPart::alternative().singlepart(SinglePart::html(body.to_string())))?;
 
     let creds = Credentials::new(smtp_user, smtp_pwd);
 
-    let mailer = SmtpTransport::starttls_relay(&smtp_host)
-        .unwrap()
+    let mailer = SmtpTransport::starttls_relay(&smtp_host)?
         .credentials(creds)
         .port(smtp_port)
         .authentication(vec![Mechanism::Login])
@@ -200,7 +202,7 @@ pub fn send_html_msg(recipient: &str, subject: &str, body: &str) -> Result<Strin
 
     match mailer.send(&email) {
         Ok(_) => Ok("Email send attempt completed successfully".into()),
-        Err(e) => Err(format!("Failed to send email - {}", e)),
+        Err(e) => Err(AlertError::Message(format!("Failed to send email - {}", e))),
     }
 }
 

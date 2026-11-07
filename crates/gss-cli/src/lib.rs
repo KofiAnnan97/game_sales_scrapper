@@ -17,6 +17,7 @@ use types::response::microsoft_store::ProductInfo;
 pub fn storefront_check() -> Vec<GameStore> {
     let selected_stores = settings::get_selected_stores();
     if selected_stores.is_empty() {
+        // TODO: Return a configuration error instead of panicking
         panic!(
             "Please configure which stores to query. Run \'game_sales_scrapper config --help\' for more info."
         );
@@ -253,6 +254,7 @@ pub async fn gog_insert_sequence(alias: &str, title: &str, price: f64, provider:
         let mut input = String::new();
         print!("Type integer corresponding to game title or type \'q\' to skip: ");
         let _ = io::stdout().flush();
+        // TODO: Propagate terminal input errors instead of panicking
         io::stdin()
             .read_line(&mut input)
             .expect("Failed to read user input");
@@ -302,6 +304,7 @@ pub async fn microsoft_store_insert_sequence(
         let mut input = String::new();
         print!("Type integer corresponding to game title or type \"q\" to quit: ");
         let _ = io::stdout().flush();
+        // TODO: Propagate terminal input errors instead of panicking
         io::stdin()
             .read_line(&mut input)
             .expect("Failed to read user input");

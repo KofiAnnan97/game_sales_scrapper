@@ -235,7 +235,7 @@ fn update_properties_from_env() {
         .unwrap()
         .to_string();
     let steam_key = Password::new_encrypted(encrypted_steam_key);
-    let decrypted_steam_key = steam_key.get_value(Some(&key_str));
+    let decrypted_steam_key = steam_key.get_value(Some(&key_str)).unwrap();
     assert_eq!(decrypted_steam_key, steam_api_key_val);
     assert_eq!(
         updated_properties[PROP_RECIPIENT_EMAIL].as_str().unwrap(),
@@ -274,7 +274,7 @@ fn update_properties_from_env() {
         .unwrap()
         .to_string();
     let smtp_pwd = Password::new_encrypted(encrypted_smtp_pwd);
-    let decrypted_smtp_pwd = smtp_pwd.get_value(Some(&key_str));
+    let decrypted_smtp_pwd = smtp_pwd.get_value(Some(&key_str)).unwrap();
     assert_eq!(decrypted_smtp_pwd, smtp_password_val);
     assert_eq!(
         updated_properties[PROP_PROJECT_PATH].as_str().unwrap(),

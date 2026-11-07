@@ -6,12 +6,7 @@ use stores::pc::steam;
 use stores::search::provider::SearchProvider;
 
 pub async fn send_sales_email(search_provider: SearchProvider) -> Result<String, String> {
-    let smtp_props = std::panic::catch_unwind(|| {
-        email::params_check();
-    });
-    if let Err(err) = smtp_props {
-        return Err(format!("{:?}", err));
-    }
+    email::params_check().map_err(|err| err.to_string())?;
     let use_html = true;
     match check_prices_for_email(use_html, search_provider).await {
         Ok(sales_str) => {
@@ -22,11 +17,14 @@ pub async fn send_sales_email(search_provider: SearchProvider) -> Result<String,
             } else {
                 println!("Sending email...");
                 let to_address = &properties::get_recipient();
-                let _ = email::send_html_msg(
+                return match email::send_html_msg(
                     to_address,
                     "Check Out Which Games Are On Sale",
                     &html_body,
-                )?;
+                ) {
+                    Ok(_) => Ok("Email sent (or send attempt completed).".into()),
+                    Err(e) => Err(format!("{}", e)),
+                };
             }
             Ok(String::from("Email sent (or send attempt completed)."))
         }

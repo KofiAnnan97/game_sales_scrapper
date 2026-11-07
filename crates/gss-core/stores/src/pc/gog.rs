@@ -49,10 +49,12 @@ impl<'a> GogApi for GogClient<'a> {
             .timeout(Duration::from_secs(DEFAULT_TIMEOUT_IN_SECS))
             .send()
             .await
+            // TODO: Propagate HTTP and response-body errors instead of panicking
             .expect("Failed to get response")
             .text()
             .await
             .expect("Failed to get data");
+        // TODO: Propagate JSON parsing errors instead of panicking
         let body: Value = serde_json::from_str(&resp).expect("Could not convert to JSON");
         //println!("{:?}", body);
         let products = serde_json::to_string(&body["products"]).unwrap();
@@ -73,10 +75,12 @@ impl<'a> GogApi for GogClient<'a> {
             .timeout(Duration::from_secs(DEFAULT_TIMEOUT_IN_SECS))
             .send()
             .await
+            // TODO: Return HTTP and response-body errors instead of panicking
             .expect("Failed to get response")
             .text()
             .await
             .expect("Failed to get data");
+        // TODO: Return JSON parsing errors instead of panicking
         let body: Value = serde_json::from_str(&resp).expect("Could not convert to JSON");
         //println!("{:?}", body);
         if let Some(products) = body["products"].as_array() {
@@ -84,6 +88,7 @@ impl<'a> GogApi for GogClient<'a> {
                 let game_title = product["title"].to_string();
                 if *title == game_title[1..game_title.len() - 1] {
                     let price = serde_json::to_string(&product["price"]).unwrap();
+                    // TODO: Handle malformed price data instead of panicking
                     let price_overview = serde_json::from_str::<PriceOverview>(&price).unwrap();
                     return Some(price_overview);
                 }
@@ -150,6 +155,7 @@ impl<'a> GogApi for GogClient<'a> {
                     if let Some(discount) = po.discount {
                         discount_str = discount[1..discount.len() - 1].to_string()
                     } else {
+                        // TODO: Handle invalid price amounts instead of panicking
                         let base_amount = po.base_money.amount.parse::<f64>().unwrap();
                         let final_amount = po.final_money.amount.parse::<f64>().unwrap();
                         discount_str = format!(
@@ -176,6 +182,7 @@ impl<'a> GogApi for GogClient<'a> {
 pub fn get_price_from_list(title: &str, games_list: Vec<Game>) -> Option<f64> {
     for game in games_list.iter() {
         if title == game.title {
+            // TODO: Handle invalid price amounts instead of panicking
             let game_price: f64 = game.price.final_amount.parse::<f64>().unwrap();
             return Some(game_price);
         }

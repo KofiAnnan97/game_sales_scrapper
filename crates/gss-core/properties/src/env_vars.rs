@@ -1,5 +1,4 @@
-use dotenv as env_linux;
-use dotenvy as env_windows;
+use dotenvy as dotenv;
 use rand::distr::{Alphanumeric, SampleString};
 use std::collections::HashMap;
 use std::fs::{self, File, metadata};
@@ -11,6 +10,8 @@ use constants::operations::properties::{
     RECIPIENT_EMAIL_ENV, SMTP_EMAIL_ENV, SMTP_HOST_ENV, SMTP_PASSWORD_ENV, SMTP_PORT_ENV,
     SMTP_USERNAME_ENV, STEAM_API_KEY_ENV, TEST_PATH_ENV,
 };
+use errors::config::ConfigError;
+use errors::secrets::SecretsError;
 use files::general;
 
 #[derive(Debug)]
@@ -19,6 +20,7 @@ pub enum EnvVar {
     Number(u16),
     Secret(Password),
     // Path(String),
+    Invalid(String),
     Empty,
 }
 
@@ -34,9 +36,12 @@ impl From<u16> for EnvVar {
     }
 }
 
-impl From<Password> for EnvVar {
-    fn from(p: Password) -> Self {
-        EnvVar::Secret(p)
+impl From<Result<Password, SecretsError>> for EnvVar {
+    fn from(result: Result<Password, SecretsError>) -> Self {
+        match result {
+            Ok(pass) => EnvVar::Secret(pass),
+            Err(e) => EnvVar::Invalid(e.to_string()),
+        }
     }
 }
 
@@ -61,6 +66,13 @@ impl EnvVar {
             _ => None,
         }
     }
+
+    pub fn as_invalid(&self) -> Option<&str> {
+        match self {
+            EnvVar::Invalid(message) => Some(message),
+            _ => None,
+        }
+    }
 }
 
 pub fn get_decrypt_key(project_path: String) -> String {
@@ -71,6 +83,7 @@ pub fn get_decrypt_key(project_path: String) -> String {
     path_str = path_buf.display().to_string();
     let mut key_str = String::new();
     if !path_buf.is_file() {
+        // TODO: Propagate key-file creation errors instead of panicking
         File::create_new(&path_str).expect("Failed to create decrypt key file");
         match metadata(&path_buf) {
             Ok(md) => {
@@ -90,29 +103,23 @@ pub fn get_decrypt_key(project_path: String) -> String {
     key_str
 }
 
-pub fn load_dotenv(file: Option<&str>) {
-    match file {
-        Some(filename) => {
-            if cfg!(target_os = "windows") {
-                env_windows::from_filename_override(filename).ok();
-            } else if cfg!(target_os = "linux") {
-                env_linux::from_filename(filename).ok();
-            }
-        }
-        None => {
-            if cfg!(target_os = "windows") {
-                env_windows::dotenv().ok();
-            } else if cfg!(target_os = "linux") {
-                env_linux::dotenv().ok();
-            }
-        }
+pub fn load_dotenv(file: Option<&str>) -> Result<(), ConfigError> {
+    let result = match file {
+        Some(filename) => dotenv::from_filename_override(filename)
+            .map(|_| ())
+            .map_err(|err| err.to_string()),
+        None => dotenv::dotenv()
+            .map(|_| ())
+            .map_err(|err| err.to_string()),
     };
+    result.map_err(|err| ConfigError::Message(format!("Could not load environment file: {err}")))
 }
 
-pub fn get_variables() -> HashMap<String, EnvVar> {
-    load_dotenv(None);
+pub fn get_variables() -> Result<HashMap<String, EnvVar>, ConfigError> {
+    load_dotenv(None)?;
     let mut vars: HashMap<String, EnvVar> = HashMap::new();
-    let mut env_path = std::env::current_dir().unwrap();
+    let mut env_path = std::env::current_dir()
+        .map_err(|err| ConfigError::Message(format!("Could not read current directory: {err}")))?;
     env_path.push(ENV_FILENAME);
     if env_path.is_file() {
         let steam_key_plain = std::env::var(STEAM_API_KEY_ENV).expect("STEAM_API_KEY must be set");
@@ -149,15 +156,19 @@ pub fn get_variables() -> HashMap<String, EnvVar> {
             (TEST_PATH_ENV.to_string(), test_path.into()),
         ]);
     }
-    vars
+    Ok(vars)
 }
 
 pub(crate) fn get_project_path() -> String {
-    load_dotenv(None);
+    if let Err(err) = load_dotenv(None) {
+        eprintln!("Could not load environment file: {err}");
+    }
     std::env::var(PROJECT_PATH_ENV).unwrap_or_else(|_| String::new())
 }
 
 pub(crate) fn get_test_path() -> String {
-    load_dotenv(None);
+    if let Err(err) = load_dotenv(None) {
+        eprintln!("Could not load environment file: {err}");
+    }
     std::env::var(TEST_PATH_ENV).unwrap_or_else(|_| String::new())
 }

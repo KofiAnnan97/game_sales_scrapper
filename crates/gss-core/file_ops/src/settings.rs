@@ -35,6 +35,7 @@ fn get_path() -> String {
 
 pub fn load_data() -> Result<Value> {
     let filepath = get_path();
+    // TODO: Propagate file read errors instead of panicking
     let data = read_to_string(filepath).unwrap();
     let body: Value = serde_json::from_str(&data)?;
     Ok(body)
@@ -52,6 +53,7 @@ pub fn get_available_stores() -> Vec<GameStore> {
 pub fn get_selected_stores() -> Vec<GameStore> {
     let filepath = get_path();
     let mut stores: Vec<GameStore> = Vec::new();
+    // TODO: Propagate file and JSON parsing errors instead of panicking
     let data = read_to_string(filepath).unwrap();
     let body: Value =
         serde_json::from_str(&data).expect("Get selected stores - could not convert to JSON");
@@ -76,6 +78,7 @@ pub fn get_selected_stores() -> Vec<GameStore> {
 pub fn get_alias_state() -> bool {
     let filepath = get_path();
     let mut state: bool = true;
+    // TODO: Propagate file and JSON parsing errors instead of panicking
     let data = read_to_string(filepath).unwrap();
     let body: Value =
         serde_json::from_str(&data).expect("Get alias state - could not convert to JSON");
@@ -90,6 +93,7 @@ pub fn get_alias_state() -> bool {
 pub fn get_alias_reuse_state() -> bool {
     let filepath = get_path();
     let mut state: bool = true;
+    // TODO: Propagate file and JSON parsing errors instead of panicking
     let data = read_to_string(filepath).unwrap();
     let body: Value =
         serde_json::from_str(&data).expect("Get alias dup state - could not convert to JSON");
@@ -106,6 +110,7 @@ pub fn update_selected_stores(selected: Vec<GameStore>) {
     match load_data() {
         Ok(data) => {
             let mut settings = data;
+            // TODO: Propagate errors when required settings keys are missing
             let selected_stores = settings.get_mut(SELECTED_STORES.to_string()).unwrap();
             let mut unique_stores: Vec<String> =
                 selected.iter().map(|store| store.get_id().into()).collect();
@@ -130,6 +135,7 @@ pub fn update_alias_state(is_enabled: i32) {
             } else {
                 DISABLED_STATE
             };
+            // TODO: Propagate errors when required settings keys are missing
             *settings.get_mut(ALIASES_ENABLED.to_string()).unwrap() = json!(enabled_status);
             let settings_str = serde_json::to_string_pretty(&settings);
             general::write_to_file(
@@ -150,6 +156,7 @@ pub fn update_alias_reuse_state(is_enabled: i32) {
             } else {
                 DISABLED_STATE
             };
+            // TODO: Propagate errors when required settings keys are missing
             *settings
                 .get_mut(ALLOW_ALIAS_REUSE_AFTER_CREATION.to_string())
                 .unwrap() = json!(enabled_status);
@@ -167,6 +174,7 @@ pub fn clear_selected_stores() {
     match load_data() {
         Ok(data) => {
             let mut settings = data;
+            // TODO: Propagate errors when required settings keys are missing
             let selected_stores = settings.get_mut(SELECTED_STORES.to_string()).unwrap();
             *selected_stores = json!([]);
             let settings_str = serde_json::to_string_pretty(&settings);

@@ -71,6 +71,7 @@ impl<'a> SteamApi for SteamClient<'a> {
                     let mut input = String::new();
                     print!("Type integer corresponding to game title or type \'q\' to skip: ");
                     let _ = io::stdout().flush();
+                    // TODO: Propagate terminal input errors instead of panicking
                     io::stdin()
                         .read_line(&mut input)
                         .expect("Failed to read user input");
@@ -129,6 +130,7 @@ impl<'a> SteamApi for SteamClient<'a> {
                             let _permit = sem.acquire().await.ok();
                             let mut temp_list: Vec<String> = Vec::new();
                             let keyphrase_ignore_case = format!("(?i){}", keyphrase_owned);
+                            // TODO: Handle invalid search patterns instead of panicking
                             let re = Regex::new(&keyphrase_ignore_case).unwrap();
                             for game in chunk.iter() {
                                 let caps = re.captures(&game.name);
@@ -259,6 +261,7 @@ impl<'a> SteamApi for SteamClient<'a> {
                 let success = app_details.success;
                 if success {
                     if let Some(data) = app_details.app_data {
+                        // TODO: Handle games without pricing data instead of panicking
                         let price_overview = data.price_overview.unwrap();
                         Ok(SaleInfo {
                             icon_link: data.header_image,
@@ -345,6 +348,7 @@ fn get_valid_apps(raw_app_list: &Value) -> Vec<App> {
 
 fn load_cached_games() -> serde_json::Result<Vec<App>> {
     let filepath = get_cache_path();
+    // TODO: Propagate cache file read errors instead of panicking
     let data = read_to_string(filepath).unwrap();
     let raw_cached_games: Value = serde_json::from_str(&data)?;
     Ok(get_valid_apps(&raw_cached_games))

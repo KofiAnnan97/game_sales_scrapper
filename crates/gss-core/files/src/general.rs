@@ -2,6 +2,7 @@ use std::fs::{self, File, OpenOptions, write};
 use std::io::{ErrorKind, prelude::*};
 use std::path::{Path, PathBuf};
 
+// TODO: Return result instead of panic
 pub fn get_path(path_str: &str) -> String {
     let path = Path::new(path_str);
     let mut is_new = false;

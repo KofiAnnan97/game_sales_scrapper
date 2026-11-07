@@ -298,6 +298,7 @@ async fn main() {
                         if alias_state == 0 || alias_state == 1 {
                             settings::update_alias_state(alias_state);
                         } else {
+                            // TODO: Report invalid configuration values without panicking
                             panic!(
                                 "enable_aliases must be set to 0 or 1 not \'{}\'",
                                 alias_state
@@ -314,6 +315,7 @@ async fn main() {
                         if alias_state == 0 || alias_state == 1 {
                             settings::update_alias_reuse_state(alias_state);
                         } else {
+                            // TODO: Report invalid configuration values without panicking
                             panic!(
                                 "allow_alias_reuse must be set to 0 or 1 not \'{}\'",
                                 alias_state
@@ -343,6 +345,7 @@ async fn main() {
                     if let Some(val_src) = properties_args.value_source(SET_SMTP)
                         && val_src == ValueSource::CommandLine
                     {
+                        // TODO: Handle terminal input and parsing errors without panicking
                         let mut host = String::new();
                         print!("SMTP Hostname: ");
                         let _ = io::stdout().flush();
@@ -373,15 +376,12 @@ async fn main() {
                             .read_line(&mut user)
                             .expect("Failed to read user input");
                         user = user[0..user.len() - 1].to_string();
-                        let pass = match rpassword::prompt_password("SMTP Password: ") {
-                            Ok(smtp_pass) => smtp_pass,
-                            Err(_) => {
-                                println!(
-                                    "An error occurred while setting the SMTP password. No changes were made."
-                                );
-                                String::new()
-                            }
-                        };
+                        let pass = rpassword::prompt_password("SMTP Password: ").unwrap_or_else(|_| {
+                            println!(
+                                "An error occurred while setting the SMTP password. No changes were made."
+                            );
+                            String::new()
+                        });
                         properties::set_stmp_vars(host, port_num, email, user, pass);
                     }
 
@@ -433,6 +433,7 @@ async fn main() {
                     if reveal_secrets == ValueSource::CommandLine {
                         print!("Are you sure? This will print out sensitive data (Y/N) : ");
                         let _ = io::stdout().flush();
+                        // TODO: Propagate terminal input errors instead of panicking
                         io::stdin()
                             .read_line(&mut confirm_str)
                             .expect("Failed to read user input");
@@ -604,24 +605,28 @@ async fn main() {
                     println!("{}", prices_str);
                 }
             } else if cmd.get_flag(SEND_EMAIL) {
-                email::params_check();
                 let use_html = true;
-                let sales_str = check_prices(use_html, &Arc::new(search_provider)).await;
-                let html_body = email::create_html_body(&sales_str);
-                println!("Email Contents:\n{}", html_body);
-                if sales_str.is_empty() {
-                    println!("No game(s) on sale at price thresholds");
-                } else {
-                    println!("Sending email...");
-                    let to_address = &properties::get_recipient();
-                    match email::send_html_msg(
-                        to_address,
-                        "Check Out Which Games Are On Sale",
-                        &html_body,
-                    ) {
-                        Ok(success) => println!("{}", success),
-                        Err(err) => eprintln!("{}", err),
-                    };
+                match email::params_check() {
+                    Ok(_) => {
+                        let sales_str = check_prices(use_html, &Arc::new(search_provider)).await;
+                        let html_body = email::create_html_body(&sales_str);
+                        println!("Email Contents:\n{}", html_body);
+                        if sales_str.is_empty() {
+                            println!("No game(s) on sale at price thresholds");
+                        } else {
+                            println!("Sending email...");
+                            let to_address = &properties::get_recipient();
+                            match email::send_html_msg(
+                                to_address,
+                                "Check Out Which Games Are On Sale",
+                                &html_body,
+                            ) {
+                                Ok(success) => println!("{}", success),
+                                Err(err) => eprintln!("{}", err),
+                            };
+                        }
+                    }
+                    Err(err) => eprintln!("{}", err),
                 }
             } else {
                 println!("No/incorrect command given. Use \'--help\' for assistance.");
