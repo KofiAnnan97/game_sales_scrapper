@@ -4,6 +4,7 @@ use std::sync::Arc;
 
 use alerting::email;
 use constants::stores::gog::VERSION as GOG_VERSION;
+use errors::GenericError;
 use file_ops::{settings, thresholds};
 use stores::pc::{gog, microsoft_store, steam};
 use stores::search::provider::{SearchError, SearchProvider};
@@ -14,15 +15,14 @@ use types::internal::{
 use types::response::gog::GameInfo as GOGGameInfo;
 use types::response::microsoft_store::ProductInfo;
 
-pub fn storefront_check() -> Vec<GameStore> {
-    let selected_stores = settings::get_selected_stores();
+pub fn storefront_check() -> Result<Vec<GameStore>, GenericError> {
+    let selected_stores = settings::get_selected_stores()?;
     if selected_stores.is_empty() {
-        // TODO: Return a configuration error instead of panicking
-        panic!(
-            "Please configure which stores to query. Run \'game_sales_scrapper config --help\' for more info."
-        );
+        return Err(GenericError::Message(
+            "Please configure which stores to query. Run \'game_sales_scrapper config --help\' for more info.".into()
+        ));
     }
-    selected_stores
+    Ok(selected_stores)
 }
 
 pub fn print_test_flag() {
@@ -216,26 +216,32 @@ pub async fn steam_insert_sequence(
     title: &str,
     price: f64,
     provider: &SearchProvider,
-) {
+) -> Result<(), GenericError> {
     match steam::check_game(title, &provider.client).await {
         Some(data) => {
-            thresholds::add_steam_game(alias.to_string(), data, price, &provider.client).await
+            thresholds::add_steam_game(alias.to_string(), data, price, &provider.client).await?
         }
         None => {
             if let Some(t) = steam::search_game(title, &provider.client).await {
                 match steam::check_game(&t, &provider.client).await {
                     Some(data) => {
                         thresholds::add_steam_game(alias.to_string(), data, price, &provider.client)
-                            .await
+                            .await?
                     }
-                    None => eprintln!("Something went wrong"),
+                    None => return Err(GenericError::Message("Something went wrong".into())),
                 }
             }
         }
     }
+    Ok(())
 }
 
-pub async fn gog_insert_sequence(alias: &str, title: &str, price: f64, provider: &SearchProvider) {
+pub async fn gog_insert_sequence(
+    alias: &str,
+    title: &str,
+    price: f64,
+    provider: &SearchProvider,
+) -> Result<(), GenericError> {
     let mut search_list: Vec<GOGGameInfo> = Vec::new();
     match gog::search_game_by_title_v2(title, &provider.client).await {
         Ok(data) => search_list = data,
@@ -266,7 +272,7 @@ pub async fn gog_insert_sequence(alias: &str, title: &str, price: f64, provider:
                     if idx < search_list.len() {
                         //title = &search_list[idx].title;
                         let game = &search_list[idx];
-                        thresholds::add_gog_game(alias.to_string(), game, price);
+                        thresholds::add_gog_game(alias.to_string(), game, price)?;
                     } else if idx >= search_list.len() {
                         eprintln!("Integer \"{}\" is invalid. Request terminated.", idx);
                     }
@@ -277,6 +283,7 @@ pub async fn gog_insert_sequence(alias: &str, title: &str, price: f64, provider:
     } else {
         println!("Could not find a game title matching \"{}\" on GOG.", title);
     }
+    Ok(())
 }
 
 pub async fn microsoft_store_insert_sequence(
@@ -284,7 +291,7 @@ pub async fn microsoft_store_insert_sequence(
     title: &str,
     price: f64,
     provider: &SearchProvider,
-) {
+) -> Result<(), GenericError> {
     let mut search_list: Vec<ProductInfo> = Vec::new();
     match microsoft_store::search_game_by_title(title, &provider.client).await {
         Ok(data) => search_list = data,
@@ -315,7 +322,7 @@ pub async fn microsoft_store_insert_sequence(
                 Ok(idx) => {
                     if idx < search_list.len() {
                         let game = &search_list[idx];
-                        thresholds::add_microsoft_store_game(alias.to_string(), game, price);
+                        thresholds::add_microsoft_store_game(alias.to_string(), game, price)?;
                     } else if idx >= search_list.len() {
                         eprintln!("Integer \"{}\" is invalid. Request terminated.", idx);
                     }
@@ -329,4 +336,5 @@ pub async fn microsoft_store_insert_sequence(
             title
         );
     }
+    Ok(())
 }

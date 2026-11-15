@@ -49,8 +49,8 @@ pub fn add_simple_threshold(game_title: &str, game_alias: &str, price: f64) {
             desired_price: price,
         });
     }
-    thresholds::update_alias_map(alias_map);
-    thresholds::update_thresholds(thresholds);
+    let _ = thresholds::update_alias_map(alias_map);
+    let _ = thresholds::update_thresholds(thresholds);
 }
 
 pub fn test_steam_app() -> App {

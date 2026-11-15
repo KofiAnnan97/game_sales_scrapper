@@ -1,26 +1,28 @@
-use std::error::Error;
 use std::fs::File;
 use std::io::Read;
 
 use crate::general;
+use errors::file::FileOperationError;
 use types::internal::data::SimpleGameThreshold;
 
 pub fn parse_game_prices_from_path(
     file_path: &str,
-) -> Result<Vec<SimpleGameThreshold>, Box<dyn Error>> {
+) -> Result<Vec<SimpleGameThreshold>, FileOperationError> {
     let file = File::open(file_path)?;
     let reader = csv::Reader::from_reader(file);
     parse_game_prices(reader)
 }
 
-pub fn parse_game_prices_from_str(data: &str) -> Result<Vec<SimpleGameThreshold>, Box<dyn Error>> {
+pub fn parse_game_prices_from_str(
+    data: &str,
+) -> Result<Vec<SimpleGameThreshold>, FileOperationError> {
     let reader = csv::Reader::from_reader(data.as_bytes());
     parse_game_prices(reader)
 }
 
 fn parse_game_prices<R>(
     mut reader: csv::Reader<R>,
-) -> Result<Vec<SimpleGameThreshold>, Box<dyn Error>>
+) -> Result<Vec<SimpleGameThreshold>, FileOperationError>
 where
     R: Read,
 {
@@ -52,5 +54,8 @@ pub fn generate_csv(file_path: &str, thresholds: Vec<SimpleGameThreshold>) {
         let row = format!("\n{}, {}", sgt.name, sgt.price);
         data.push_str(row.as_str());
     }
-    general::write_to_file(file_path.to_owned(), data);
+    match general::write_to_file(file_path.to_owned(), data) {
+        Ok(_) => {}
+        Err(_e) => {}
+    }
 }

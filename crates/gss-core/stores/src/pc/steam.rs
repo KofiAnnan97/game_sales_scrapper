@@ -18,6 +18,7 @@ use constants::operations::thresholds::{
 };
 use constants::stores::steam::*;
 use errors::api::ApiError;
+use errors::file::FileOperationError;
 use files::general;
 use properties;
 use types::internal::data::SaleInfo;
@@ -325,7 +326,7 @@ impl<'a> SteamApi for SteamClient<'a> {
 }
 
 // Caching Functions
-fn get_cache_path() -> String {
+fn get_cache_path() -> Result<String, FileOperationError> {
     let path_buf: PathBuf = [properties::get_data_path(), CACHE_FILENAME.to_string()]
         .iter()
         .collect();
@@ -346,12 +347,15 @@ fn get_valid_apps(raw_app_list: &Value) -> Vec<App> {
     valid_apps
 }
 
-fn load_cached_games() -> serde_json::Result<Vec<App>> {
-    let filepath = get_cache_path();
-    // TODO: Propagate cache file read errors instead of panicking
-    let data = read_to_string(filepath).unwrap();
-    let raw_cached_games: Value = serde_json::from_str(&data)?;
-    Ok(get_valid_apps(&raw_cached_games))
+fn load_cached_games() -> Result<Vec<App>, FileOperationError> {
+    match get_cache_path() {
+        Ok(filepath) => {
+            let data = read_to_string(filepath)?;
+            let raw_cached_games: Value = serde_json::from_str(&data)?;
+            Ok(get_valid_apps(&raw_cached_games))
+        }
+        Err(e) => Err(e),
+    }
 }
 
 fn get_last_appid(cached_games: &[App]) -> u32 {
@@ -426,8 +430,13 @@ pub async fn update_cached_games(client: &reqwest::Client) -> Result<String, Api
     }
     games_list.sort_by_key(|a| a.app_id);
     let data_str = serde_json::to_string_pretty(&games_list)?;
-    general::write_to_file(get_cache_path(), data_str);
-    Ok("Cache update complete".into())
+    match get_cache_path() {
+        Ok(cache_path) => {
+            general::write_to_file(cache_path, data_str)?;
+            Ok("Cache update complete".into())
+        }
+        Err(e) => Err(e.into()),
+    }
 }
 
 // API Functions

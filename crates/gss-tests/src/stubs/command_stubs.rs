@@ -46,7 +46,7 @@ pub fn add_threshold(
             let mut thresholds_data = data;
             *thresholds_data.get_mut(THRESHOLDS.to_string()).unwrap() = json!(thresholds);
             let thresholds_str = serde_json::to_string_pretty(&thresholds_data);
-            general::write_to_file(
+            let _ = general::write_to_file(
                 threshold_path.display().to_string(),
                 thresholds_str.expect("Cannot update thresholds for testing"),
             );

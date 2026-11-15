@@ -1,4 +1,4 @@
-use serde_json::{Result, Value, json};
+use serde_json::{Value, json};
 use std::collections::HashMap;
 use std::fs::{metadata, read_to_string};
 use std::io::{self, Write};
@@ -7,6 +7,8 @@ use std::path::PathBuf;
 use crate::settings::{self, get_alias_reuse_state};
 use constants::operations::settings::ALLOW_ALIAS_REUSE_AFTER_CREATION;
 use constants::operations::thresholds::*;
+use errors::config::ConfigError;
+use errors::file::FileOperationError;
 use files::general;
 use stores::pc::steam; //, gog, microsoft_store};
 use stores::search::fuzzy;
@@ -15,12 +17,12 @@ use types::response::{gog::GameInfo as GOGGameInfo, microsoft_store::ProductInfo
 
 use properties;
 
-pub fn get_path() -> String {
+pub fn get_path() -> Result<String, FileOperationError> {
     let path_buf: PathBuf = [properties::get_data_path(), THRESHOLD_FILENAME.to_string()]
         .iter()
         .collect();
     let thresh_path = path_buf.display().to_string();
-    let path_str = general::get_path(&thresh_path);
+    let path_str = general::get_path(&thresh_path)?;
     match metadata(&path_str) {
         Ok(md) => {
             if md.len() == 0 {
@@ -28,75 +30,93 @@ pub fn get_path() -> String {
                     THRESHOLDS.to_string(): [],
                     ALIAS_MAP.to_string(): {},
                 });
-                let data_str = serde_json::to_string_pretty(&data);
-                general::write_to_file(
-                    thresh_path.to_string(),
-                    data_str.expect("Initial settings could not be created."),
-                );
+                match serde_json::to_string_pretty(&data) {
+                    Ok(data_str) => general::write_to_file(thresh_path.to_string(), data_str)?,
+                    Err(e) => return Err(FileOperationError::Message(format!("{}", e))),
+                };
             }
         }
-        Err(e) => eprintln!("Error: {}", e),
+        Err(e) => return Err(FileOperationError::Message(format!("Error: {}", e))),
     }
-    path_str
+    Ok(path_str)
 }
 
-pub fn load_data() -> Result<Value> {
-    let filepath = get_path();
+pub fn load_data() -> Result<Value, FileOperationError> {
+    let filepath = get_path()?;
     // TODO: Propagate file read errors instead of panicking
-    let data = read_to_string(filepath).unwrap();
-    serde_json::from_str(&data)
+    let data = read_to_string(filepath)?;
+    match serde_json::from_str(&data) {
+        Ok(data) => Ok(data),
+        Err(e) => Err(e.into()),
+    }
 }
 
-pub fn load_thresholds() -> Result<Vec<GameThreshold>> {
-    let filepath = get_path();
+pub fn load_thresholds() -> Result<Vec<GameThreshold>, FileOperationError> {
+    let filepath = get_path()?;
     // TODO: Propagate file and JSON parsing errors instead of panicking
-    let data = read_to_string(filepath).unwrap();
-    let body: Value =
-        serde_json::from_str(&data).expect("Load thresholds - could not convert to JSON");
+    let data = read_to_string(filepath)?; //.unwrap();
+    let body: Value = serde_json::from_str(&data)?; //.expect("Load thresholds - could not convert to JSON");
     let thresholds = serde_json::to_string(&body[THRESHOLDS])?;
-    serde_json::from_str::<Vec<GameThreshold>>(&thresholds)
+    match serde_json::from_str::<Vec<GameThreshold>>(&thresholds) {
+        Ok(thresholds) => Ok(thresholds),
+        Err(e) => Err(e.into()),
+    }
 }
 
-pub fn load_alias_map() -> Result<HashMap<String, Vec<String>>> {
-    let filepath = get_path();
+pub fn load_alias_map() -> Result<HashMap<String, Vec<String>>, FileOperationError> {
+    let filepath = get_path()?;
     // TODO: Propagate file and JSON parsing errors instead of panicking
-    let data = read_to_string(filepath).unwrap();
-    let body: Value =
-        serde_json::from_str(&data).expect("Load alias map - could not convert to JSON");
+    let data = read_to_string(filepath)?;
+    let body: Value = serde_json::from_str(&data)?; //.expect("Load alias map - could not convert to JSON");
     let alias_map = serde_json::to_string(&body[ALIAS_MAP])?;
-    serde_json::from_str::<HashMap<String, Vec<String>>>(&alias_map)
+    match serde_json::from_str::<HashMap<String, Vec<String>>>(&alias_map) {
+        Ok(map) => Ok(map),
+        Err(e) => Err(e.into()),
+    }
 }
 
-pub fn update_thresholds(thresholds: Vec<GameThreshold>) {
+pub fn update_thresholds(thresholds: Vec<GameThreshold>) -> Result<(), FileOperationError> {
     match load_data() {
         Ok(data) => {
             let mut thresholds_data = data;
             // TODO: Propagate errors when the thresholds key is missing
             *thresholds_data.get_mut(THRESHOLDS.to_string()).unwrap() = json!(thresholds);
-            let thresholds_str = serde_json::to_string_pretty(&thresholds_data);
-            general::write_to_file(
-                get_path(),
-                thresholds_str.expect("Cannot update thresholds"),
-            );
+            match serde_json::to_string_pretty(&thresholds_data) {
+                Ok(thresholds_str) => general::write_to_file(get_path()?, thresholds_str)?,
+                Err(e) => {
+                    return Err(FileOperationError::Message(format!(
+                        "Cannot update thresholds. {}",
+                        e
+                    )));
+                }
+            }
         }
-        Err(e) => eprintln!("Error: {}", e),
+        Err(e) => return Err(FileOperationError::Message(format!("Error: {}", e))),
     }
+    Ok(())
 }
 
-pub fn update_alias_map(alias_map: HashMap<String, Vec<String>>) {
-    match load_data() {
-        Ok(data) => {
-            let mut alias_data = data;
-            // TODO: Propagate errors when the alias map key is missing
-            *alias_data.get_mut(ALIAS_MAP.to_string()).unwrap() = json!(alias_map);
-            let alias_str = serde_json::to_string_pretty(&alias_data);
-            general::write_to_file(get_path(), alias_str.expect("Cannot update alais map"));
+pub fn update_alias_map(alias_map: HashMap<String, Vec<String>>) -> Result<(), FileOperationError> {
+    let data = load_data()?;
+    let mut alias_data = data;
+    // TODO: Propagate errors when the alias map key is missing
+    *alias_data.get_mut(ALIAS_MAP.to_string()).unwrap() = json!(alias_map);
+    match serde_json::to_string_pretty(&alias_data) {
+        Ok(alias_str) => general::write_to_file(get_path()?, alias_str)?,
+        Err(e) => {
+            return Err(FileOperationError::Message(format!(
+                "Cannot update alias map. {}",
+                e
+            )));
         }
-        Err(e) => eprintln!("Error: {}", e),
     }
+    Ok(())
 }
 
-pub fn update_threshold_alias(game_title: String, new_alias: &str) -> bool {
+pub fn update_threshold_alias(
+    game_title: String,
+    new_alias: &str,
+) -> Result<bool, FileOperationError> {
     let mut alias_map = load_alias_map().unwrap_or_default();
 
     // Remove old alias for game in alias map
@@ -109,7 +129,7 @@ pub fn update_threshold_alias(game_title: String, new_alias: &str) -> bool {
         old_alias = thresholds[i].alias.to_string();
         thresholds[i].alias = String::from(new_alias);
     } else {
-        return false;
+        return Ok(false);
     }
 
     if !old_alias.is_empty() && alias_map.contains_key(&old_alias) {
@@ -144,21 +164,32 @@ pub fn update_threshold_alias(game_title: String, new_alias: &str) -> bool {
             // TODO: Propagate errors when required threshold keys are missing
             *alias_data.get_mut(ALIAS_MAP.to_string()).unwrap() = json!(alias_map);
             *alias_data.get_mut(THRESHOLDS.to_string()).unwrap() = json!(thresholds);
-            let alias_map_str = serde_json::to_string_pretty(&alias_data);
-            general::write_to_file(get_path(), alias_map_str.expect("Cannot update alias map"));
+            match serde_json::to_string_pretty(&alias_data) {
+                Ok(alias_map_str) => general::write_to_file(get_path()?, alias_map_str)?,
+                Err(e) => {
+                    return Err(FileOperationError::Message(format!(
+                        "Cannot update alias map. {}",
+                        e
+                    )));
+                }
+            }
             println!("{} threshold alias set to \'{}\'", game_title, new_alias);
-            true
+            Ok(true)
         }
         Err(e) => {
             eprintln!("Error: {}", e);
-            false
+            Ok(false)
         }
     }
 }
 
-pub fn update_threshold_alias_fuzzy(game_title: String, new_alias: &str) {
+// A CLI-only function for updating a threshold using fuzzy algos
+pub fn update_threshold_alias_fuzzy(
+    game_title: String,
+    new_alias: &str,
+) -> Result<(), ConfigError> {
     // Try to run normal update alias first
-    let alias_updated = update_threshold_alias(game_title.clone(), new_alias);
+    let alias_updated = update_threshold_alias(game_title.clone(), new_alias)?;
 
     let mut fuzzy_thresholds: Vec<String> = Vec::new();
     if !alias_updated {
@@ -177,7 +208,7 @@ pub fn update_threshold_alias_fuzzy(game_title: String, new_alias: &str) {
         }
 
         if fuzzy_thresholds.is_empty() {
-            return;
+            return Ok(());
         }
 
         println!("Did you mean one of the following?");
@@ -199,15 +230,24 @@ pub fn update_threshold_alias_fuzzy(game_title: String, new_alias: &str) {
                 Ok(idx) => {
                     if idx < fuzzy_thresholds.len() {
                         let fuzzy_title = fuzzy_thresholds[idx].clone();
-                        update_threshold_alias(fuzzy_title, new_alias);
+                        let _ = update_threshold_alias(fuzzy_title, new_alias);
                     } else if idx >= fuzzy_thresholds.len() {
-                        eprintln!("Integer \"{}\" is invalid. Remove cancelled.", idx);
+                        return Err(ConfigError::Message(format!(
+                            "Integer \"{}\" is invalid. Remove cancelled.",
+                            idx
+                        )));
                     }
                 }
-                Err(e) => println!("Invalid input: {}\nError: {}", input, e),
+                Err(e) => {
+                    return Err(ConfigError::Message(format!(
+                        "Invalid input: {}\nError: {}",
+                        input, e
+                    )));
+                }
             }
         }
     }
+    Ok(())
 }
 
 pub fn does_alias_exist(alias_name: &str) -> bool {
@@ -219,7 +259,13 @@ fn is_threshold(title: &str, game_thresh: &GameThreshold) -> bool {
     title == game_thresh.title || title == game_thresh.alias
 }
 
-pub async fn add_steam_game(new_alias: String, app: App, price: f64, client: &reqwest::Client) {
+// TODO: Return string of game title
+pub async fn add_steam_game(
+    new_alias: String,
+    app: App,
+    price: f64,
+    client: &reqwest::Client,
+) -> Result<(), ConfigError> {
     let mut thresholds = load_thresholds().unwrap_or_else(|_e| Vec::new());
     match steam::get_price(app.app_id, client).await {
         Ok(po) => {
@@ -236,9 +282,9 @@ pub async fn add_steam_game(new_alias: String, app: App, price: f64, client: &re
             if unique {
                 let mut alias_str = String::new();
                 if !does_alias_exist(&new_alias)
-                    || (does_alias_exist(&new_alias) && get_alias_reuse_state())
+                    || (does_alias_exist(&new_alias) && get_alias_reuse_state()?)
                 {
-                    update_threshold_alias(app.name.to_string(), &new_alias);
+                    update_threshold_alias(app.name.to_string(), &new_alias)?;
                     alias_str = new_alias;
                 } else {
                     eprintln!(
@@ -255,17 +301,17 @@ pub async fn add_steam_game(new_alias: String, app: App, price: f64, client: &re
                     currency: po.currency,
                     desired_price: price,
                 });
-                update_thresholds(thresholds);
+                update_thresholds(thresholds)?;
                 println!("Successfully added Steam game: \"{}\".", app.name);
             }
-            //else { println!("Duplicate title: \"{}\".", app.name); }
         }
         Err(e) => println!("{}", e),
     }
+    Ok(())
 }
 
 // TODO: Propagate invalid GOG game IDs instead of panicking
-pub fn add_gog_game(new_alias: String, game: &GOGGameInfo, price: f64) {
+pub fn add_gog_game(new_alias: String, game: &GOGGameInfo, price: f64) -> Result<(), ConfigError> {
     let mut thresholds = load_thresholds().unwrap_or_else(|_e| Vec::new());
     let mut unique: bool = true;
     for elem in thresholds.iter() {
@@ -285,9 +331,9 @@ pub fn add_gog_game(new_alias: String, game: &GOGGameInfo, price: f64) {
         };
         let mut alias_str = String::new();
         if !does_alias_exist(&new_alias)
-            || (does_alias_exist(&new_alias) && get_alias_reuse_state())
+            || (does_alias_exist(&new_alias) && get_alias_reuse_state()?)
         {
-            update_threshold_alias(game.title.to_string(), &new_alias);
+            update_threshold_alias(game.title.to_string(), &new_alias)?;
             alias_str = new_alias;
         } else {
             eprintln!(
@@ -305,13 +351,17 @@ pub fn add_gog_game(new_alias: String, game: &GOGGameInfo, price: f64) {
             currency: currency_code,
             desired_price: price,
         });
-        update_thresholds(thresholds);
+        update_thresholds(thresholds)?;
         println!("Successfully added GOG game \"{}\".", game.title);
     }
-    //else { println!("Duplicate title: \"{}\".", game.title); }
+    Ok(())
 }
 
-pub fn add_microsoft_store_game(new_alias: String, game: &ProductInfo, price: f64) {
+pub fn add_microsoft_store_game(
+    new_alias: String,
+    game: &ProductInfo,
+    price: f64,
+) -> Result<(), ConfigError> {
     let mut thresholds = load_thresholds().unwrap_or_else(|_e| Vec::new());
     let mut unique: bool = true;
     for elem in thresholds.iter() {
@@ -327,9 +377,9 @@ pub fn add_microsoft_store_game(new_alias: String, game: &ProductInfo, price: f6
     if unique {
         let mut alias_str = String::new();
         if !does_alias_exist(&new_alias)
-            || (does_alias_exist(&new_alias) && get_alias_reuse_state())
+            || (does_alias_exist(&new_alias) && get_alias_reuse_state()?)
         {
-            update_threshold_alias(game.title.to_string(), &new_alias);
+            update_threshold_alias(game.title.to_string(), &new_alias)?;
             alias_str = new_alias;
         } else {
             eprintln!(
@@ -346,36 +396,40 @@ pub fn add_microsoft_store_game(new_alias: String, game: &ProductInfo, price: f6
             currency: String::from("USD"),
             desired_price: price,
         });
-        update_thresholds(thresholds);
+        update_thresholds(thresholds)?;
         println!(
             "Successfully added Microsoft Store game \"{}\".",
             game.title
         );
     }
+    Ok(())
 }
 
-pub fn set_game_alias() -> String {
-    let mut alias = "".to_string();
-    if settings::get_alias_state() {
-        let mut input = String::new();
-        print!("Do you want to assign an alias [Y\\N]? ");
-        let _ = io::stdout().flush();
-        // TODO: Propagate terminal input errors instead of panicking
-        io::stdin()
-            .read_line(&mut input)
-            .expect("Failed to permission to assign alias.");
-        if input.trim() == "Yes" || input.trim() == "Y" || input.trim() == "YES" {
-            print!("Alias name: ");
+pub fn set_game_alias() -> Result<String, ConfigError> {
+    let mut alias = String::new();
+    match settings::get_alias_state() {
+        Ok(_) => {
+            let mut input = String::new();
+            print!("Do you want to assign an alias [Y\\N]? ");
             let _ = io::stdout().flush();
-            let mut alias_name = String::new();
             // TODO: Propagate terminal input errors instead of panicking
             io::stdin()
-                .read_line(&mut alias_name)
-                .expect("Failed to read alias.");
-            alias = alias_name.trim().to_string();
+                .read_line(&mut input)
+                .expect("Failed to permission to assign alias.");
+            if input.trim() == "Yes" || input.trim() == "Y" || input.trim() == "YES" {
+                print!("Alias name: ");
+                let _ = io::stdout().flush();
+                let mut alias_name = String::new();
+                // TODO: Propagate terminal input errors instead of panicking
+                io::stdin()
+                    .read_line(&mut alias_name)
+                    .expect("Failed to read alias.");
+                alias = alias_name.trim().to_string();
+            }
         }
+        Err(e) => return Err(e.into()),
     }
-    alias
+    Ok(alias)
 }
 
 pub fn update_price(title: &str, price: f64) -> bool {
@@ -400,7 +454,7 @@ pub fn update_price(title: &str, price: f64) -> bool {
         }
     }
     if price_updated {
-        update_thresholds(thresholds);
+        let _ = update_thresholds(thresholds);
         true
     } else {
         // println!("\"{}\" does not have a configured threshold.", title);
@@ -493,7 +547,7 @@ pub fn update_id(title: &str, store_type: GameStore, id: u32) {
                 "Could not convert the {} id update to a string object.",
                 store_type
             );
-            update_thresholds(thresholds);
+            let _ = update_thresholds(thresholds);
             println!("Updated {} ID for \"{}\"", store_name, title);
         }
     }
@@ -519,7 +573,7 @@ pub fn update_id_str(title: &str, store_type: GameStore, id: &str) {
                 "Could not convert the {} id update to a string object.",
                 store_type
             );
-            update_thresholds(thresholds);
+            let _ = update_thresholds(thresholds);
             println!("Updated {} ID for \"{}\"", store_name, title);
         }
     }
@@ -565,8 +619,8 @@ pub fn remove(title: &str) -> bool {
         }
     }
     if threshold_removed {
-        update_alias_map(alias_map);
-        update_thresholds(thresholds);
+        let _ = update_alias_map(alias_map);
+        let _ = update_thresholds(thresholds);
         true
     } else {
         // println!("Failed to remove game using title/alias: \"{}\".", title);

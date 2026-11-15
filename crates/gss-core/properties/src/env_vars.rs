@@ -89,7 +89,7 @@ pub fn get_decrypt_key(project_path: String) -> String {
             Ok(md) => {
                 if md.len() == 0 {
                     key_str = Alphanumeric.sample_string(&mut rand::rng(), 32);
-                    general::write_to_file(path_str, key_str.to_owned());
+                    let _ = general::write_to_file(path_str, key_str.to_owned());
                 }
             }
             Err(e) => eprintln!(
@@ -108,9 +108,7 @@ pub fn load_dotenv(file: Option<&str>) -> Result<(), ConfigError> {
         Some(filename) => dotenv::from_filename_override(filename)
             .map(|_| ())
             .map_err(|err| err.to_string()),
-        None => dotenv::dotenv()
-            .map(|_| ())
-            .map_err(|err| err.to_string()),
+        None => dotenv::dotenv().map(|_| ()).map_err(|err| err.to_string()),
     };
     result.map_err(|err| ConfigError::Message(format!("Could not load environment file: {err}")))
 }

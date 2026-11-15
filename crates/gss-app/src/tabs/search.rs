@@ -2,7 +2,7 @@ use iced::widget::{Button, Radio, Scrollable, TextInput, column, container, row,
 use iced::{Element, Length};
 
 use constants::icons::{LEFT_ARROW_LONG, RIGHT_ARROW_LONG};
-use file_ops::{settings, thresholds};
+use file_ops::thresholds;
 
 use crate::app::constants::{LOADING_FRAMES_SIZE, SKIP_STORE_SELECTION};
 use crate::app::message::{MainMessage, Message};
@@ -179,7 +179,7 @@ pub fn search_tab(app: &App) -> Element<'_, Message> {
             reset_button
         ]
         .spacing(8),
-        if settings::get_alias_state() {
+        if app.alias_enabled {
             row![
                 TextInput::new("Add alias for game", &app.add_alias)
                     .on_input(|value| MainMessage::ThresholdAliasChanged(usize::MAX, value).into())

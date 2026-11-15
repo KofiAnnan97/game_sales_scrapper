@@ -17,7 +17,7 @@ fn delete_decrypt_key() {
     let path_buf: PathBuf = [CONFIG_DIR.to_string(), DECRYPT_FILENAME.to_string()]
         .iter()
         .collect();
-    let key_deleted = general::delete_file(path_buf.display().to_string());
+    let key_deleted = general::delete_file(path_buf.display().to_string()).is_ok();
     if key_deleted {
         println!("Successfully deleted decryption key.");
     }
@@ -43,7 +43,8 @@ fn check_environment_variables() {
         smtp_password_val,
         &_tmp_env.temp_dir,
     );
-    general::write_file(&_tmp_env.temp_dir, ENV_FILENAME, &env_data);
+    general::write_file(&_tmp_env.temp_dir, ENV_FILENAME, &env_data)
+        .expect("Could not update the file.");
 
     unsafe {
         env::remove_var(STEAM_API_KEY_ENV);
@@ -170,7 +171,8 @@ fn no_variables() {
         smtp_password_val,
         &_tmp_env.temp_dir,
     );
-    general::write_file(&_tmp_env.temp_dir, ENV_FILENAME, &env_data);
+    general::write_file(&_tmp_env.temp_dir, ENV_FILENAME, &env_data)
+        .expect("Could not update the file.");
 
     unsafe {
         env::remove_var(STEAM_API_KEY_ENV);
@@ -310,7 +312,8 @@ fn read_custom_env_file() {
     let env_var_name = "CUSTOM_VAR";
     let env_var_value = "CUSTOM_VALUE";
     let env_data = format!("{}=\"{}\"\n", env_var_name, env_var_value);
-    general::write_file(&_tmp_env.temp_dir, env_filename, &env_data);
+    general::write_file(&_tmp_env.temp_dir, env_filename, &env_data)
+        .expect("Could not update the file.");
 
     env_vars::load_dotenv(Some(env_filename)).expect("Custom dotenv file should load");
     assert_eq!(

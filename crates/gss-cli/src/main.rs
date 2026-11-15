@@ -286,7 +286,7 @@ async fn main() {
                         selected = settings::get_available_stores();
                     }
                     if !selected.is_empty() {
-                        settings::update_selected_stores(selected);
+                        let _ = settings::update_selected_stores(selected);
                     }
 
                     // If alias state is used
@@ -296,7 +296,7 @@ async fn main() {
                         let alias_state: i32 =
                             *settings_args.get_one::<i32>("enable_aliases").unwrap();
                         if alias_state == 0 || alias_state == 1 {
-                            settings::update_alias_state(alias_state);
+                            let _ = settings::update_alias_state(alias_state);
                         } else {
                             // TODO: Report invalid configuration values without panicking
                             panic!(
@@ -313,7 +313,7 @@ async fn main() {
                         let alias_state: i32 =
                             *settings_args.get_one::<i32>("allow_alias_reuse").unwrap();
                         if alias_state == 0 || alias_state == 1 {
-                            settings::update_alias_reuse_state(alias_state);
+                            let _ = settings::update_alias_reuse_state(alias_state);
                         } else {
                             // TODO: Report invalid configuration values without panicking
                             panic!(
@@ -512,58 +512,147 @@ async fn main() {
                 _ => (),
             }
         }
-        Some(("add", add_args)) => {
-            let selected_stores = storefront_check();
-            print_test_flag();
-            let alias = if add_args.contains_id("alias") {
-                add_args.get_one::<String>("alias").unwrap().clone()
-            } else if settings::get_alias_state() {
-                thresholds::set_game_alias()
-            } else {
-                String::new()
-            };
-            let title = add_args.get_one::<String>("title").unwrap().clone();
-            let price = *add_args.get_one::<f64>("price").unwrap();
-            for store in selected_stores {
-                if store == GameStore::STEAM {
-                    steam_insert_sequence(&alias, &title, price, &search_provider).await;
+        Some(("add", add_args)) => match storefront_check() {
+            Ok(selected_stores) => {
+                print_test_flag();
+                let mut has_errors = false;
+                let alias = if let Some(alias) = add_args.get_one::<String>("alias") {
+                    alias.clone()
+                } else {
+                    match settings::get_alias_state() {
+                        Ok(true) => match thresholds::set_game_alias() {
+                            Ok(alias) => alias,
+                            Err(e) => {
+                                eprintln!("{}", e);
+                                has_errors = true;
+                                String::new()
+                            }
+                        },
+                        Ok(false) => String::new(),
+                        Err(e) => {
+                            eprintln!("{}", e);
+                            has_errors = true;
+                            String::new()
+                        }
+                    }
+                };
+                let title = add_args.get_one::<String>("title").unwrap().clone();
+                let price = *add_args.get_one::<f64>("price").unwrap();
+                if !has_errors {
+                    for store in selected_stores.iter() {
+                        if store == &GameStore::STEAM {
+                            match steam_insert_sequence(&alias, &title, price, &search_provider)
+                                .await
+                            {
+                                Ok(_) => {}
+                                Err(e) => {
+                                    eprintln!("{}", e);
+                                    has_errors = true;
+                                }
+                            }
+                        }
+                        if store == &GameStore::GOOD_OLD_GAMES {
+                            match gog_insert_sequence(&alias, &title, price, &search_provider).await
+                            {
+                                Ok(_) => {}
+                                Err(e) => {
+                                    eprintln!("{}", e);
+                                    has_errors = true;
+                                }
+                            }
+                        }
+                        if store == &GameStore::MICROSOFT_STORE_PC {
+                            match microsoft_store_insert_sequence(
+                                &alias,
+                                &title,
+                                price,
+                                &search_provider,
+                            )
+                            .await
+                            {
+                                Ok(_) => {}
+                                Err(e) => {
+                                    eprintln!("{}", e);
+                                    has_errors = true;
+                                }
+                            };
+                        }
+                    }
                 }
-                if store == GameStore::GOOD_OLD_GAMES {
-                    gog_insert_sequence(&alias, &title, price, &search_provider).await;
-                }
-                if store == GameStore::MICROSOFT_STORE_PC {
-                    microsoft_store_insert_sequence(&alias, &title, price, &search_provider).await;
+                if !has_errors {
+                    println!("Game added successfully.");
                 }
             }
-        }
-        Some(("bulk-insert", bulk_args)) => {
-            let selected_stores = storefront_check();
-            print_test_flag();
-            let mut game_list: Vec<SimpleGameThreshold> = Vec::new();
-            let file_path = bulk_args.get_one::<String>("file").unwrap().clone();
-            match csv::parse_game_prices_from_path(&file_path) {
-                Ok(gl) => game_list = gl,
-                Err(e) => eprintln!("Could not parse file: {}\n{}", file_path, e),
-            }
-            for game in game_list.iter() {
-                println!("INSERT GAME -> \"{}\"", game.name);
-                let title = &game.name;
-                let alias = thresholds::set_game_alias();
-                let price: f64 = game.price;
-                for store in selected_stores.iter() {
-                    if store == &GameStore::STEAM {
-                        steam_insert_sequence(&alias, title, price, &search_provider).await;
-                    }
-                    if store == &GameStore::GOOD_OLD_GAMES {
-                        gog_insert_sequence(&alias, title, price, &search_provider).await;
-                    }
-                    if store == &GameStore::MICROSOFT_STORE_PC {
-                        microsoft_store_insert_sequence(&alias, title, price, &search_provider)
-                            .await;
+            Err(e) => eprintln!("{}", e),
+        },
+        Some(("bulk-insert", bulk_args)) => match storefront_check() {
+            Ok(selected_stores) => {
+                print_test_flag();
+                let mut game_list: Vec<SimpleGameThreshold> = Vec::new();
+                let file_path = bulk_args.get_one::<String>("file").unwrap().clone();
+                match csv::parse_game_prices_from_path(&file_path) {
+                    Ok(gl) => game_list = gl,
+                    Err(e) => eprintln!("Could not parse file: {}\n{}", file_path, e),
+                }
+                let mut has_errors = false;
+                for game in game_list.iter() {
+                    println!("INSERT GAME -> \"{}\"", game.name);
+                    let title = &game.name;
+                    let alias = match thresholds::set_game_alias() {
+                        Ok(alias) => alias,
+                        Err(e) => {
+                            eprintln!("{}", e);
+                            has_errors = true;
+                            continue;
+                        }
+                    };
+                    let price: f64 = game.price;
+                    for store in selected_stores.iter() {
+                        if store == &GameStore::STEAM {
+                            match steam_insert_sequence(&alias, title, price, &search_provider)
+                                .await
+                            {
+                                Ok(_) => {}
+                                Err(e) => {
+                                    eprintln!("{}", e);
+                                    has_errors = true;
+                                }
+                            }
+                        }
+                        if store == &GameStore::GOOD_OLD_GAMES {
+                            match gog_insert_sequence(&alias, title, price, &search_provider).await
+                            {
+                                Ok(_) => {}
+                                Err(e) => {
+                                    eprintln!("{}", e);
+                                    has_errors = true;
+                                }
+                            }
+                        }
+                        if store == &GameStore::MICROSOFT_STORE_PC {
+                            match microsoft_store_insert_sequence(
+                                &alias,
+                                title,
+                                price,
+                                &search_provider,
+                            )
+                            .await
+                            {
+                                Ok(_) => {}
+                                Err(e) => {
+                                    eprintln!("{}", e);
+                                    has_errors = true;
+                                }
+                            };
+                        }
                     }
                 }
+                if !has_errors && !game_list.is_empty() {
+                    println!("Bulk insert completed successfully.");
+                }
             }
-        }
+            Err(e) => eprintln!("{}", e),
+        },
         Some(("update", update_args)) => match update_args.subcommand() {
             Some(("price", price_args)) => {
                 print_test_flag();
@@ -575,7 +664,13 @@ async fn main() {
                 print_test_flag();
                 let title = alias_args.get_one::<String>("title").unwrap().clone();
                 let alias = alias_args.get_one::<String>("alias").unwrap().clone();
-                thresholds::update_threshold_alias_fuzzy(title, &alias);
+                match thresholds::update_threshold_alias_fuzzy(title, &alias) {
+                    Ok(_) => println!(
+                        "Successfully updated alias {} for the game threshold(s)",
+                        alias
+                    ),
+                    Err(e) => eprintln!("{}", e),
+                };
             }
             _ => (),
         },
@@ -589,7 +684,10 @@ async fn main() {
             if cmd.get_flag(LIST_THRESHOLDS) {
                 thresholds::list_games();
             } else if cmd.get_flag(LIST_SELECTED_STORES) {
-                settings::list_selected_stores();
+                match settings::list_selected_stores() {
+                    Ok(_) => {}
+                    Err(e) => eprintln!("{}", e),
+                };
             } else if cmd.get_flag(UPDATE_CACHE) {
                 println!("Caching started (this might take a while)...");
                 println!("Retrieving entries...");

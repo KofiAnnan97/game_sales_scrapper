@@ -15,6 +15,7 @@ types = { path = "../types" }
 files = { path = "../files" }
 properties = { path = "../properties" }
 constants = { path = "../constants" }
+errors = { path = "../errors" }
 
 # External crates
 reqwest = { workspace = true, features = ["json", "blocking"] }

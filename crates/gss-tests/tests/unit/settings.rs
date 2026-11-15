@@ -61,8 +61,8 @@ fn get_selected_stores() {
     let _ = properties::load_properties();
 
     let stores = vec![GameStore::STEAM, GameStore::GOOD_OLD_GAMES];
-    settings::update_selected_stores(stores);
-    let selected_stores = settings::get_selected_stores();
+    settings::update_selected_stores(stores).unwrap();
+    let selected_stores = settings::get_selected_stores().unwrap();
     let mut is_steam_selected = false;
     let mut is_gog_selected = false;
     let mut is_ms_store_selected = false;
@@ -96,7 +96,7 @@ fn get_alias_state() {
     let _test_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, Vec::new());
     let _ = properties::load_properties();
 
-    let are_aliases_enabled = settings::get_alias_state();
+    let are_aliases_enabled = settings::get_alias_state().expect("Alias state could not be parsed");
     assert!(are_aliases_enabled, "Aliases should be enabled.");
 
     _test_env.tear_down();
@@ -107,15 +107,17 @@ fn update_selected_stores() {
     let _tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, Vec::new());
     let _ = properties::load_properties();
 
-    let mut selected_stores = settings::get_selected_stores();
+    let mut selected_stores = settings::get_selected_stores().unwrap();
     assert_eq!(
         0,
         selected_stores.len(),
         "No stores should be selected by default"
     );
     // Check that stores are added to settings
-    settings::update_selected_stores(vec![GameStore::STEAM, GameStore::GOOD_OLD_GAMES]);
-    selected_stores = settings::get_selected_stores();
+    settings::update_selected_stores(vec![GameStore::STEAM, GameStore::GOOD_OLD_GAMES])
+        .expect("Could not update selected stores.");
+    selected_stores =
+        settings::get_selected_stores().expect("Selected stores could not be parsed.");
     assert_eq!(
         2,
         selected_stores.len(),
@@ -144,8 +146,9 @@ fn update_selected_stores() {
         GameStore::GOOD_OLD_GAMES,
         GameStore::GOOD_OLD_GAMES,
         GameStore::MICROSOFT_STORE_PC,
-    ]);
-    selected_stores = settings::get_selected_stores();
+    ])
+    .expect("Could not update selected stores");
+    selected_stores = settings::get_selected_stores().expect("Selected stores could not be parsed");
     let mut store_count: HashMap<String, i32> = HashMap::new();
     for store in selected_stores {
         let val = store_count.entry(store.to_string()).or_insert(0);
@@ -169,21 +172,23 @@ fn update_alias_state() {
     let _tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, Vec::new());
     let _ = properties::load_properties();
 
-    let mut are_aliases_enabled = settings::get_alias_state();
+    let mut are_aliases_enabled =
+        settings::get_alias_state().expect("Alias state could not be parsed");
     // Check default alias state is true
     assert_eq!(
         DEFAULT_ALIAS_STATE, are_aliases_enabled,
         "Aliases should be enabled by default."
     );
     // Check that aliases are disabled
-    settings::update_alias_state(DISABLED_STATE);
-    are_aliases_enabled = settings::get_alias_state();
+    settings::update_alias_state(DISABLED_STATE).expect("Alias state could not be updated");
+    are_aliases_enabled = settings::get_alias_state().expect("Alias state could not be parsed");
     assert!(!are_aliases_enabled, "Aliases should not be enabled.");
     // Check that behavior of values that are not 1 or 0
     for i in -10..10 {
         if i != ENABLED_STATE && i != DISABLED_STATE {
-            settings::update_alias_state(i);
-            let are_aliases_enabled = settings::get_alias_state();
+            settings::update_alias_state(i).expect("Could not update alias state.");
+            let are_aliases_enabled =
+                settings::get_alias_state().expect("Alias state could not be parsed");
             assert!(
                 !are_aliases_enabled,
                 "Aliases should not be enabled given input: {}.",

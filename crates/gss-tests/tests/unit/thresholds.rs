@@ -17,7 +17,9 @@ async fn add_steam_game() {
     let app = threshold_stubs::test_steam_app();
     let game_title = &app.name.clone();
     let game_id = app.app_id;
-    thresholds::add_steam_game(game_title.clone(), app, 10.00, &client).await;
+    thresholds::add_steam_game(game_title.clone(), app, 10.00, &client)
+        .await
+        .expect("Steam game could not be added.");
 
     match thresholds::load_thresholds() {
         Ok(thresholds) => {
@@ -48,7 +50,8 @@ fn add_gog_game() {
     let game = threshold_stubs::test_gog_game();
     let game_title = &game.title.clone();
     let game_id = game.id.parse::<u32>().unwrap();
-    thresholds::add_gog_game(game_title.clone(), &game, 10.00);
+    thresholds::add_gog_game(game_title.clone(), &game, 10.00)
+        .expect("GOG gam could not be added.");
 
     match thresholds::load_thresholds() {
         Ok(thresholds) => {
@@ -79,7 +82,8 @@ fn add_microsoft_store_game() {
     let game = threshold_stubs::test_ms_game();
     let game_title = &game.title.clone();
     let game_id = &game.product_id.clone();
-    thresholds::add_microsoft_store_game(game_title.clone(), &game, 10.00);
+    thresholds::add_microsoft_store_game(game_title.clone(), &game, 10.00)
+        .expect("MS game could not be added");
 
     match thresholds::load_thresholds() {
         Ok(thresholds) => {
@@ -143,7 +147,8 @@ fn update_alias() {
 
     // Check that new alias is present in threshold
     let new_alias = String::from("new_rg");
-    thresholds::update_threshold_alias(game_title.clone(), &new_alias);
+    thresholds::update_threshold_alias(game_title.clone(), &new_alias)
+        .expect("Threshold alias was not updated.");
     match thresholds::load_thresholds() {
         Ok(thresholds) => assert_eq!(
             new_alias, thresholds[0].alias,

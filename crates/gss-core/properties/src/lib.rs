@@ -1,6 +1,7 @@
-use serde_json::{Result, Value, json};
+use serde_json::{Value, json};
 use std::fs::{metadata, read_to_string};
 use std::path::{Path, PathBuf};
+use std::result::Result as StdResult;
 
 use files::general;
 pub mod env_vars;
@@ -15,9 +16,10 @@ use constants::operations::properties::{
     PROP_TEST_PATH, PROPERTIES_FILENAME, RECIPIENT_EMAIL_ENV, SMTP_EMAIL_ENV, SMTP_HOST_ENV,
     SMTP_PASSWORD_ENV, SMTP_PORT_ENV, SMTP_USERNAME_ENV, STEAM_API_KEY_ENV, TEST_PATH_ENV,
 };
+use errors::file::FileOperationError;
 // Retrieve paths
 
-pub fn get_properties_path() -> String {
+fn get_properties_path_result() -> StdResult<String, FileOperationError> {
     let mut project_path = env_vars::get_project_path();
     if project_path.is_empty() {
         // TODO: Propagate current-directory errors instead of panicking
@@ -30,7 +32,7 @@ pub fn get_properties_path() -> String {
         .iter()
         .collect();
     let properties_path = path_buf.display().to_string();
-    let path_str = general::get_path(&properties_path);
+    let path_str = general::get_path(&properties_path)?;
     match metadata(&path_str) {
         Ok(md) => {
             if md.len() == 0 {
@@ -60,7 +62,10 @@ pub fn get_properties_path() -> String {
 
                         match serde_json::to_string_pretty(&properties) {
                             Ok(properties_str) => {
-                                general::write_to_file(properties_path.to_string(), properties_str)
+                                general::write_to_file(
+                                    properties_path.to_string(),
+                                    properties_str,
+                                )?;
                             }
                             Err(_) => println!("Initial properties could not be created."),
                         }
@@ -69,9 +74,16 @@ pub fn get_properties_path() -> String {
                 }
             }
         }
-        Err(e) => eprintln!("Error: {}", e),
+        Err(e) => return Err(FileOperationError::IO(e)),
     }
-    path_str
+    Ok(path_str)
+}
+
+pub fn get_properties_path() -> String {
+    match get_properties_path_result() {
+        Ok(path) => path,
+        Err(err) => panic!("Failed to resolve properties path: {}", err),
+    }
 }
 
 pub fn get_data_path() -> String {
@@ -226,16 +238,19 @@ pub fn update_properties_from_env() {
                 PROP_TEST_MODE: get_test_mode(),
             });
             match serde_json::to_string_pretty(&properties) {
-                Ok(properties_str) => general::write_to_file(properties_path, properties_str),
+                Ok(properties_str) => {
+                    if let Err(err) = general::write_to_file(properties_path, properties_str) {
+                        eprintln!("Properties could not be set using env file: {err}");
+                    }
+                }
                 Err(_) => eprintln!("Properties could not be set using env file."),
             }
         }
     }
 }
 
-pub fn load_properties() -> Result<Value> {
-    // TODO: Propagate file read errors instead of panicking
-    let data = read_to_string(get_properties_path()).unwrap();
+pub fn load_properties() -> StdResult<Value, FileOperationError> {
+    let data = read_to_string(get_properties_path_result()?)?;
     let body: Value = serde_json::from_str(&data)?;
     Ok(body)
 }
@@ -433,7 +448,11 @@ pub fn set_steam_api_key(api_key: String) {
                     *properties.get_mut(PROP_STEAM_API_KEY).unwrap() = json!(&data);
                     match serde_json::to_string_pretty(&properties) {
                         Ok(properties_str) => {
-                            general::write_to_file(get_properties_path(), properties_str);
+                            if let Err(err) =
+                                general::write_to_file(get_properties_path(), properties_str)
+                            {
+                                eprintln!("Property steam api key could not be set: {err}");
+                            }
                         }
                         Err(_) => eprintln!("Property steam api key could not be set."),
                     }
@@ -451,7 +470,12 @@ pub fn set_recipient(email_str: &str) {
             let mut properties = data;
             *properties.get_mut(PROP_RECIPIENT_EMAIL).unwrap() = json!(email_str);
             match serde_json::to_string_pretty(&properties) {
-                Ok(properties_str) => general::write_to_file(get_properties_path(), properties_str),
+                Ok(properties_str) => {
+                    if let Err(err) = general::write_to_file(get_properties_path(), properties_str)
+                    {
+                        eprintln!("Property set recipient could not be set: {err}");
+                    }
+                }
                 Err(_) => eprintln!("Property set recipient could not be set."),
             }
         }
@@ -484,7 +508,12 @@ pub fn set_stmp_vars(host: String, port: u16, email: String, user: String, pass:
                 }
             }
             match serde_json::to_string_pretty(&properties) {
-                Ok(properties_str) => general::write_to_file(get_properties_path(), properties_str),
+                Ok(properties_str) => {
+                    if let Err(err) = general::write_to_file(get_properties_path(), properties_str)
+                    {
+                        eprintln!("Smtp properties could not be set: {err}");
+                    }
+                }
                 Err(_) => eprintln!("Smtp properties could not be set."),
             }
         }
@@ -505,7 +534,12 @@ pub fn set_project_path(path: &str) {
             let mut properties = data;
             *properties.get_mut(PROP_PROJECT_PATH).unwrap() = json!(path);
             match serde_json::to_string_pretty(&properties) {
-                Ok(properties_str) => general::write_to_file(get_properties_path(), properties_str),
+                Ok(properties_str) => {
+                    if let Err(err) = general::write_to_file(get_properties_path(), properties_str)
+                    {
+                        eprintln!("Project path property could not be set: {err}");
+                    }
+                }
                 Err(_) => eprintln!("Project path property could not be set."),
             }
         }
@@ -526,7 +560,12 @@ pub fn set_test_path(path: &str) {
             let mut properties = data;
             *properties.get_mut(PROP_TEST_PATH).unwrap() = json!(path);
             match serde_json::to_string_pretty(&properties) {
-                Ok(properties_str) => general::write_to_file(get_properties_path(), properties_str),
+                Ok(properties_str) => {
+                    if let Err(err) = general::write_to_file(get_properties_path(), properties_str)
+                    {
+                        eprintln!("Test path property could not be created/updated: {err}");
+                    }
+                }
                 Err(_) => eprintln!("Test path property could not be created/updated."),
             }
         }
@@ -540,7 +579,12 @@ pub fn set_sliding_steam_appid(steam_appid: u32) {
             let mut properties = data;
             *properties.get_mut(PROP_SLIDING_STEAM_APPID).unwrap() = json!(steam_appid);
             match serde_json::to_string_pretty(&properties) {
-                Ok(properties_str) => general::write_to_file(get_properties_path(), properties_str),
+                Ok(properties_str) => {
+                    if let Err(err) = general::write_to_file(get_properties_path(), properties_str)
+                    {
+                        eprintln!("Sliding steam appid property could not be set: {err}");
+                    }
+                }
                 Err(_) => eprintln!("Sliding steam appid property could not be set."),
             }
         }
@@ -555,7 +599,12 @@ pub fn set_test_mode(is_enabled: bool) {
             let enabled = if is_enabled { 1 } else { 0 };
             *properties.get_mut(PROP_TEST_MODE).unwrap() = json!(enabled);
             match serde_json::to_string_pretty(&properties) {
-                Ok(properties_str) => general::write_to_file(get_properties_path(), properties_str),
+                Ok(properties_str) => {
+                    if let Err(err) = general::write_to_file(get_properties_path(), properties_str)
+                    {
+                        eprintln!("Test mode property could not be set: {err}");
+                    }
+                }
                 Err(_) => todo!("Test mode property could not be set."),
             }
         }

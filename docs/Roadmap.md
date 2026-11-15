@@ -30,6 +30,12 @@
     - Reliability
       - [ ] Proper error handling for unwrap(), expect(), and panic!()
         - [ ] Have recoverable failures with typed errors
+          - [X] Secrets and environment variables
+          - [X] Files
+          - [X] Settings and thresholds
+          - [ ] Properties
+          - [ ] Command Line
+          - [ ] Application
         - [ ] Individual storefront failures are isolated
       - [ ] Add cargo deny to audit workflow
   - Command Line
@@ -62,7 +68,7 @@
   - [X] Add caching to GitHub Actions
   - [X] Add more app focused tests where possible
   - [X] Restructure code to be more standardized for testing
-    - [X] Updated tests to support mutliple threads
+    - [X] Updated tests to support multiple threads
  
 ### Backlog
 - Features/Updates

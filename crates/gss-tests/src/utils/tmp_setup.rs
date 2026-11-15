@@ -109,13 +109,13 @@ pub fn create(title: &str, steam_cache: Vec<App>) -> PathBuf {
         .display()
         .to_string();
 
-    general::write_to_file(
+    let _ = general::write_to_file(
         tmp_steam_cache_file,
         serde_json::to_string_pretty(&steam_cache)
             .expect("Failed to write steam cache for testing"),
     );
-    general::write_to_file(tmp_settings_file, settings_json.clone());
-    general::write_to_file(tmp_thresholds_file, thresholds_json.clone());
+    let _ = general::write_to_file(tmp_settings_file, settings_json.clone());
+    let _ = general::write_to_file(tmp_thresholds_file, thresholds_json.clone());
 
     // Setup default test subdirectory structure within the temporary directory (in case properties sets test to subdirectory)
     let test_root = base_dir.join(DEFAULT_TEST_DIR);
@@ -141,13 +141,13 @@ pub fn create(title: &str, steam_cache: Vec<App>) -> PathBuf {
         .display()
         .to_string();
 
-    general::write_to_file(
+    let _ = general::write_to_file(
         tmp_steam_cache_file_test,
         serde_json::to_string_pretty(&steam_cache)
             .expect("Failed to write steam cache for testing"),
     );
-    general::write_to_file(tmp_settings_file_test, settings_json.clone());
-    general::write_to_file(tmp_thresholds_file_test, thresholds_json.clone());
+    let _ = general::write_to_file(tmp_settings_file_test, settings_json.clone());
+    let _ = general::write_to_file(tmp_thresholds_file_test, thresholds_json.clone());
 
     base_dir
 }

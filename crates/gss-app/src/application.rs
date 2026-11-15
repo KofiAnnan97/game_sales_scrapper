@@ -44,9 +44,9 @@ impl App {
             logger: Logger::new(&log_file),
             // Settings
             available_stores: settings::get_available_stores(),
-            selected_stores: settings::get_selected_stores(),
-            alias_enabled: settings::get_alias_state(),
-            alias_reuse_enabled: settings::get_alias_reuse_state(),
+            selected_stores: settings::get_selected_stores().unwrap_or_default(),
+            alias_enabled: settings::get_alias_state().unwrap_or(false),
+            alias_reuse_enabled: settings::get_alias_reuse_state().unwrap_or(false),
             reveal_sensitive_data: false,
             steam_api_key: properties::get_steam_api_key(false),
             recipient_email: properties::get_recipient(),
@@ -171,13 +171,13 @@ impl App {
                 } else {
                     self.selected_stores.retain(|id| id != &store);
                 }
-                settings::update_selected_stores(self.selected_stores.clone());
+                let _ = settings::update_selected_stores(self.selected_stores.clone());
                 self.logger.info(Screen::Search, "Updated selected stores");
                 Task::none()
             }
             MainMessage::ToggleAliasEnabled(enabled) => {
                 self.alias_enabled = enabled;
-                settings::update_alias_state(if enabled { 1 } else { 0 });
+                let _ = settings::update_alias_state(if enabled { 1 } else { 0 });
                 self.logger.info(
                     Screen::Search,
                     &format!("Alias enabled: {}", self.alias_enabled),
@@ -186,7 +186,7 @@ impl App {
             }
             MainMessage::ToggleAliasReuse(enabled) => {
                 self.alias_reuse_enabled = enabled;
-                settings::update_alias_reuse_state(if enabled { 1 } else { 0 });
+                let _ = settings::update_alias_reuse_state(if enabled { 1 } else { 0 });
                 self.logger.info(
                     Screen::Settings,
                     &format!("Alias reuse enabled: {}", self.alias_reuse_enabled),
@@ -341,12 +341,12 @@ impl App {
             }
             MainMessage::SelectAllStores => {
                 self.selected_stores = self.available_stores.clone();
-                settings::update_selected_stores(self.selected_stores.clone());
+                let _ = settings::update_selected_stores(self.selected_stores.clone());
                 Task::none()
             }
             MainMessage::SelectNoStores => {
                 self.selected_stores.clear();
-                settings::clear_selected_stores();
+                let _ = settings::clear_selected_stores();
                 Task::none()
             }
             MainMessage::OpenCsv => {
@@ -577,9 +577,9 @@ impl App {
                 if added_count == 0 {
                     self.logger.info(Screen::Search, "No selected storefront titles were added. Choose a result before adding a threshold.");
                 } else {
-                    thresholds::update_thresholds(thresholds_list);
+                    let _ = thresholds::update_thresholds(thresholds_list);
                     added_titles.iter().for_each(|title| {
-                        thresholds::update_threshold_alias(title.to_owned(), &alias);
+                        let _ = thresholds::update_threshold_alias(title.to_owned(), &alias);
                     });
                     self.thresholds = thresholds::load_thresholds().unwrap_or_default();
                     self.sync_threshold_edits();
@@ -735,7 +735,7 @@ impl App {
                         .cloned()
                         .unwrap_or_default();
                     if alias != threshold.alias {
-                        thresholds::update_threshold_alias(threshold.title.clone(), &alias);
+                        let _ = thresholds::update_threshold_alias(threshold.title.clone(), &alias);
                     }
                     if let Ok(price) = price_str.trim().parse::<f64>() {
                         if threshold.alias.is_empty() {
@@ -946,9 +946,9 @@ impl App {
         self.thresholds = thresholds::load_thresholds().unwrap_or_default();
         self.sync_threshold_edits();
         self.available_stores = settings::get_available_stores();
-        self.selected_stores = settings::get_selected_stores();
-        self.alias_enabled = settings::get_alias_state();
-        self.alias_reuse_enabled = settings::get_alias_reuse_state();
+        self.selected_stores = settings::get_selected_stores().unwrap_or_default();
+        self.alias_enabled = settings::get_alias_state().unwrap_or(false);
+        self.alias_reuse_enabled = settings::get_alias_reuse_state().unwrap_or(false);
         self.steam_api_key = properties::get_steam_api_key(false);
         self.recipient_email = properties::get_recipient();
         self.smtp_host = properties::get_smtp_host();

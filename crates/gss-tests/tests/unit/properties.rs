@@ -191,7 +191,8 @@ fn update_properties_from_env() {
         smtp_password_val,
         &_tmp_env.temp_dir,
     );
-    general::write_file(&_tmp_env.temp_dir, ENV_FILENAME, &env_data);
+    general::write_file(&_tmp_env.temp_dir, ENV_FILENAME, &env_data)
+        .expect("Could not update the file.");
 
     steam_api_key_val = "UPDATED";
     recipient_email_val = "recipient2@example.com";
@@ -211,7 +212,8 @@ fn update_properties_from_env() {
         &_tmp_env.temp_dir,
     );
     // println!("Env data:\n{}", env_data);
-    general::write_file(&_tmp_env.temp_dir, ENV_FILENAME, &env_data);
+    general::write_file(&_tmp_env.temp_dir, ENV_FILENAME, &env_data)
+        .expect("Could not update file.");
 
     unsafe {
         env::remove_var(STEAM_API_KEY_ENV);

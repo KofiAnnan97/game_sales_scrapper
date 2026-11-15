@@ -107,7 +107,7 @@ impl Logger {
         for log in self.batch.iter() {
             log_block.push_str(log);
         }
-        general::append_to_file(&self.file_path, log_block.as_str());
+        let _ = general::append_to_file(&self.file_path, log_block.as_str());
     }
 
     pub fn log(&mut self, screen: Screen, level: LogLevel, msg: &str) {
@@ -200,13 +200,13 @@ pub fn new_log() -> String {
                 let path_buf: PathBuf = [app_logs_path, last_log].iter().collect();
                 path_buf.display().to_string()
             } else {
-                general::write_file(Path::new(&app_logs_path), &filename, "");
+                let _ = general::write_file(Path::new(&app_logs_path), &filename, "");
                 let filepath = Path::new(&app_logs_path).join(&filename);
                 filepath.display().to_string()
             }
         }
         Err(_) => {
-            general::write_file(Path::new(&app_logs_path), &filename, "");
+            let _ = general::write_file(Path::new(&app_logs_path), &filename, "");
             let filepath = Path::new(&app_logs_path).join(&filename);
             filepath.display().to_string()
         }
@@ -313,5 +313,5 @@ pub fn delete_log(file_name: &str) -> bool {
         return false;
     }
 
-    general::delete_file(log_file.display().to_string())
+    general::delete_file(log_file.display().to_string()).is_ok()
 }

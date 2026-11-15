@@ -13,7 +13,8 @@ fn main() -> iced::Result {
     let log_file_clone = log_file.clone();
     std::panic::set_hook(Box::new(move |panic_info| {
         let panic_msg = log_utils::fatal_message_builder(panic_info);
-        general::append_to_file(&log_file_clone, &panic_msg);
+        general::append_to_file(&log_file_clone, &panic_msg)
+            .expect("Could not append panic message to log file.");
     }));
 
     daemon(move || App::new(log_file.clone()), App::update, App::view)

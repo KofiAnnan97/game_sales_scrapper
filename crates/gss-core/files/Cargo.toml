@@ -11,6 +11,7 @@ test = false
 [dependencies]
 # Internal crates
 types = { path = "../types" }
+errors = { path = "../errors" }
 
 # External crates
 csv.workspace = true
