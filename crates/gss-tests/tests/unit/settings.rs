@@ -10,7 +10,8 @@ static TMP_DIR_TITLE: &str = "settings";
 #[test]
 fn get_available_stores() {
     let _tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, Vec::new());
-    let _ = properties::load_properties();
+    properties::load_properties()
+        .expect("Could not load properties for the available-stores test.");
 
     let available_stores = settings::get_available_stores();
     let mut all_stores_valid = true;
@@ -35,7 +36,7 @@ fn get_available_stores() {
 #[test]
 fn get_proper_store_name() {
     let _tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, Vec::new());
-    let _ = properties::load_properties();
+    properties::load_properties().expect("Could not load properties for the store-name test.");
 
     let mut store_name = GameStore::STEAM.get_name();
     assert_eq!("Steam", store_name, "{} != {}", store_name, "Steam");
@@ -58,11 +59,12 @@ fn get_proper_store_name() {
 #[test]
 fn get_selected_stores() {
     let _tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, Vec::new());
-    let _ = properties::load_properties();
+    properties::load_properties().expect("Could not load properties for the selected-stores test.");
 
     let stores = vec![GameStore::STEAM, GameStore::GOOD_OLD_GAMES];
-    settings::update_selected_stores(stores).unwrap();
-    let selected_stores = settings::get_selected_stores().unwrap();
+    settings::update_selected_stores(stores).expect("Could not save the selected stores.");
+    let selected_stores =
+        settings::get_selected_stores().expect("Could not retrieve the selected stores.");
     let mut is_steam_selected = false;
     let mut is_gog_selected = false;
     let mut is_ms_store_selected = false;
@@ -94,9 +96,10 @@ fn get_selected_stores() {
 #[test]
 fn get_alias_state() {
     let _test_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, Vec::new());
-    let _ = properties::load_properties();
+    properties::load_properties().expect("Could not load properties for the alias-state test.");
 
-    let are_aliases_enabled = settings::get_alias_state().expect("Alias state could not be parsed");
+    let are_aliases_enabled =
+        settings::get_alias_state().expect("Could not retrieve the alias-enabled setting.");
     assert!(are_aliases_enabled, "Aliases should be enabled.");
 
     _test_env.tear_down();
@@ -105,9 +108,10 @@ fn get_alias_state() {
 #[test]
 fn update_selected_stores() {
     let _tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, Vec::new());
-    let _ = properties::load_properties();
+    properties::load_properties().expect("Could not load properties for the selected-stores test.");
 
-    let mut selected_stores = settings::get_selected_stores().unwrap();
+    let mut selected_stores =
+        settings::get_selected_stores().expect("Could not retrieve the selected stores.");
     assert_eq!(
         0,
         selected_stores.len(),
@@ -115,9 +119,9 @@ fn update_selected_stores() {
     );
     // Check that stores are added to settings
     settings::update_selected_stores(vec![GameStore::STEAM, GameStore::GOOD_OLD_GAMES])
-        .expect("Could not update selected stores.");
+        .expect("Could not save the selected stores.");
     selected_stores =
-        settings::get_selected_stores().expect("Selected stores could not be parsed.");
+        settings::get_selected_stores().expect("Could not retrieve the updated selected stores.");
     assert_eq!(
         2,
         selected_stores.len(),
@@ -147,8 +151,9 @@ fn update_selected_stores() {
         GameStore::GOOD_OLD_GAMES,
         GameStore::MICROSOFT_STORE_PC,
     ])
-    .expect("Could not update selected stores");
-    selected_stores = settings::get_selected_stores().expect("Selected stores could not be parsed");
+    .expect("Could not save the selected stores with duplicates.");
+    selected_stores = settings::get_selected_stores()
+        .expect("Could not retrieve the selected stores after removing duplicates.");
     let mut store_count: HashMap<String, i32> = HashMap::new();
     for store in selected_stores {
         let val = store_count.entry(store.to_string()).or_insert(0);
@@ -170,25 +175,28 @@ fn update_selected_stores() {
 #[test]
 fn update_alias_state() {
     let _tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, Vec::new());
-    let _ = properties::load_properties();
+    properties::load_properties().expect("Could not load properties for the alias-state test.");
 
     let mut are_aliases_enabled =
-        settings::get_alias_state().expect("Alias state could not be parsed");
+        settings::get_alias_state().expect("Could not retrieve the default alias-enabled setting.");
     // Check default alias state is true
     assert_eq!(
         DEFAULT_ALIAS_STATE, are_aliases_enabled,
         "Aliases should be enabled by default."
     );
     // Check that aliases are disabled
-    settings::update_alias_state(DISABLED_STATE).expect("Alias state could not be updated");
-    are_aliases_enabled = settings::get_alias_state().expect("Alias state could not be parsed");
+    settings::update_alias_state(DISABLED_STATE)
+        .expect("Could not disable aliases in the properties.");
+    are_aliases_enabled =
+        settings::get_alias_state().expect("Could not retrieve the updated alias-enabled setting.");
     assert!(!are_aliases_enabled, "Aliases should not be enabled.");
     // Check that behavior of values that are not 1 or 0
     for i in -10..10 {
         if i != ENABLED_STATE && i != DISABLED_STATE {
-            settings::update_alias_state(i).expect("Could not update alias state.");
-            let are_aliases_enabled =
-                settings::get_alias_state().expect("Alias state could not be parsed");
+            settings::update_alias_state(i)
+                .expect("Could not save the alias state for the test value.");
+            let are_aliases_enabled = settings::get_alias_state()
+                .expect("Could not retrieve the alias-enabled setting for the test value.");
             assert!(
                 !are_aliases_enabled,
                 "Aliases should not be enabled given input: {}.",

@@ -18,7 +18,7 @@ use constants::operations::thresholds::{
 };
 use constants::stores::steam::*;
 use errors::api::ApiError;
-use errors::file::FileOperationError;
+use errors::input::FileOperationError;
 use files::general;
 use properties;
 use types::internal::data::SaleInfo;
@@ -327,7 +327,7 @@ impl<'a> SteamApi for SteamClient<'a> {
 
 // Caching Functions
 fn get_cache_path() -> Result<String, FileOperationError> {
-    let path_buf: PathBuf = [properties::get_data_path(), CACHE_FILENAME.to_string()]
+    let path_buf: PathBuf = [properties::get_data_path()?, CACHE_FILENAME.to_string()]
         .iter()
         .collect();
     let cache_file_path = path_buf.display().to_string();
@@ -411,19 +411,19 @@ pub async fn update_cached_games(client: &reqwest::Client) -> Result<String, Api
     let last_appid = get_last_appid(&games_list);
     let mut temp: Vec<App> = get_games(client, NUM_OF_RESULTS, last_appid).await?;
     let mut cache_changed = add_entries_to_cache(&mut temp, &mut games_list);
-    let sliding_last_appid = properties::get_sliding_steam_appid();
+    let sliding_last_appid = properties::get_sliding_steam_appid()?;
     if temp.is_empty()
         || (sliding_last_appid < last_appid && games_list.len() > SLIDING_UPDATE_START_SIZE)
     {
         temp = get_games(client, NUM_OF_RESULTS, sliding_last_appid).await?;
         if let Some(last_app) = temp.last() {
-            properties::set_sliding_steam_appid(last_app.app_id);
+            properties::set_sliding_steam_appid(last_app.app_id)?;
         } else {
-            properties::set_sliding_steam_appid(0);
+            properties::set_sliding_steam_appid(0)?;
         }
         cache_changed |= add_entries_to_cache(&mut temp, &mut games_list);
     } else {
-        properties::set_sliding_steam_appid(0);
+        properties::set_sliding_steam_appid(0)?;
     }
     if !cache_changed {
         return Ok("Cache already up to date".into());
@@ -445,7 +445,7 @@ async fn get_games(
     max_results: u32,
     last_appid: u32,
 ) -> Result<Vec<App>, ApiError> {
-    let steam_api_key = properties::get_steam_api_key(false);
+    let steam_api_key = properties::get_steam_api_key(false)?;
     if steam_api_key.is_empty() {
         return Err(ApiError::Message(format!(
             "Missing '{}' property.",

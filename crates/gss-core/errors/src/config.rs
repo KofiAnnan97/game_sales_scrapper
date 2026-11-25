@@ -1,7 +1,7 @@
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 
-use crate::file::FileOperationError;
+use crate::input::FileOperationError;
 use crate::secrets::SecretsError;
 #[derive(Debug)]
 pub enum ConfigError {

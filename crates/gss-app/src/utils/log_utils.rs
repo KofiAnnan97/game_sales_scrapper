@@ -176,9 +176,9 @@ pub fn get_filename(file_path: &str) -> String {
 }
 
 pub fn get_log_path() -> String {
-    let path_buf: PathBuf = [properties::get_log_path(), APP_SUBDIR.to_string()]
-        .iter()
-        .collect();
+    // TODO: Propagate Error when retrieving logging path
+    let log_path = properties::get_log_path().unwrap_or_default();
+    let path_buf: PathBuf = [log_path, APP_SUBDIR.to_string()].iter().collect();
     let app_logs_path = path_buf.display().to_string();
     general::create_dir(&app_logs_path);
     app_logs_path

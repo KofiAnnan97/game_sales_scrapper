@@ -2,7 +2,7 @@ use std::fs::File;
 use std::io::Read;
 
 use crate::general;
-use errors::file::FileOperationError;
+use errors::input::FileOperationError;
 use types::internal::data::SimpleGameThreshold;
 
 pub fn parse_game_prices_from_path(

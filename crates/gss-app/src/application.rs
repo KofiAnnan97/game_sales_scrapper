@@ -48,16 +48,16 @@ impl App {
             alias_enabled: settings::get_alias_state().unwrap_or(false),
             alias_reuse_enabled: settings::get_alias_reuse_state().unwrap_or(false),
             reveal_sensitive_data: false,
-            steam_api_key: properties::get_steam_api_key(false),
-            recipient_email: properties::get_recipient(),
-            smtp_host: properties::get_smtp_host(),
-            smtp_port: properties::get_smtp_port().to_string(),
-            smtp_email: properties::get_smtp_email(),
-            smtp_user: properties::get_smtp_user(),
-            smtp_password: properties::get_smtp_pwd(false),
-            project_path: properties::get_project_path(),
-            test_path: properties::get_test_path(),
-            test_mode: properties::is_testing_enabled(),
+            steam_api_key: properties::get_steam_api_key(false).unwrap_or_default(),
+            recipient_email: properties::get_recipient().unwrap_or_default(),
+            smtp_host: properties::get_smtp_host().unwrap_or_default(),
+            smtp_port: properties::get_smtp_port().unwrap_or(0).to_string(),
+            smtp_email: properties::get_smtp_email().unwrap_or_default(),
+            smtp_user: properties::get_smtp_user().unwrap_or_default(),
+            smtp_password: properties::get_smtp_pwd(false).unwrap_or_default(),
+            project_path: properties::get_project_path().unwrap_or_default(),
+            test_path: properties::get_test_path().unwrap_or_default(),
+            test_mode: properties::is_testing_enabled().unwrap_or_default(),
             // TODO: Add auto advance to settings under app
             auto_advance_enabled: false,
             // TODO: get current default value or return DEBUG
@@ -949,16 +949,16 @@ impl App {
         self.selected_stores = settings::get_selected_stores().unwrap_or_default();
         self.alias_enabled = settings::get_alias_state().unwrap_or(false);
         self.alias_reuse_enabled = settings::get_alias_reuse_state().unwrap_or(false);
-        self.steam_api_key = properties::get_steam_api_key(false);
-        self.recipient_email = properties::get_recipient();
-        self.smtp_host = properties::get_smtp_host();
-        self.smtp_port = properties::get_smtp_port().to_string();
-        self.smtp_email = properties::get_smtp_email();
-        self.smtp_user = properties::get_smtp_user();
-        self.smtp_password = properties::get_smtp_pwd(false);
-        self.project_path = properties::get_project_path();
-        self.test_path = properties::get_test_path();
-        self.test_mode = properties::is_testing_enabled();
+        self.steam_api_key = properties::get_steam_api_key(false).unwrap_or_default();
+        self.recipient_email = properties::get_recipient().unwrap_or_default();
+        self.smtp_host = properties::get_smtp_host().unwrap_or_default();
+        self.smtp_port = properties::get_smtp_port().unwrap_or(0).to_string();
+        self.smtp_email = properties::get_smtp_email().unwrap_or_default();
+        self.smtp_user = properties::get_smtp_user().unwrap_or_default();
+        self.smtp_password = properties::get_smtp_pwd(false).unwrap_or_default();
+        self.project_path = properties::get_project_path().unwrap_or_default();
+        self.test_path = properties::get_test_path().unwrap_or_default();
+        self.test_mode = properties::is_testing_enabled().unwrap_or_default();
     }
 
     pub fn insert_threshold(

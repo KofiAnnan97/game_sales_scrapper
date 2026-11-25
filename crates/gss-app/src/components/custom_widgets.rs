@@ -1,4 +1,3 @@
-use constants::operations::settings::{GOG_STORE_ID, MICROSOFT_STORE_ID, STEAM_STORE_ID};
 use iced::widget::image::Handle;
 use iced::widget::table::Table;
 use iced::widget::{Container, Image, Text, button, column, container, row, slider, table, text};
@@ -7,6 +6,7 @@ use iced::{Alignment::Center, Element, Length, alignment};
 use iced_aw::iced_aw_font;
 
 use types::internal::data::SaleInfo;
+use types::internal::store::GameStore;
 
 use crate::app::message::Message;
 use crate::components::custom_styles::{
@@ -284,13 +284,13 @@ pub fn game_comparison_row<M: Clone + 'static>(
     // Retrieve store(s) with lowest price
     let mut steam_lowest = data
         .lowest_price_stores
-        .contains(&String::from(STEAM_STORE_ID));
+        .contains(&String::from(GameStore::STEAM.get_id()));
     let mut gog_lowest = data
         .lowest_price_stores
-        .contains(&String::from(GOG_STORE_ID));
+        .contains(&String::from(GameStore::GOOD_OLD_GAMES.get_id()));
     let mut ms_lowest = data
         .lowest_price_stores
-        .contains(&String::from(MICROSOFT_STORE_ID));
+        .contains(&String::from(GameStore::MICROSOFT_STORE_PC.get_id()));
 
     // Get count of stores with available sales
     let mut sale_avaiable_count: usize = 0;

@@ -4,11 +4,11 @@ use std::fs::{metadata, read_to_string};
 use std::io::{self, Write};
 use std::path::PathBuf;
 
-use crate::settings::{self, get_alias_reuse_state};
-use constants::operations::settings::ALLOW_ALIAS_REUSE_AFTER_CREATION;
+use crate::settings;
 use constants::operations::thresholds::*;
+use errors::GenericError;
 use errors::config::ConfigError;
-use errors::file::FileOperationError;
+use errors::input::FileOperationError;
 use files::general;
 use stores::pc::steam; //, gog, microsoft_store};
 use stores::search::fuzzy;
@@ -18,7 +18,7 @@ use types::response::{gog::GameInfo as GOGGameInfo, microsoft_store::ProductInfo
 use properties;
 
 pub fn get_path() -> Result<String, FileOperationError> {
-    let path_buf: PathBuf = [properties::get_data_path(), THRESHOLD_FILENAME.to_string()]
+    let path_buf: PathBuf = [properties::get_data_path()?, THRESHOLD_FILENAME.to_string()]
         .iter()
         .collect();
     let thresh_path = path_buf.display().to_string();
@@ -43,7 +43,6 @@ pub fn get_path() -> Result<String, FileOperationError> {
 
 pub fn load_data() -> Result<Value, FileOperationError> {
     let filepath = get_path()?;
-    // TODO: Propagate file read errors instead of panicking
     let data = read_to_string(filepath)?;
     match serde_json::from_str(&data) {
         Ok(data) => Ok(data),
@@ -53,7 +52,6 @@ pub fn load_data() -> Result<Value, FileOperationError> {
 
 pub fn load_thresholds() -> Result<Vec<GameThreshold>, FileOperationError> {
     let filepath = get_path()?;
-    // TODO: Propagate file and JSON parsing errors instead of panicking
     let data = read_to_string(filepath)?; //.unwrap();
     let body: Value = serde_json::from_str(&data)?; //.expect("Load thresholds - could not convert to JSON");
     let thresholds = serde_json::to_string(&body[THRESHOLDS])?;
@@ -65,7 +63,6 @@ pub fn load_thresholds() -> Result<Vec<GameThreshold>, FileOperationError> {
 
 pub fn load_alias_map() -> Result<HashMap<String, Vec<String>>, FileOperationError> {
     let filepath = get_path()?;
-    // TODO: Propagate file and JSON parsing errors instead of panicking
     let data = read_to_string(filepath)?;
     let body: Value = serde_json::from_str(&data)?; //.expect("Load alias map - could not convert to JSON");
     let alias_map = serde_json::to_string(&body[ALIAS_MAP])?;
@@ -79,7 +76,6 @@ pub fn update_thresholds(thresholds: Vec<GameThreshold>) -> Result<(), FileOpera
     match load_data() {
         Ok(data) => {
             let mut thresholds_data = data;
-            // TODO: Propagate errors when the thresholds key is missing
             *thresholds_data.get_mut(THRESHOLDS.to_string()).unwrap() = json!(thresholds);
             match serde_json::to_string_pretty(&thresholds_data) {
                 Ok(thresholds_str) => general::write_to_file(get_path()?, thresholds_str)?,
@@ -96,10 +92,69 @@ pub fn update_thresholds(thresholds: Vec<GameThreshold>) -> Result<(), FileOpera
     Ok(())
 }
 
+pub fn update_thresholds_and_alias_map(
+    mut thresholds: Vec<GameThreshold>,
+    game_title: &str,
+    alias: &str,
+) -> Result<(), FileOperationError> {
+    let mut alias_map = load_alias_map().unwrap_or_default();
+
+    // Remove old alias for game in alias map
+    let old_alias;
+    if let Some(i) = thresholds
+        .iter()
+        .position(|threshold| threshold.title == game_title)
+    {
+        old_alias = thresholds[i].alias.to_string();
+        thresholds[i].alias = String::from(alias);
+    } else {
+        return Ok(());
+    }
+
+    if !old_alias.is_empty() && alias_map.contains_key(&old_alias) {
+        let alias_list = alias_map.get_mut(&old_alias).unwrap();
+        if let Some(j) = alias_list
+            .iter()
+            .position(|threshold_title| threshold_title == game_title)
+        {
+            alias_list.remove(j);
+        }
+        if alias_list.is_empty() {
+            alias_map.remove(&old_alias);
+        }
+    }
+
+    // Add new alias for game in alias map
+    if !alias.is_empty() {
+        if alias_map.contains_key(alias) {
+            alias_map
+                .get_mut(alias)
+                .unwrap()
+                .push(game_title.to_string());
+        } else {
+            alias_map.insert(alias.to_string(), vec![game_title.to_string()]);
+        }
+    }
+
+    // Save changes to thresholds and alias map
+    let mut thresholds_data = load_data()?;
+    *thresholds_data.get_mut(ALIAS_MAP.to_string()).unwrap() = json!(alias_map);
+    *thresholds_data.get_mut(THRESHOLDS.to_string()).unwrap() = json!(thresholds);
+    match serde_json::to_string_pretty(&thresholds_data) {
+        Ok(alias_map_str) => general::write_to_file(get_path()?, alias_map_str)?,
+        Err(e) => {
+            return Err(FileOperationError::Message(format!(
+                "Cannot update thresholds and alias map. {}",
+                e
+            )));
+        }
+    }
+    Ok(())
+}
+
 pub fn update_alias_map(alias_map: HashMap<String, Vec<String>>) -> Result<(), FileOperationError> {
     let data = load_data()?;
     let mut alias_data = data;
-    // TODO: Propagate errors when the alias map key is missing
     *alias_data.get_mut(ALIAS_MAP.to_string()).unwrap() = json!(alias_map);
     match serde_json::to_string_pretty(&alias_data) {
         Ok(alias_str) => general::write_to_file(get_path()?, alias_str)?,
@@ -161,7 +216,6 @@ pub fn update_threshold_alias(
     match load_data() {
         Ok(data) => {
             let mut alias_data = data;
-            // TODO: Propagate errors when required threshold keys are missing
             *alias_data.get_mut(ALIAS_MAP.to_string()).unwrap() = json!(alias_map);
             *alias_data.get_mut(THRESHOLDS.to_string()).unwrap() = json!(thresholds);
             match serde_json::to_string_pretty(&alias_data) {
@@ -173,7 +227,7 @@ pub fn update_threshold_alias(
                     )));
                 }
             }
-            println!("{} threshold alias set to \'{}\'", game_title, new_alias);
+            // println!("{} threshold alias set to \'{}\'", game_title, new_alias);
             Ok(true)
         }
         Err(e) => {
@@ -259,13 +313,12 @@ fn is_threshold(title: &str, game_thresh: &GameThreshold) -> bool {
     title == game_thresh.title || title == game_thresh.alias
 }
 
-// TODO: Return string of game title
 pub async fn add_steam_game(
     new_alias: String,
     app: App,
     price: f64,
     client: &reqwest::Client,
-) -> Result<(), ConfigError> {
+) -> Result<String, GenericError> {
     let mut thresholds = load_thresholds().unwrap_or_else(|_e| Vec::new());
     match steam::get_price(app.app_id, client).await {
         Ok(po) => {
@@ -279,39 +332,32 @@ pub async fn add_steam_game(
                     break;
                 }
             }
+            let alias_str = new_alias;
             if unique {
-                let mut alias_str = String::new();
-                if !does_alias_exist(&new_alias)
-                    || (does_alias_exist(&new_alias) && get_alias_reuse_state()?)
-                {
-                    update_threshold_alias(app.name.to_string(), &new_alias)?;
-                    alias_str = new_alias;
-                } else {
-                    eprintln!(
-                        "Alias '{}' is already in use. If needed, set '{}' to 1 in config file.",
-                        new_alias, ALLOW_ALIAS_REUSE_AFTER_CREATION
-                    );
-                }
                 thresholds.push(GameThreshold {
                     title: app.name.clone(),
-                    alias: alias_str,
+                    alias: alias_str.clone(),
                     steam_id: app.app_id,
                     gog_id: 0,
                     microsoft_store_id: String::new(),
                     currency: po.currency,
                     desired_price: price,
                 });
-                update_thresholds(thresholds)?;
-                println!("Successfully added Steam game: \"{}\".", app.name);
+                update_thresholds_and_alias_map(thresholds, &app.name, &alias_str)?;
+            } else if !alias_str.is_empty() {
+                update_threshold_alias(app.name.clone(), &alias_str)?;
             }
+            Ok(app.name)
         }
-        Err(e) => println!("{}", e),
+        Err(e) => return Err(e.into()),
     }
-    Ok(())
 }
 
-// TODO: Propagate invalid GOG game IDs instead of panicking
-pub fn add_gog_game(new_alias: String, game: &GOGGameInfo, price: f64) -> Result<(), ConfigError> {
+pub fn add_gog_game(
+    new_alias: String,
+    game: &GOGGameInfo,
+    price: f64,
+) -> Result<String, ConfigError> {
     let mut thresholds = load_thresholds().unwrap_or_else(|_e| Vec::new());
     let mut unique: bool = true;
     for elem in thresholds.iter() {
@@ -324,26 +370,15 @@ pub fn add_gog_game(new_alias: String, game: &GOGGameInfo, price: f64) -> Result
             break;
         }
     }
+    let alias_str = new_alias;
     if unique {
         let currency_code = match &game.price {
             Some(price_data) => price_data.base_money.currency.clone(),
             None => "USD".to_string(),
         };
-        let mut alias_str = String::new();
-        if !does_alias_exist(&new_alias)
-            || (does_alias_exist(&new_alias) && get_alias_reuse_state()?)
-        {
-            update_threshold_alias(game.title.to_string(), &new_alias)?;
-            alias_str = new_alias;
-        } else {
-            eprintln!(
-                "Alias '{}' is already in use. If needed, set '{}' to 1 in config file.",
-                new_alias, ALLOW_ALIAS_REUSE_AFTER_CREATION
-            );
-        }
         thresholds.push(GameThreshold {
             title: game.title.clone(),
-            alias: alias_str,
+            alias: alias_str.clone(),
             steam_id: 0,
             gog_id: game.id.parse::<u32>().unwrap(),
             microsoft_store_id: String::new(),
@@ -351,17 +386,18 @@ pub fn add_gog_game(new_alias: String, game: &GOGGameInfo, price: f64) -> Result
             currency: currency_code,
             desired_price: price,
         });
-        update_thresholds(thresholds)?;
-        println!("Successfully added GOG game \"{}\".", game.title);
+        update_thresholds_and_alias_map(thresholds, &game.title, &alias_str)?;
+    } else if !alias_str.is_empty() {
+        update_threshold_alias(game.title.clone(), &alias_str)?;
     }
-    Ok(())
+    Ok(game.title.clone())
 }
 
 pub fn add_microsoft_store_game(
     new_alias: String,
     game: &ProductInfo,
     price: f64,
-) -> Result<(), ConfigError> {
+) -> Result<String, ConfigError> {
     let mut thresholds = load_thresholds().unwrap_or_else(|_e| Vec::new());
     let mut unique: bool = true;
     for elem in thresholds.iter() {
@@ -374,35 +410,36 @@ pub fn add_microsoft_store_game(
             break;
         }
     }
+    let alias_str = new_alias;
     if unique {
-        let mut alias_str = String::new();
-        if !does_alias_exist(&new_alias)
-            || (does_alias_exist(&new_alias) && get_alias_reuse_state()?)
-        {
-            update_threshold_alias(game.title.to_string(), &new_alias)?;
-            alias_str = new_alias;
-        } else {
-            eprintln!(
-                "Alias '{}' is already in use. If needed, set '{}' to 1 in config file.",
-                new_alias, ALLOW_ALIAS_REUSE_AFTER_CREATION
-            );
-        }
         thresholds.push(GameThreshold {
             title: game.title.clone(),
-            alias: alias_str,
+            alias: alias_str.clone(),
             steam_id: 0,
             gog_id: 0,
             microsoft_store_id: game.product_id.clone(),
             currency: String::from("USD"),
             desired_price: price,
         });
-        update_thresholds(thresholds)?;
-        println!(
-            "Successfully added Microsoft Store game \"{}\".",
-            game.title
-        );
+        update_thresholds_and_alias_map(thresholds, &game.title, &alias_str)?;
+    } else if !alias_str.is_empty() {
+        update_threshold_alias(game.title.clone(), &alias_str)?;
     }
-    Ok(())
+    Ok(game.title.clone())
+}
+
+pub fn get_alias_if_available(
+    alias: &str,
+) -> Result<(String, bool), FileOperationError> {
+    if alias.is_empty() || !does_alias_exist(alias) {
+        return Ok((alias.to_string(), true));
+    }
+
+    if settings::get_alias_reuse_state()? {
+        Ok((alias.to_string(), true))
+    } else {
+        Ok((String::new(), false))
+    }
 }
 
 pub fn set_game_alias() -> Result<String, ConfigError> {
@@ -530,7 +567,6 @@ pub fn update_id(title: &str, store_type: GameStore, id: u32) {
         .position(|threshold| is_threshold(title, threshold));
     if let Some(i) = idx {
         let mut updated_id: bool = false;
-        let store_name: String = store_type.get_name().into();
         match store_type {
             GameStore::STEAM => {
                 thresholds[i].steam_id = id;
@@ -548,7 +584,7 @@ pub fn update_id(title: &str, store_type: GameStore, id: u32) {
                 store_type
             );
             let _ = update_thresholds(thresholds);
-            println!("Updated {} ID for \"{}\"", store_name, title);
+            // println!("Updated {} ID for \"{}\"", store_name, title);
         }
     }
 }
@@ -560,7 +596,6 @@ pub fn update_id_str(title: &str, store_type: GameStore, id: &str) {
         .position(|threshold| is_threshold(title, threshold));
     if let Some(i) = idx {
         let mut updated_id: bool = false;
-        let store_name: String = store_type.get_name().into();
         match store_type {
             GameStore::MICROSOFT_STORE_PC => {
                 thresholds[i].microsoft_store_id = id.to_string();
@@ -574,7 +609,7 @@ pub fn update_id_str(title: &str, store_type: GameStore, id: &str) {
                 store_type
             );
             let _ = update_thresholds(thresholds);
-            println!("Updated {} ID for \"{}\"", store_name, title);
+            // println!("Updated {} ID for \"{}\"", store_name, title);
         }
     }
 }

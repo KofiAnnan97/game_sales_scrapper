@@ -82,18 +82,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "alerting"
-version = "0.3.2-alpha"
-dependencies = [
- "constants",
- "errors",
- "lettre",
- "properties",
- "types",
- "url",
-]
-
-[[package]]
 name = "aligned"
 version = "0.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -951,7 +939,7 @@ dependencies = [
 
 [[package]]
 name = "constants"
-version = "0.3.2-alpha"
+version = "0.3.2-beta"
 
 [[package]]
 name = "cookie"
@@ -1422,7 +1410,7 @@ checksum = "0b5343afd4a8365a643ac588dab4cf234a190c7f6c88c9f6dd6ffe00837661b7"
 
 [[package]]
 name = "errors"
-version = "0.3.2-alpha"
+version = "0.3.2-beta"
 dependencies = [
  "aes-gcm",
  "base64 0.22.1",
@@ -1513,7 +1501,7 @@ dependencies = [
 
 [[package]]
 name = "file_ops"
-version = "0.3.2-alpha"
+version = "0.3.2-beta"
 dependencies = [
  "constants",
  "errors",
@@ -1527,7 +1515,7 @@ dependencies = [
 
 [[package]]
 name = "files"
-version = "0.3.2-alpha"
+version = "0.3.2-beta"
 dependencies = [
  "csv",
  "errors",
@@ -1959,9 +1947,8 @@ dependencies = [
 
 [[package]]
 name = "gss-app"
-version = "0.3.2-alpha"
+version = "0.3.2-beta"
 dependencies = [
- "alerting",
  "chrono",
  "constants",
  "errors",
@@ -1970,6 +1957,7 @@ dependencies = [
  "futures",
  "iced",
  "iced_aw",
+ "notifications",
  "properties",
  "reqwest",
  "rfd",
@@ -1982,15 +1970,15 @@ dependencies = [
 
 [[package]]
 name = "gss-cli"
-version = "0.3.2-alpha"
+version = "0.3.2-beta"
 dependencies = [
- "alerting",
  "clap",
  "constants",
  "errors",
  "file_ops",
  "files",
  "futures",
+ "notifications",
  "properties",
  "reqwest",
  "rpassword",
@@ -2002,7 +1990,7 @@ dependencies = [
 
 [[package]]
 name = "gss-tests"
-version = "0.3.2-alpha"
+version = "0.3.2-beta"
 dependencies = [
  "constants",
  "dotenvy",
@@ -3332,6 +3320,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0676bb32a98c1a483ce53e500a81ad9c3d5b3f7c920c28c24e9cb0980d0b5bc8"
 
 [[package]]
+name = "notifications"
+version = "0.3.2-beta"
+dependencies = [
+ "constants",
+ "errors",
+ "lettre",
+ "properties",
+ "types",
+ "url",
+]
+
+[[package]]
 name = "num-bigint"
 version = "0.4.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4145,7 +4145,7 @@ dependencies = [
 
 [[package]]
 name = "properties"
-version = "0.3.2-alpha"
+version = "0.3.2-beta"
 dependencies = [
  "aes-gcm",
  "base64 0.22.1",
@@ -5198,7 +5198,7 @@ checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
 
 [[package]]
 name = "stores"
-version = "0.3.2-alpha"
+version = "0.3.2-beta"
 dependencies = [
  "async-trait",
  "chromiumoxide",
@@ -5698,7 +5698,7 @@ checksum = "b6f5e870be6c3b371b77fe0ee0bafb859fa4964b4404c27de1d380043c4dda20"
 
 [[package]]
 name = "types"
-version = "0.3.2-alpha"
+version = "0.3.2-beta"
 dependencies = [
  "serde",
 ]

@@ -44,7 +44,7 @@ fn check_environment_variables() {
         &_tmp_env.temp_dir,
     );
     general::write_file(&_tmp_env.temp_dir, ENV_FILENAME, &env_data)
-        .expect("Could not update the file.");
+        .expect("Could not write the environment variables to the test .env file.");
 
     unsafe {
         env::remove_var(STEAM_API_KEY_ENV);
@@ -57,9 +57,11 @@ fn check_environment_variables() {
         env::remove_var(PROJECT_PATH_ENV);
         env::remove_var(TEST_PATH_ENV);
     }
-    env::set_current_dir(&_tmp_env.temp_dir).unwrap();
+    env::set_current_dir(&_tmp_env.temp_dir)
+        .expect("Could not set the current directory to the environment-variable test directory.");
 
-    let vars = env_vars::get_variables().expect("Environment variables should load");
+    let vars =
+        env_vars::get_variables().expect("Could not load variables from the test environment.");
     println!("Test Environment Variables: {:?}", vars);
     if vars.is_empty() {
         unreachable!("No environment variables found.");
@@ -75,20 +77,33 @@ fn check_environment_variables() {
         let test_path = vars.get(TEST_PATH_ENV).and_then(EnvVar::as_str);
 
         let pwd_decode = panic::catch_unwind(|| {
-            let decrypt_key = get_decrypt_key(properties::get_project_path());
+            let project_path = properties::get_project_path()
+                .expect("Could not retrieve the project path for the environment-variable test.");
+            let decrypt_key = get_decrypt_key(project_path)
+                .expect("Could not retrieve the decryption key for the environment-variable test.");
             assert_eq!(
                 steam_api_key_val,
-                api_key.unwrap().get_value(Some(&decrypt_key)).unwrap(),
+                api_key
+                    .unwrap()
+                    .get_value(Some(&decrypt_key))
+                    .expect("Could not decrypt the Steam API key from the environment."),
                 "Environment variable should be {} not {}",
                 STEAM_API_KEY_ENV,
-                api_key.unwrap().get_value(Some(&decrypt_key)).unwrap()
+                api_key
+                    .unwrap()
+                    .get_value(Some(&decrypt_key))
+                    .expect("Could not decrypt the Steam API key from the environment.")
             );
             assert_eq!(
                 smtp_password_val,
-                pass.unwrap().get_value(Some(&decrypt_key)).unwrap(),
+                pass.unwrap()
+                    .get_value(Some(&decrypt_key))
+                    .expect("Could not decrypt the SMTP password from the environment."),
                 "Environment variable should be {} not {}",
                 SMTP_PASSWORD_ENV,
-                pass.unwrap().get_value(Some(&decrypt_key)).unwrap()
+                pass.unwrap()
+                    .get_value(Some(&decrypt_key))
+                    .expect("Could not decrypt the SMTP password from the environment.")
             );
         });
         match pwd_decode {
@@ -172,7 +187,7 @@ fn no_variables() {
         &_tmp_env.temp_dir,
     );
     general::write_file(&_tmp_env.temp_dir, ENV_FILENAME, &env_data)
-        .expect("Could not update the file.");
+        .expect("Could not write empty environment variables to the test .env file.");
 
     unsafe {
         env::remove_var(STEAM_API_KEY_ENV);
@@ -185,9 +200,11 @@ fn no_variables() {
         env::remove_var(PROJECT_PATH_ENV);
         env::remove_var(TEST_PATH_ENV);
     }
-    env::set_current_dir(&_tmp_env.temp_dir).unwrap();
+    env::set_current_dir(&_tmp_env.temp_dir)
+        .expect("Could not set the current directory to the empty-environment test directory.");
 
-    let vars = env_vars::get_variables().expect("Environment variables should load");
+    let vars = env_vars::get_variables()
+        .expect("Could not load variables from the empty test environment.");
     println!("Test Environment Variables: {:?}", vars);
 
     let api_key = vars.get(STEAM_API_KEY_ENV).and_then(EnvVar::as_password);
@@ -201,20 +218,33 @@ fn no_variables() {
     let test_path = vars.get(TEST_PATH_ENV).and_then(EnvVar::as_str);
 
     let pwd_decode = panic::catch_unwind(|| {
-        let decrypt_key = get_decrypt_key(properties::get_project_path());
+        let project_path = properties::get_project_path()
+            .expect("Could not retrieve the project path for the empty-environment test.");
+        let decrypt_key = get_decrypt_key(project_path)
+            .expect("Could not retrieve the decryption key for the empty-environment test.");
         assert_eq!(
             steam_api_key_val,
-            api_key.unwrap().get_value(Some(&decrypt_key)).unwrap(),
+            api_key
+                .unwrap()
+                .get_value(Some(&decrypt_key))
+                .expect("Could not decrypt the Steam API key from the environment."),
             "Environment variable should be {} not {}",
             STEAM_API_KEY_ENV,
-            api_key.unwrap().get_value(Some(&decrypt_key)).unwrap()
+            api_key
+                .unwrap()
+                .get_value(Some(&decrypt_key))
+                .expect("Could not decrypt the Steam API key from the environment.")
         );
         assert_eq!(
             smtp_password_val,
-            pass.unwrap().get_value(Some(&decrypt_key)).unwrap(),
+            pass.unwrap()
+                .get_value(Some(&decrypt_key))
+                .expect("Could not decrypt the SMTP password from the environment."),
             "Environment variable should be {} not {}",
             SMTP_PASSWORD_ENV,
-            pass.unwrap().get_value(Some(&decrypt_key)).unwrap()
+            pass.unwrap()
+                .get_value(Some(&decrypt_key))
+                .expect("Could not decrypt the SMTP password from the environment.")
         );
     });
     match pwd_decode {
@@ -286,7 +316,8 @@ fn decrypt_key_created() {
         !decrypt_file.exists(),
         "Decrypt key should not exist before creation"
     );
-    let initial_key = get_decrypt_key(_tmp_env.temp_dir.display().to_string());
+    let initial_key = get_decrypt_key(_tmp_env.temp_dir.display().to_string())
+        .expect("Could not create or retrieve the initial decryption key.");
     assert_eq!(
         32,
         initial_key.len(),
@@ -294,7 +325,8 @@ fn decrypt_key_created() {
     );
     assert!(decrypt_file.is_file(), "Decrypt key file should be created");
 
-    let curr_key = get_decrypt_key(_tmp_env.temp_dir.display().to_string());
+    let curr_key = get_decrypt_key(_tmp_env.temp_dir.display().to_string())
+        .expect("Could not retrieve the previously created decryption key.");
     assert_eq!(
         initial_key, curr_key,
         "Decrypt key should be reused from the same file"
@@ -306,22 +338,25 @@ fn decrypt_key_created() {
 #[test]
 fn read_custom_env_file() {
     let _tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, Vec::new());
-    env::set_current_dir(&_tmp_env.temp_dir).unwrap();
+    env::set_current_dir(&_tmp_env.temp_dir)
+        .expect("Could not set the current directory to the custom dotenv test directory.");
 
     let env_filename = "custom.env";
     let env_var_name = "CUSTOM_VAR";
     let env_var_value = "CUSTOM_VALUE";
     let env_data = format!("{}=\"{}\"\n", env_var_name, env_var_value);
     general::write_file(&_tmp_env.temp_dir, env_filename, &env_data)
-        .expect("Could not update the file.");
+        .expect("Could not write the custom dotenv test file.");
 
-    env_vars::load_dotenv(Some(env_filename)).expect("Custom dotenv file should load");
+    env_vars::load_dotenv(Some(env_filename)).expect("Could not load the custom dotenv test file.");
     assert_eq!(
-        env::var(env_var_name).unwrap(),
+        env::var(env_var_name)
+            .expect("Could not retrieve the variable loaded from the custom dotenv file."),
         env_var_value,
         "Environment variable should be {} not {}",
         env_var_value,
-        env::var(env_var_name).unwrap()
+        env::var(env_var_name)
+            .expect("Could not retrieve the variable loaded from the custom dotenv file.")
     );
 
     _tmp_env.tear_down();

@@ -2,13 +2,13 @@ use iced::widget::image::Handle;
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use crate::utils::file_utils::load_url_image_with_fallback;
-use alerting::email;
-use constants::operations::settings::{GOG_STORE_ID, MICROSOFT_STORE_ID, STEAM_STORE_ID};
 use file_ops::thresholds;
+use notifications::email;
 use stores::pc::{gog, microsoft_store, steam};
 use stores::search::provider::SearchProvider;
 use types::internal::{data::SaleInfo, store::GameStore};
+
+use crate::utils::file_utils::load_url_image_with_fallback;
 
 #[derive(Debug, Clone)]
 pub struct StoreSale {
@@ -171,13 +171,16 @@ pub fn compare_prices(store_sales: &[StoreSale]) -> Vec<SaleInfoCompare> {
             .min(sale.gog_price.unwrap_or(f64::MAX))
             .min(sale.microsoft_store_price.unwrap_or(f64::MAX));
         if sale.steam_price == Some(lowest_price) {
-            sale.lowest_price_stores.push(STEAM_STORE_ID.into());
+            sale.lowest_price_stores
+                .push(GameStore::STEAM.get_id().into());
         }
         if sale.gog_price == Some(lowest_price) {
-            sale.lowest_price_stores.push(GOG_STORE_ID.into());
+            sale.lowest_price_stores
+                .push(GameStore::GOOD_OLD_GAMES.get_id().into());
         }
         if sale.microsoft_store_price == Some(lowest_price) {
-            sale.lowest_price_stores.push(MICROSOFT_STORE_ID.into());
+            sale.lowest_price_stores
+                .push(GameStore::MICROSOFT_STORE_PC.get_id().into());
         }
     }
     compiled_sales
@@ -213,7 +216,7 @@ pub async fn get_sales(provider: &Arc<SearchProvider>) -> Result<Vec<StoreSale>,
                                 store: GameStore::STEAM,
                                 info,
                                 alias,
-                                game_id: format!("{}_{}", STEAM_STORE_ID, steam_id),
+                                game_id: format!("{}_{}", GameStore::STEAM.get_id(), steam_id),
                                 icon_handler,
                             }),
                         )
@@ -250,7 +253,11 @@ pub async fn get_sales(provider: &Arc<SearchProvider>) -> Result<Vec<StoreSale>,
                                 store: GameStore::GOOD_OLD_GAMES,
                                 info,
                                 alias,
-                                game_id: format!("{}_{}", GOG_STORE_ID, gog_id),
+                                game_id: format!(
+                                    "{}_{}",
+                                    GameStore::GOOD_OLD_GAMES.get_id(),
+                                    gog_id
+                                ),
                                 icon_handler,
                             }),
                         )
@@ -286,7 +293,11 @@ pub async fn get_sales(provider: &Arc<SearchProvider>) -> Result<Vec<StoreSale>,
                                 store: GameStore::MICROSOFT_STORE_PC,
                                 info,
                                 alias,
-                                game_id: format!("{}_{}", MICROSOFT_STORE_ID, store_id),
+                                game_id: format!(
+                                    "{}_{}",
+                                    GameStore::MICROSOFT_STORE_PC.get_id(),
+                                    store_id
+                                ),
                                 icon_handler,
                             }),
                         )

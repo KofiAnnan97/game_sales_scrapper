@@ -4,23 +4,24 @@ use properties::env_vars;
 use reqwest::Client;
 use serde_json::Value;
 use std::collections::HashMap;
-use std::io::{self, Write};
 use std::sync::Arc;
 use tokio::sync::Semaphore;
 
 // Internal libraries
-use alerting::email;
 use constants::cli::args::*;
 use constants::operations::properties::{
     PROP_PROJECT_PATH, PROP_RECIPIENT_EMAIL, PROP_SMTP_EMAIL, PROP_SMTP_HOST, PROP_SMTP_PORT,
     PROP_SMTP_USERNAME, PROP_TEST_MODE, PROP_TEST_PATH,
 };
+use constants::operations::settings::ALLOW_ALIAS_REUSE_AFTER_CREATION;
 use file_ops::{settings, thresholds};
 use files::csv;
 use gss_cli::{
-    check_prices, gog_insert_sequence, microsoft_store_insert_sequence, print_test_flag,
-    print_title, steam_insert_sequence, storefront_check,
+    check_prices, get_u16_input, get_string_input, gog_insert_sequence,
+    microsoft_store_insert_sequence, print_test_flag, print_title, steam_insert_sequence,
+    storefront_check
 };
+use notifications::email;
 use stores::{pc::steam, search::provider::SearchProvider};
 use types::internal::data::SimpleGameThreshold;
 use types::internal::store::{DEFAULT_CONCURRENCY_LIMIT, GameStore};
@@ -286,7 +287,10 @@ async fn main() {
                         selected = settings::get_available_stores();
                     }
                     if !selected.is_empty() {
-                        let _ = settings::update_selected_stores(selected);
+                        match settings::update_selected_stores(selected) {
+                            Ok(_) => println!("Stores successfully updated."),
+                            Err(e) => eprintln!("{}", e),
+                        }
                     }
 
                     // If alias state is used
@@ -296,10 +300,12 @@ async fn main() {
                         let alias_state: i32 =
                             *settings_args.get_one::<i32>("enable_aliases").unwrap();
                         if alias_state == 0 || alias_state == 1 {
-                            let _ = settings::update_alias_state(alias_state);
+                            match settings::update_alias_state(alias_state) {
+                                Ok(_) => println!("Aliases enabled successfully updated."),
+                                Err(e) => eprintln!("{}", e),
+                            }
                         } else {
-                            // TODO: Report invalid configuration values without panicking
-                            panic!(
+                            eprintln!(
                                 "enable_aliases must be set to 0 or 1 not \'{}\'",
                                 alias_state
                             );
@@ -313,10 +319,12 @@ async fn main() {
                         let alias_state: i32 =
                             *settings_args.get_one::<i32>("allow_alias_reuse").unwrap();
                         if alias_state == 0 || alias_state == 1 {
-                            let _ = settings::update_alias_reuse_state(alias_state);
+                            match settings::update_alias_reuse_state(alias_state) {
+                                Ok(_) => println!("Alias reuse state changed"),
+                                Err(e) => eprintln!("{}", e),
+                            }
                         } else {
-                            // TODO: Report invalid configuration values without panicking
-                            panic!(
+                            eprintln!(
                                 "allow_alias_reuse must be set to 0 or 1 not \'{}\'",
                                 alias_state
                             );
@@ -327,69 +335,78 @@ async fn main() {
                     // Update properties from env
                     let from_env = properties_args.value_source(FROM_ENV).unwrap();
                     if from_env == ValueSource::CommandLine {
-                        properties::update_properties_from_env();
+                        match properties::update_properties_from_env() {
+                            Ok(_) => println!("Properties have been successfully updated"),
+                            Err(e) => eprintln!("{}", e),
+                        }
                     } else if from_env == ValueSource::DefaultValue
                         && let Some(test_mode) = properties_args.value_source("test_mode")
                         && test_mode == ValueSource::CommandLine
                     {
                         let test_state: i32 = *properties_args.get_one::<i32>("test_mode").unwrap();
-                        if test_state == 1 {
-                            properties::set_test_mode(true);
-                        } else {
-                            properties::set_test_mode(false);
+                        let testing_enabled = test_state == 1;
+                        match properties::set_test_mode(testing_enabled) {
+                            Ok(_) => println!("Test mode set to {}", testing_enabled),
+                            Err(e) => eprintln!("{}", e),
                         }
-                        println!("Test mode set to {}", test_state);
                     }
 
                     // Set SMTP variables
                     if let Some(val_src) = properties_args.value_source(SET_SMTP)
                         && val_src == ValueSource::CommandLine
                     {
-                        // TODO: Handle terminal input and parsing errors without panicking
-                        let mut host = String::new();
-                        print!("SMTP Hostname: ");
-                        let _ = io::stdout().flush();
-                        io::stdin()
-                            .read_line(&mut host)
-                            .expect("Failed to read user input");
-                        host = host[0..host.len() - 1].to_string();
-                        let mut port_str = String::new();
-                        print!("SMTP Port: ");
-                        let _ = io::stdout().flush();
-                        io::stdin()
-                            .read_line(&mut port_str)
-                            .expect("Failed to read user input");
-                        let port_num: u16 = (port_str.trim())
-                            .parse::<u16>()
-                            .expect("Could not convert value to integer");
-                        let mut email = String::new();
-                        print!("SMTP Email: ");
-                        let _ = io::stdout().flush();
-                        io::stdin()
-                            .read_line(&mut email)
-                            .expect("Failed to read user input");
-                        email = email[0..email.len() - 1].to_string();
-                        let mut user = String::new();
-                        print!("SMTP User: ");
-                        let _ = io::stdout().flush();
-                        io::stdin()
-                            .read_line(&mut user)
-                            .expect("Failed to read user input");
-                        user = user[0..user.len() - 1].to_string();
+                        let host = match get_string_input("Enter smtp host name: ") {
+                            Ok(host_str) => host_str,
+                            Err(e) => {
+                                eprintln!("Error getting host name: {}", e);
+                                return;
+                            }
+                        };
+                        let port_num = match get_u16_input() {
+                            Ok(port) => port,
+                            Err(e) => {
+                                eprintln!("Error getting port: {}", e);
+                                return;
+                            }
+                        };
+                        let email = match get_string_input("Enter smtp email: ") {
+                            Ok(email_str) => email_str,
+                            Err(e) => {
+                                eprintln!("Error getting port: {}", e);
+                                return;
+                            }
+                        };
+                        let user = match get_string_input("Enter smtp user: ") {
+                            Ok(user_str) => user_str,
+                            Err(e) => {
+                                eprintln!("Error getting port: {}", e);
+                                return;
+                            }
+                        };
                         let pass = rpassword::prompt_password("SMTP Password: ").unwrap_or_else(|_| {
                             println!(
                                 "An error occurred while setting the SMTP password. No changes were made."
                             );
                             String::new()
                         });
-                        properties::set_stmp_vars(host, port_num, email, user, pass);
+                        match properties::set_stmp_vars(host, port_num, email, user, pass) {
+                            Ok(_) => println!("Stmp propertiews were successfully set."),
+                            Err(e) => eprintln!("{}", e),
+                        };
                     }
 
                     // Set recipient email
                     if let Some(recipient) = properties_args.get_one::<String>(SET_RECIPIENT) {
-                        let prev_recipient = properties::get_recipient();
-                        if !recipient.is_empty() && prev_recipient != *recipient {
-                            properties::set_recipient(recipient);
+                        if let Ok(prev_recipient) = properties::get_recipient()
+                            && !recipient.is_empty()
+                            && prev_recipient != *recipient
+                        {
+                            match properties::set_recipient(recipient) {
+                                Ok(_) => println!("Recipient was successfuly set."),
+                                Err(e) => eprintln!("{}", e),
+                            }
+                        } else {
+                            eprintln!("Recipient could not be set");
                         }
                     }
 
@@ -398,9 +415,16 @@ async fn main() {
                     if steam_key == ValueSource::CommandLine {
                         match rpassword::prompt_password("Provide Steam API Key: ") {
                             Ok(new_key) => {
-                                let prev_key = properties::get_steam_api_key(false);
-                                if !new_key.is_empty() && prev_key != new_key {
-                                    properties::set_steam_api_key(new_key);
+                                if let Ok(prev_key) = properties::get_steam_api_key(false)
+                                    && !new_key.is_empty()
+                                    && prev_key != new_key
+                                {
+                                    match properties::set_steam_api_key(new_key) {
+                                        Ok(_) => println!("Steam API Key was successfully set"),
+                                        Err(e) => eprintln!("{}", e),
+                                    }
+                                } else {
+                                    eprintln!("Steam API key could not be set");
                                 }
                             }
                             Err(_) => {
@@ -413,17 +437,31 @@ async fn main() {
 
                     // Set project path
                     if let Some(path) = properties_args.get_one::<String>(SET_PROJECT_PATH) {
-                        let prev_path = properties::get_project_path();
-                        if !path.is_empty() && prev_path != *path {
-                            properties::set_project_path(path);
+                        if let Ok(prev_path) = properties::get_project_path()
+                            && !path.is_empty()
+                            && prev_path != *path
+                        {
+                            match properties::set_project_path(path) {
+                                Ok(_) => println!("Project path was successfully set."),
+                                Err(e) => eprintln!("{}", e),
+                            }
+                        } else {
+                            eprintln!("Project path could not be set");
                         }
                     }
 
                     // Set test path
                     if let Some(path) = properties_args.get_one::<String>(SET_TEST_PATH) {
-                        let prev_path = properties::get_test_path();
-                        if !path.is_empty() && prev_path != *path {
-                            properties::set_test_path(path);
+                        if let Ok(prev_path) = properties::get_test_path()
+                            && !path.is_empty()
+                            && prev_path != *path
+                        {
+                            match properties::set_test_path(path) {
+                                Ok(_) => println!("Test path was successfully set."),
+                                Err(e) => eprintln!("{}", e),
+                            }
+                        } else {
+                            eprintln!("Test path could not be set");
                         }
                     }
 
@@ -431,12 +469,15 @@ async fn main() {
                     let reveal_secrets = properties_args.value_source(REVEAL_SECRETS).unwrap();
                     let mut confirm_str = String::new();
                     if reveal_secrets == ValueSource::CommandLine {
-                        print!("Are you sure? This will print out sensitive data (Y/N) : ");
-                        let _ = io::stdout().flush();
-                        // TODO: Propagate terminal input errors instead of panicking
-                        io::stdin()
-                            .read_line(&mut confirm_str)
-                            .expect("Failed to read user input");
+                        confirm_str = match get_string_input(
+                            "Are you sure? This will print out sensitive data (Y/N) : ",
+                        ) {
+                            Ok(confirm) => confirm,
+                            Err(e) => {
+                                eprintln!("{}", e);
+                                return;
+                            }
+                        };
                     }
 
                     let mut hidden = true;
@@ -446,10 +487,16 @@ async fn main() {
                         hidden = match rpassword::prompt_password(
                             "Provide the last 12 characters of the decryption key: ",
                         ) {
-                            Ok(last_chars) => {
-                                let key = env_vars::get_decrypt_key(properties::get_project_path());
-                                !(last_chars.len() == 12 && last_chars == key[key.len() - 12..])
-                            }
+                            Ok(last_chars) => match properties::get_project_path() {
+                                Ok(project_path) => match env_vars::get_decrypt_key(project_path) {
+                                    Ok(key) => {
+                                        !(last_chars.len() == 12
+                                            && last_chars == key[key.len() - 12..])
+                                    }
+                                    Err(_) => true,
+                                },
+                                Err(_) => true,
+                            },
                             Err(_) => true,
                         }
                     }
@@ -484,7 +531,9 @@ async fn main() {
                                 );
                                 println!(
                                     "Steam API Key: {}",
-                                    properties::get_steam_api_key(hidden)
+                                    properties::get_steam_api_key(hidden).unwrap_or(String::from(
+                                        "<Steam key could not be displayed>"
+                                    ))
                                 );
                                 println!(
                                     "SMTP Host: {}",
@@ -502,7 +551,12 @@ async fn main() {
                                     "SMTP User: {}",
                                     lookup.get(PROP_SMTP_USERNAME).unwrap_or_default()
                                 );
-                                println!("SMTP Password: {}", properties::get_smtp_pwd(hidden));
+                                println!(
+                                    "SMTP Password: {}",
+                                    properties::get_smtp_pwd(hidden).unwrap_or(String::from(
+                                        "<SMTP password could not be displayed>"
+                                    ))
+                                );
                                 println!("Test Mode: {}", test_mode);
                             }
                             Err(e) => eprintln!("Failed to list properties.\n{}", e),
@@ -516,8 +570,8 @@ async fn main() {
             Ok(selected_stores) => {
                 print_test_flag();
                 let mut has_errors = false;
-                let alias = if let Some(alias) = add_args.get_one::<String>("alias") {
-                    alias.clone()
+                let input_alias = if let Some(alias) = add_args.get_one::<String>("alias") {
+                    alias.trim().to_string()
                 } else {
                     match settings::get_alias_state() {
                         Ok(true) => match thresholds::set_game_alias() {
@@ -538,26 +592,38 @@ async fn main() {
                 };
                 let title = add_args.get_one::<String>("title").unwrap().clone();
                 let price = *add_args.get_one::<f64>("price").unwrap();
+                let (alias, alias_available) = match thresholds::get_alias_if_available(&input_alias) {
+                    Ok(result) => {
+                        if !result.1 {
+                            eprintln!("Game title could not be added.");
+                            has_errors = true;
+                        }
+                        result
+                    },
+                    Err(e) => {
+                        eprintln!("{}", e);
+                        has_errors = true;
+                        (String::new(), false)
+                    }
+                };
                 if !has_errors {
                     for store in selected_stores.iter() {
                         if store == &GameStore::STEAM {
                             match steam_insert_sequence(&alias, &title, price, &search_provider)
                                 .await
                             {
-                                Ok(_) => {}
+                                Ok(title) => println!("Successfully added Steam game: \"{}\".", title),
                                 Err(e) => {
                                     eprintln!("{}", e);
-                                    has_errors = true;
                                 }
                             }
                         }
                         if store == &GameStore::GOOD_OLD_GAMES {
                             match gog_insert_sequence(&alias, &title, price, &search_provider).await
                             {
-                                Ok(_) => {}
+                                Ok(title) => println!("Successfully added GOG game: \"{}\".", title),
                                 Err(e) => {
                                     eprintln!("{}", e);
-                                    has_errors = true;
                                 }
                             }
                         }
@@ -570,17 +636,19 @@ async fn main() {
                             )
                             .await
                             {
-                                Ok(_) => {}
+                                Ok(title) => println!("Successfully added Microsoft Store game: \"{}\".", title),
                                 Err(e) => {
                                     eprintln!("{}", e);
-                                    has_errors = true;
                                 }
                             };
                         }
                     }
                 }
-                if !has_errors {
-                    println!("Game added successfully.");
+                if !alias_available {
+                    eprintln!(
+                        "Alias '{}' is already in use. If needed, set '{}' to 1.",
+                        input_alias, ALLOW_ALIAS_REUSE_AFTER_CREATION
+                    );
                 }
             }
             Err(e) => eprintln!("{}", e),
@@ -598,8 +666,8 @@ async fn main() {
                 for game in game_list.iter() {
                     println!("INSERT GAME -> \"{}\"", game.name);
                     let title = &game.name;
-                    let alias = match thresholds::set_game_alias() {
-                        Ok(alias) => alias,
+                    let input_alias = match thresholds::set_game_alias() {
+                        Ok(alias) => alias.trim().to_string(),
                         Err(e) => {
                             eprintln!("{}", e);
                             has_errors = true;
@@ -607,12 +675,26 @@ async fn main() {
                         }
                     };
                     let price: f64 = game.price;
+                    let (alias, alias_available) = match thresholds::get_alias_if_available(&input_alias) {
+                        Ok(result) => {
+                            if !result.1 {
+                                eprintln!("Game title could not be added.");
+                                has_errors = true;
+                            }
+                            result
+                        },
+                        Err(e) => {
+                            eprintln!("{}", e);
+                            has_errors = true;
+                            continue;
+                        }
+                    };
                     for store in selected_stores.iter() {
                         if store == &GameStore::STEAM {
                             match steam_insert_sequence(&alias, title, price, &search_provider)
                                 .await
                             {
-                                Ok(_) => {}
+                                Ok(title) => println!("Successfully added Steam game: \"{}\".", title),
                                 Err(e) => {
                                     eprintln!("{}", e);
                                     has_errors = true;
@@ -622,7 +704,9 @@ async fn main() {
                         if store == &GameStore::GOOD_OLD_GAMES {
                             match gog_insert_sequence(&alias, title, price, &search_provider).await
                             {
-                                Ok(_) => {}
+                                Ok(title) => {
+                                    println!("Successfully added GOG game: \"{}\".", title)
+                                }
                                 Err(e) => {
                                     eprintln!("{}", e);
                                     has_errors = true;
@@ -638,13 +722,21 @@ async fn main() {
                             )
                             .await
                             {
-                                Ok(_) => {}
+                                Ok(title) => {
+                                    println!("Successfully added Microsoft Store game: \"{}\".", title)
+                                }
                                 Err(e) => {
                                     eprintln!("{}", e);
                                     has_errors = true;
                                 }
                             };
                         }
+                    }
+                    if !alias_available {
+                        eprintln!(
+                            "Alias '{}' is already in use. If needed, set '{}' to 1.",
+                            input_alias, ALLOW_ALIAS_REUSE_AFTER_CREATION
+                        );
                     }
                 }
                 if !has_errors && !game_list.is_empty() {
@@ -713,15 +805,18 @@ async fn main() {
                             println!("No game(s) on sale at price thresholds");
                         } else {
                             println!("Sending email...");
-                            let to_address = &properties::get_recipient();
-                            match email::send_html_msg(
-                                to_address,
-                                "Check Out Which Games Are On Sale",
-                                &html_body,
-                            ) {
-                                Ok(success) => println!("{}", success),
-                                Err(err) => eprintln!("{}", err),
-                            };
+                            if let Ok(to_address) = &properties::get_recipient() {
+                                match email::send_html_msg(
+                                    to_address,
+                                    "Check Out Which Games Are On Sale",
+                                    &html_body,
+                                ) {
+                                    Ok(success) => println!("{}", success),
+                                    Err(err) => eprintln!("{}", err),
+                                };
+                            } else {
+                                eprintln!("Could not send an email to recipient.");
+                            }
                         }
                     }
                     Err(err) => eprintln!("{}", err),

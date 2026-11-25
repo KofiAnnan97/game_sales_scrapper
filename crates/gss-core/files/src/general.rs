@@ -2,7 +2,7 @@ use std::fs::{self, File, OpenOptions, write};
 use std::io::{ErrorKind, prelude::*};
 use std::path::{Path, PathBuf};
 
-use errors::file::FileOperationError;
+use errors::input::FileOperationError;
 
 // TODO: Return result instead of panic
 pub fn get_path(path_str: &str) -> Result<String, FileOperationError> {

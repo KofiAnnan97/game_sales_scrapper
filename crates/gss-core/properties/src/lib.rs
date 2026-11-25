@@ -1,7 +1,6 @@
 use serde_json::{Value, json};
 use std::fs::{metadata, read_to_string};
 use std::path::{Path, PathBuf};
-use std::result::Result as StdResult;
 
 use files::general;
 pub mod env_vars;
@@ -16,10 +15,10 @@ use constants::operations::properties::{
     PROP_TEST_PATH, PROPERTIES_FILENAME, RECIPIENT_EMAIL_ENV, SMTP_EMAIL_ENV, SMTP_HOST_ENV,
     SMTP_PASSWORD_ENV, SMTP_PORT_ENV, SMTP_USERNAME_ENV, STEAM_API_KEY_ENV, TEST_PATH_ENV,
 };
-use errors::file::FileOperationError;
-// Retrieve paths
+use errors::input::FileOperationError;
 
-fn get_properties_path_result() -> StdResult<String, FileOperationError> {
+// Retrieve paths
+pub fn get_properties_path() -> Result<String, FileOperationError> {
     let mut project_path = env_vars::get_project_path();
     if project_path.is_empty() {
         // TODO: Propagate current-directory errors instead of panicking
@@ -79,74 +78,71 @@ fn get_properties_path_result() -> StdResult<String, FileOperationError> {
     Ok(path_str)
 }
 
-pub fn get_properties_path() -> String {
-    match get_properties_path_result() {
-        Ok(path) => path,
-        Err(err) => panic!("Failed to resolve properties path: {}", err),
-    }
-}
-
-pub fn get_data_path() -> String {
-    let mut data_path = if is_testing_enabled() {
-        get_test_path()
+pub fn get_data_path() -> Result<String, FileOperationError> {
+    let mut data_path = if is_testing_enabled()? {
+        get_test_path()?
     } else {
-        get_project_path()
+        get_project_path()?
     };
     let path: PathBuf = [&data_path, DATA_DIR].iter().collect();
     data_path = path.display().to_string();
-    //println!("Path: {}", data_path);
     general::create_dir(&data_path);
-    data_path
+    Ok(data_path)
 }
 
-pub fn get_config_path() -> String {
-    let mut config_path = if is_testing_enabled() {
-        get_test_path()
+pub fn get_config_path() -> Result<String, FileOperationError> {
+    let mut config_path = if is_testing_enabled()? {
+        get_test_path()?
     } else {
-        get_project_path()
+        get_project_path()?
     };
     let path: PathBuf = [&config_path, CONFIG_DIR].iter().collect();
     config_path = path.display().to_string();
     general::create_dir(&config_path);
-    config_path
+    Ok(config_path)
 }
 
-pub fn get_log_path() -> String {
-    let path: PathBuf = [&get_project_path(), LOG_DIR].iter().collect();
+pub fn get_log_path() -> Result<String, FileOperationError> {
+    let path: PathBuf = [&get_project_path()?, LOG_DIR].iter().collect();
     let log_path = path.display().to_string();
     general::create_dir(&log_path);
-    log_path
+    Ok(log_path)
 }
 
 // Properties Functions
 
-pub fn update_properties_from_env() {
-    // TODO: Propagate this error up
-    if let Err(err) = env_vars::load_dotenv(Some(ENV_FILENAME)) {
-        eprintln!("Could not load {ENV_FILENAME}: {err}");
-        return;
+pub fn update_properties_from_env() -> Result<(), FileOperationError> {
+    if let Err(e) = env_vars::load_dotenv(Some(ENV_FILENAME)) {
+        return Err(FileOperationError::Message(format!(
+            "Could not load {}: {}",
+            ENV_FILENAME, e
+        )));
     }
 
-    let properties_path = get_properties_path();
-    let prev_steam_key = get_steam_api_key(false);
-    let prev_recipient = get_recipient();
-    let prev_host = get_smtp_host();
-    let prev_port = get_smtp_port();
-    let prev_email = get_smtp_email();
-    let prev_user = get_smtp_user();
-    let prev_pwd = get_smtp_pwd(false);
-    let prev_project_path = get_project_path();
-    let prev_test_path = get_test_path();
+    let properties_path = get_properties_path()?;
+    let prev_steam_key = get_steam_api_key(false)?;
+    let prev_recipient = get_recipient()?;
+    let prev_host = get_smtp_host()?;
+    let prev_port = get_smtp_port()?;
+    let prev_email = get_smtp_email()?;
+    let prev_user = get_smtp_user()?;
+    let prev_pwd = get_smtp_pwd(false)?;
+    let prev_project_path = get_project_path()?;
+    let prev_test_path = get_test_path()?;
 
     let vars = match env_vars::get_variables() {
         Ok(data) if !data.is_empty() => data,
-        Err(err) => {
-            eprintln!("Could not load environment variables: {err}");
-            return;
+        Err(e) => {
+            return Err(FileOperationError::Message(format!(
+                "Could not load environment variables: {}",
+                e
+            )));
         }
         _ => {
-            eprintln!("Cannot find environment variables. Missing file: {ENV_FILENAME}.");
-            return;
+            return Err(FileOperationError::Message(format!(
+                "Cannot find environment variables. Missing file: {}.",
+                ENV_FILENAME
+            )));
         }
     };
 
@@ -154,8 +150,10 @@ pub fn update_properties_from_env() {
         EnvVar::Invalid(message) => Some((name, message)),
         _ => None,
     }) {
-        eprintln!("Invalid environment variable {name}: {message}");
-        return;
+        return Err(FileOperationError::Message(format!(
+            "Invalid environment variable {}: {}",
+            name, message
+        )));
     }
 
     if !vars.is_empty() {
@@ -169,7 +167,7 @@ pub fn update_properties_from_env() {
         let curr_project_path = vars.get(PROJECT_PATH_ENV).and_then(EnvVar::as_str);
         let curr_test_path = vars.get(TEST_PATH_ENV).and_then(EnvVar::as_str);
 
-        let key_str = env_vars::get_decrypt_key(env_vars::get_project_path());
+        let key_str = env_vars::get_decrypt_key(env_vars::get_project_path())?;
         let steam_api_key_updated = if let Some(key) = curr_steam_key
             && let Ok(data) = key.get_value(Some(&key_str))
         {
@@ -205,10 +203,10 @@ pub fn update_properties_from_env() {
                     match key.get_value(None) {
                         Ok(pass)
                             if steam_api_key_updated => pass,
-                        _ => get_string_var(PROP_STEAM_API_KEY),
+                        _ => get_string_var(PROP_STEAM_API_KEY)?,
                     }
                 } else {
-                    get_string_var(PROP_STEAM_API_KEY)
+                    get_string_var(PROP_STEAM_API_KEY)?
                 },
                 PROP_RECIPIENT_EMAIL: curr_recipient.unwrap_or(&prev_recipient),
                 PROP_SMTP_HOST: curr_host.unwrap_or(&prev_host),
@@ -219,10 +217,10 @@ pub fn update_properties_from_env() {
                     match pass.get_value(None) {
                         Ok(data)
                             if smtp_pwd_updated => data,
-                        _ => get_string_var(PROP_SMTP_PASSWORD)
+                        _ => get_string_var(PROP_SMTP_PASSWORD)?,
                     }
                 } else {
-                    get_string_var(PROP_SMTP_PASSWORD)
+                    get_string_var(PROP_SMTP_PASSWORD)?
                 },
                 PROP_PROJECT_PATH: if let Some(path) = curr_project_path && Path::new(path).is_dir(){
                     path
@@ -234,23 +232,32 @@ pub fn update_properties_from_env() {
                 } else {
                     &prev_test_path
                 },
-                PROP_SLIDING_STEAM_APPID: get_sliding_steam_appid(),
-                PROP_TEST_MODE: get_test_mode(),
+                PROP_SLIDING_STEAM_APPID: get_sliding_steam_appid()?,
+                PROP_TEST_MODE: get_test_mode()?,
             });
             match serde_json::to_string_pretty(&properties) {
                 Ok(properties_str) => {
-                    if let Err(err) = general::write_to_file(properties_path, properties_str) {
-                        eprintln!("Properties could not be set using env file: {err}");
+                    if let Err(e) = general::write_to_file(properties_path, properties_str) {
+                        return Err(FileOperationError::Message(format!(
+                            "Properties could not be set using env file: {}",
+                            e
+                        )));
                     }
                 }
-                Err(_) => eprintln!("Properties could not be set using env file."),
+                Err(_) => {
+                    return Err(FileOperationError::Message(
+                        "Properties could not be set using env file.".into(),
+                    ));
+                }
             }
         }
     }
+    Ok(())
 }
 
-pub fn load_properties() -> StdResult<Value, FileOperationError> {
-    let data = read_to_string(get_properties_path_result()?)?;
+pub fn load_properties() -> Result<Value, FileOperationError> {
+    let properties_path = get_properties_path()?;
+    let data = read_to_string(properties_path)?;
     let body: Value = serde_json::from_str(&data)?;
     Ok(body)
 }
@@ -286,46 +293,41 @@ fn get_secret_var(var_name: &str) -> Option<Password> {
     }
 }
 
-fn get_string_var(var_name: &str) -> String {
+fn get_string_var(var_name: &str) -> Result<String, FileOperationError> {
     match load_properties() {
         Ok(properties) => match properties.get(var_name) {
             // TODO: Validate property types instead of panicking on non-string values
-            Some(result) => result.as_str().unwrap().to_string(),
-            None => {
-                eprintln!(
-                    "Warning: Property \"{}\" is empty/does not exist.",
-                    var_name
-                );
-                String::new()
-            }
+            Some(result) => Ok(result.as_str().unwrap_or("").to_string()),
+            None => Err(FileOperationError::Message(format!(
+                "Warning: Property \"{}\" is empty/does not exist.",
+                var_name
+            ))),
         },
-        // TODO: Return result instead of panic
-        Err(_) => panic!("Failed to load '{}' from properties file.", var_name),
+        Err(_) => Err(FileOperationError::Message(format!(
+            "Failed to load '{}' from properties file.",
+            var_name
+        ))),
     }
 }
 
-fn get_integer_var(var_name: &str) -> i64 {
+fn get_integer_var(var_name: &str) -> Result<i64, FileOperationError> {
     let default_int: i64 = 0;
     match load_properties() {
         Ok(properties) => match properties.get(var_name) {
-            Some(var) => var.as_i64().unwrap_or(default_int),
-            None => {
-                eprintln!(
-                    "Failed to parse \"{}\" (defaulting to {}). Please check that this is an integer.",
-                    var_name, default_int
-                );
-                default_int
-            }
+            Some(var) => Ok(var.as_i64().unwrap_or(default_int)),
+            None => Err(FileOperationError::Message(format!(
+                "Failed to parse \"{}\". Please check that this is an integer.",
+                var_name
+            ))), // default_int
         },
-        Err(_) => panic!(
-            // TODO: Return result instead of panic
-            "Failed to load integer '{}' from properties file.",
+        Err(_) => Err(FileOperationError::Message(format!(
+            "Failed to load '{}' from properties file.",
             var_name
-        ),
+        ))),
     }
 }
 
-pub fn get_steam_api_key(hidden: bool) -> String {
+pub fn get_steam_api_key(hidden: bool) -> Result<String, FileOperationError> {
     let steam_api_key = get_secret_var(PROP_STEAM_API_KEY);
 
     if let Some(mut key) = steam_api_key {
@@ -335,35 +337,36 @@ pub fn get_steam_api_key(hidden: bool) -> String {
             key.set_state(passwords::PasswordState::PlainText);
         }
 
-        let key_str = get_decrypt_key(get_project_path());
+        let key_str = get_decrypt_key(get_project_path()?)?;
         key.get_value(Some(&key_str))
-            .unwrap_or_else(|_| String::new())
+            .map_err(|e| FileOperationError::Message(format!("Could not retrieve secrete. {}", e)))
     } else {
-        String::new()
+        Ok(String::new())
     }
 }
 
-pub fn get_recipient() -> String {
+pub fn get_recipient() -> Result<String, FileOperationError> {
     get_string_var(PROP_RECIPIENT_EMAIL)
 }
 
-pub fn get_smtp_email() -> String {
+pub fn get_smtp_email() -> Result<String, FileOperationError> {
     get_string_var(PROP_SMTP_EMAIL)
 }
 
-pub fn get_smtp_host() -> String {
+pub fn get_smtp_host() -> Result<String, FileOperationError> {
     get_string_var(PROP_SMTP_HOST)
 }
 
-pub fn get_smtp_port() -> u16 {
-    get_integer_var(PROP_SMTP_PORT) as u16
+pub fn get_smtp_port() -> Result<u16, FileOperationError> {
+    let val = get_integer_var(PROP_SMTP_PORT)?;
+    Ok(val as u16)
 }
 
-pub fn get_smtp_user() -> String {
+pub fn get_smtp_user() -> Result<String, FileOperationError> {
     get_string_var(PROP_SMTP_USERNAME)
 }
 
-pub fn get_smtp_pwd(hidden: bool) -> String {
+pub fn get_smtp_pwd(hidden: bool) -> Result<String, FileOperationError> {
     let smtp_pwd = get_secret_var(PROP_SMTP_PASSWORD);
     if let Some(mut key) = smtp_pwd {
         if hidden {
@@ -371,16 +374,16 @@ pub fn get_smtp_pwd(hidden: bool) -> String {
         } else {
             key.set_state(passwords::PasswordState::PlainText);
         }
-        let key_str = get_decrypt_key(get_project_path());
+        let key_str = get_decrypt_key(get_project_path()?)?;
         key.get_value(Some(&key_str))
-            .unwrap_or_else(|_| String::new())
+            .map_err(|e| FileOperationError::Message(format!("Could not retrieve secret. {}", e)))
     } else {
-        String::new()
+        Ok(String::new())
     }
 }
 
-pub fn get_project_path() -> String {
-    let mut project_path = get_string_var(PROP_PROJECT_PATH);
+pub fn get_project_path() -> Result<String, FileOperationError> {
+    let mut project_path = get_string_var(PROP_PROJECT_PATH)?;
     if project_path.is_empty() {
         env_vars::get_project_path();
     }
@@ -392,14 +395,14 @@ pub fn get_project_path() -> String {
             );
         }
         // TODO: Propagate current-directory errors instead of panicking
-        project_path = std::env::current_dir().unwrap().display().to_string();
-        set_project_path(&project_path);
+        project_path = std::env::current_dir()?.display().to_string();
+        set_project_path(&project_path)?;
     }
-    project_path
+    Ok(project_path)
 }
 
-pub fn get_test_path() -> String {
-    let mut test_path = get_string_var(PROP_TEST_PATH);
+pub fn get_test_path() -> Result<String, FileOperationError> {
+    let mut test_path = get_string_var(PROP_TEST_PATH)?;
     if test_path.is_empty() {
         test_path = env_vars::get_test_path();
     }
@@ -410,204 +413,220 @@ pub fn get_test_path() -> String {
                 test_path
             );
         }
-        let path_buf: PathBuf = [&get_project_path(), DEFAULT_TEST_DIR].iter().collect();
+        let path_buf: PathBuf = [&get_project_path()?, DEFAULT_TEST_DIR].iter().collect();
         test_path = path_buf.display().to_string();
         general::create_dir(&test_path);
-        set_test_path(&test_path);
+        set_test_path(&test_path)?;
     }
-    test_path
+    Ok(test_path)
 }
 
-pub fn get_sliding_steam_appid() -> u32 {
-    let steam_appid = get_integer_var(PROP_SLIDING_STEAM_APPID);
+pub fn get_sliding_steam_appid() -> Result<u32, FileOperationError> {
+    let steam_appid = get_integer_var(PROP_SLIDING_STEAM_APPID)?;
     if steam_appid > 0 {
-        steam_appid as u32
+        Ok(steam_appid as u32)
     } else {
-        0
+        Ok(0)
     }
 }
 
-pub fn get_test_mode() -> i16 {
-    get_integer_var(PROP_TEST_MODE) as i16
+pub fn get_test_mode() -> Result<i16, FileOperationError> {
+    Ok(get_integer_var(PROP_TEST_MODE)? as i16)
 }
 
-pub fn is_testing_enabled() -> bool {
-    let state = get_integer_var(PROP_TEST_MODE);
-    state == 1
+pub fn is_testing_enabled() -> Result<bool, FileOperationError> {
+    let state = get_integer_var(PROP_TEST_MODE)?;
+    Ok(state == 1)
 }
 
-// TODO: Validate required property keys before unwrapping them in setters.
 // Setters
 
-pub fn set_steam_api_key(api_key: String) {
-    match load_properties() {
-        Ok(data) => {
-            let mut properties = data;
-            match Password::new(&get_decrypt_key(get_project_path()), api_key) {
-                Ok(steam_key) if let Ok(data) = steam_key.get_value(None) => {
-                    *properties.get_mut(PROP_STEAM_API_KEY).unwrap() = json!(&data);
-                    match serde_json::to_string_pretty(&properties) {
-                        Ok(properties_str) => {
-                            if let Err(err) =
-                                general::write_to_file(get_properties_path(), properties_str)
-                            {
-                                eprintln!("Property steam api key could not be set: {err}");
-                            }
-                        }
-                        Err(_) => eprintln!("Property steam api key could not be set."),
-                    }
-                }
-                _ => (),
-            }
-        }
-        Err(e) => eprintln!("Error: {}", e),
-    }
-}
-
-pub fn set_recipient(email_str: &str) {
-    match load_properties() {
-        Ok(data) => {
-            let mut properties = data;
-            *properties.get_mut(PROP_RECIPIENT_EMAIL).unwrap() = json!(email_str);
+pub fn set_steam_api_key(api_key: String) -> Result<(), FileOperationError> {
+    let mut properties = load_properties()?;
+    match Password::new(&get_decrypt_key(get_project_path()?)?, api_key) {
+        Ok(steam_key) if let Ok(data) = steam_key.get_value(None) => {
+            *properties.get_mut(PROP_STEAM_API_KEY).unwrap() = json!(&data);
             match serde_json::to_string_pretty(&properties) {
                 Ok(properties_str) => {
-                    if let Err(err) = general::write_to_file(get_properties_path(), properties_str)
-                    {
-                        eprintln!("Property set recipient could not be set: {err}");
+                    if let Err(e) = general::write_to_file(get_properties_path()?, properties_str) {
+                        return Err(FileOperationError::Message(format!(
+                            "Property steam api key could not be set: {}",
+                            e
+                        )));
                     }
                 }
-                Err(_) => eprintln!("Property set recipient could not be set."),
+                Err(_) => {
+                    return Err(FileOperationError::Message(
+                        "Property steam api key could not be set.".into(),
+                    ));
+                }
             }
         }
-        Err(e) => eprintln!("Error: {}", e),
+        _ => (),
     }
+    Ok(())
 }
 
-pub fn set_stmp_vars(host: String, port: u16, email: String, user: String, pass: String) {
-    match load_properties() {
-        Ok(data) => {
-            let mut properties = data;
-            if !host.is_empty() {
-                *properties.get_mut(PROP_SMTP_HOST).unwrap() = json!(host);
-            }
-            if port != 0 {
-                *properties.get_mut(PROP_SMTP_PORT).unwrap() = json!(port);
-            }
-            if !email.is_empty() {
-                *properties.get_mut(PROP_SMTP_EMAIL).unwrap() = json!(email);
-            }
-            if !user.is_empty() {
-                *properties.get_mut(PROP_SMTP_USERNAME).unwrap() = json!(user);
-            }
-            if !pass.is_empty() {
-                match Password::new(&get_decrypt_key(get_project_path()), pass) {
-                    Ok(val) if let Ok(data) = val.get_value(None) => {
-                        *properties.get_mut(PROP_SMTP_PASSWORD).unwrap() = json!(&data)
-                    }
-                    _ => (),
-                }
-            }
-            match serde_json::to_string_pretty(&properties) {
-                Ok(properties_str) => {
-                    if let Err(err) = general::write_to_file(get_properties_path(), properties_str)
-                    {
-                        eprintln!("Smtp properties could not be set: {err}");
-                    }
-                }
-                Err(_) => eprintln!("Smtp properties could not be set."),
+pub fn set_recipient(email_str: &str) -> Result<(), FileOperationError> {
+    let mut properties = load_properties()?;
+    *properties.get_mut(PROP_RECIPIENT_EMAIL).unwrap() = json!(email_str);
+    match serde_json::to_string_pretty(&properties) {
+        Ok(properties_str) => {
+            if let Err(e) = general::write_to_file(get_properties_path()?, properties_str) {
+                return Err(FileOperationError::Message(format!(
+                    "Property set recipient could not be set: {}",
+                    e
+                )));
             }
         }
-        Err(e) => eprintln!("Error: {}", e),
+        Err(_) => {
+            return Err(FileOperationError::Message(
+                "Property set recipient could not be set.".into(),
+            ));
+        }
     }
+    Ok(())
 }
 
-pub fn set_project_path(path: &str) {
+pub fn set_stmp_vars(
+    host: String,
+    port: u16,
+    email: String,
+    user: String,
+    pass: String,
+) -> Result<(), FileOperationError> {
+    let mut properties = load_properties()?;
+    if !host.is_empty() {
+        *properties.get_mut(PROP_SMTP_HOST).unwrap() = json!(host);
+    }
+    if port != 0 {
+        *properties.get_mut(PROP_SMTP_PORT).unwrap() = json!(port);
+    }
+    if !email.is_empty() {
+        *properties.get_mut(PROP_SMTP_EMAIL).unwrap() = json!(email);
+    }
+    if !user.is_empty() {
+        *properties.get_mut(PROP_SMTP_USERNAME).unwrap() = json!(user);
+    }
+    if !pass.is_empty() {
+        match Password::new(&get_decrypt_key(get_project_path()?)?, pass) {
+            Ok(val) if let Ok(data) = val.get_value(None) => {
+                *properties.get_mut(PROP_SMTP_PASSWORD).unwrap() = json!(&data)
+            }
+            _ => (),
+        }
+    }
+    match serde_json::to_string_pretty(&properties) {
+        Ok(properties_str) => {
+            if let Err(e) = general::write_to_file(get_properties_path()?, properties_str) {
+                return Err(FileOperationError::Message(format!(
+                    "Smtp properties could not be set: {}",
+                    e
+                )));
+            }
+        }
+        Err(_) => {
+            return Err(FileOperationError::Message(
+                "Smtp properties could not be set.".into(),
+            ));
+        }
+    }
+    Ok(())
+}
+
+pub fn set_project_path(path: &str) -> Result<(), FileOperationError> {
     if !Path::new(&path).is_dir() {
-        // TODO: Return result instead of print
-        eprintln!(
+        return Err(FileOperationError::Message(format!(
             "Project path was not set because '{}' is not a directory.",
             path
-        );
+        )));
     }
-    match load_properties() {
-        Ok(data) => {
-            let mut properties = data;
-            *properties.get_mut(PROP_PROJECT_PATH).unwrap() = json!(path);
-            match serde_json::to_string_pretty(&properties) {
-                Ok(properties_str) => {
-                    if let Err(err) = general::write_to_file(get_properties_path(), properties_str)
-                    {
-                        eprintln!("Project path property could not be set: {err}");
-                    }
-                }
-                Err(_) => eprintln!("Project path property could not be set."),
+    let mut properties = load_properties()?;
+    *properties.get_mut(PROP_PROJECT_PATH).unwrap() = json!(path);
+    match serde_json::to_string_pretty(&properties) {
+        Ok(properties_str) => {
+            if let Err(e) = general::write_to_file(get_properties_path()?, properties_str) {
+                return Err(FileOperationError::Message(format!(
+                    "Project path property could not be set: {}",
+                    e
+                )));
             }
         }
-        Err(e) => eprintln!("Error: {}", e),
+        Err(_) => {
+            return Err(FileOperationError::Message(
+                "Project path property could not be set.".into(),
+            ));
+        }
     }
+    Ok(())
 }
 
-pub fn set_test_path(path: &str) {
+pub fn set_test_path(path: &str) -> Result<(), FileOperationError> {
     if !Path::new(&path).is_dir() {
-        eprintln!(
+        return Err(FileOperationError::Message(format!(
             "Test path was not set because '{}' is not a directory.",
             path
-        );
-        return;
+        )));
     }
-    match load_properties() {
-        Ok(data) => {
-            let mut properties = data;
-            *properties.get_mut(PROP_TEST_PATH).unwrap() = json!(path);
-            match serde_json::to_string_pretty(&properties) {
-                Ok(properties_str) => {
-                    if let Err(err) = general::write_to_file(get_properties_path(), properties_str)
-                    {
-                        eprintln!("Test path property could not be created/updated: {err}");
-                    }
-                }
-                Err(_) => eprintln!("Test path property could not be created/updated."),
+    let mut properties = load_properties()?;
+    *properties.get_mut(PROP_TEST_PATH).unwrap() = json!(path);
+    match serde_json::to_string_pretty(&properties) {
+        Ok(properties_str) => {
+            if let Err(e) = general::write_to_file(get_properties_path()?, properties_str) {
+                return Err(FileOperationError::Message(format!(
+                    "Test path property could not be created/updated: {}",
+                    e
+                )));
             }
         }
-        Err(e) => eprintln!("Error: {}", e),
+        Err(_) => {
+            return Err(FileOperationError::Message(
+                "Test path property could not be created/updated.".into(),
+            ));
+        }
     }
+    Ok(())
 }
 
-pub fn set_sliding_steam_appid(steam_appid: u32) {
-    match load_properties() {
-        Ok(data) => {
-            let mut properties = data;
-            *properties.get_mut(PROP_SLIDING_STEAM_APPID).unwrap() = json!(steam_appid);
-            match serde_json::to_string_pretty(&properties) {
-                Ok(properties_str) => {
-                    if let Err(err) = general::write_to_file(get_properties_path(), properties_str)
-                    {
-                        eprintln!("Sliding steam appid property could not be set: {err}");
-                    }
-                }
-                Err(_) => eprintln!("Sliding steam appid property could not be set."),
+pub fn set_sliding_steam_appid(steam_appid: u32) -> Result<(), FileOperationError> {
+    let mut properties = load_properties()?;
+    *properties.get_mut(PROP_SLIDING_STEAM_APPID).unwrap() = json!(steam_appid);
+    match serde_json::to_string_pretty(&properties) {
+        Ok(properties_str) => {
+            if let Err(e) = general::write_to_file(get_properties_path()?, properties_str) {
+                return Err(FileOperationError::Message(format!(
+                    "Sliding steam appid property could not be set: {}",
+                    e
+                )));
             }
         }
-        Err(e) => eprintln!("Error: {}", e),
+        Err(_) => {
+            return Err(FileOperationError::Message(
+                "Sliding steam appid property could not be set.".into(),
+            ));
+        }
     }
+    Ok(())
 }
 
-pub fn set_test_mode(is_enabled: bool) {
-    match load_properties() {
-        Ok(data) => {
-            let mut properties = data;
-            let enabled = if is_enabled { 1 } else { 0 };
-            *properties.get_mut(PROP_TEST_MODE).unwrap() = json!(enabled);
-            match serde_json::to_string_pretty(&properties) {
-                Ok(properties_str) => {
-                    if let Err(err) = general::write_to_file(get_properties_path(), properties_str)
-                    {
-                        eprintln!("Test mode property could not be set: {err}");
-                    }
-                }
-                Err(_) => todo!("Test mode property could not be set."),
+pub fn set_test_mode(is_enabled: bool) -> Result<(), FileOperationError> {
+    let mut properties = load_properties()?;
+    let enabled = if is_enabled { 1 } else { 0 };
+    *properties.get_mut(PROP_TEST_MODE).unwrap() = json!(enabled);
+    match serde_json::to_string_pretty(&properties) {
+        Ok(properties_str) => {
+            if let Err(e) = general::write_to_file(get_properties_path()?, properties_str) {
+                return Err(FileOperationError::Message(format!(
+                    "Test mode property could not be set: {}",
+                    e
+                )));
             }
         }
-        Err(e) => eprintln!("Error: {}", e),
+        Err(_) => {
+            return Err(FileOperationError::Message(
+                "Test mode property could not be set.".into(),
+            ));
+        }
     }
+    Ok(())
 }

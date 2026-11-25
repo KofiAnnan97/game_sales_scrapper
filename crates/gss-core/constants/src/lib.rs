@@ -16,7 +16,7 @@ pub mod stores {
     pub mod steam;
 }
 
-pub mod alerting {
+pub mod notifications {
     pub mod email;
 }
 

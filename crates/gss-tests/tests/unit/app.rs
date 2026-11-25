@@ -27,8 +27,10 @@ pub mod search {
     #[test]
     fn store_search_result_ids_are_split_by_store() {
         let tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, Vec::new());
-        let _ = properties::load_properties();
-        properties::set_test_mode(true);
+        properties::load_properties()
+            .expect("Could not load properties before testing app behavior.");
+        properties::set_test_mode(true)
+            .expect("Could not enable test mode before testing app behavior.");
 
         let steam = StoreSearchResult::Steam {
             title: "Portal".into(),
@@ -53,8 +55,10 @@ pub mod search {
     #[test]
     fn start_search_tracks_selected_stores_and_progress() {
         let tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, Vec::new());
-        let _ = properties::load_properties();
-        properties::set_test_mode(true);
+        properties::load_properties()
+            .expect("Could not load properties before testing app behavior.");
+        properties::set_test_mode(true)
+            .expect("Could not enable test mode before testing app behavior.");
 
         let mut app = App::new(String::new());
         app.0.selected_stores = vec![GameStore::STEAM, GameStore::GOOD_OLD_GAMES];
@@ -83,8 +87,10 @@ pub mod search {
     #[test]
     fn check_price_error_shows_dialog() {
         let tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, Vec::new());
-        let _ = properties::load_properties();
-        properties::set_test_mode(true);
+        properties::load_properties()
+            .expect("Could not load properties before testing app behavior.");
+        properties::set_test_mode(true)
+            .expect("Could not enable test mode before testing app behavior.");
 
         let mut app = App::new(String::new());
         let _ = app.0.update(
@@ -102,8 +108,10 @@ pub mod search {
     #[test]
     fn selecting_result_without_auto_advance() {
         let tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, Vec::new());
-        let _ = properties::load_properties();
-        properties::set_test_mode(true);
+        properties::load_properties()
+            .expect("Could not load properties before testing app behavior.");
+        properties::set_test_mode(true)
+            .expect("Could not enable test mode before testing app behavior.");
 
         let mut app = App::new(String::new());
         app.0.auto_advance_enabled = false;
@@ -141,8 +149,10 @@ pub mod search {
     #[test]
     fn selecting_result_with_auto_advance() {
         let tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, Vec::new());
-        let _ = properties::load_properties();
-        properties::set_test_mode(true);
+        properties::load_properties()
+            .expect("Could not load properties before testing app behavior.");
+        properties::set_test_mode(true)
+            .expect("Could not enable test mode before testing app behavior.");
 
         let mut app = App::new(String::new());
         app.0.auto_advance_enabled = true;
@@ -176,8 +186,10 @@ pub mod bulk_insert {
     #[test]
     fn advance_to_next_game() {
         let tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, Vec::new());
-        let _ = properties::load_properties();
-        properties::set_test_mode(true);
+        properties::load_properties()
+            .expect("Could not load properties before testing app behavior.");
+        properties::set_test_mode(true)
+            .expect("Could not enable test mode before testing app behavior.");
 
         let mut app = App::new(String::new());
         app.0.bulk_simple_threshs = vec![
@@ -202,8 +214,10 @@ pub mod bulk_insert {
     #[test]
     fn return_none_when_done() {
         let tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, Vec::new());
-        let _ = properties::load_properties();
-        properties::set_test_mode(true);
+        properties::load_properties()
+            .expect("Could not load properties before testing app behavior.");
+        properties::set_test_mode(true)
+            .expect("Could not enable test mode before testing app behavior.");
 
         let mut app = App::new(String::new());
         app.0.bulk_simple_threshs = vec![SimpleGameThreshold {
@@ -222,8 +236,10 @@ pub mod bulk_insert {
     #[test]
     fn returns_current_game() {
         let tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, Vec::new());
-        let _ = properties::load_properties();
-        properties::set_test_mode(true);
+        properties::load_properties()
+            .expect("Could not load properties before testing app behavior.");
+        properties::set_test_mode(true)
+            .expect("Could not enable test mode before testing app behavior.");
 
         let mut app = App::new(String::new());
         app.0.bulk_simple_threshs = vec![
@@ -248,8 +264,10 @@ pub mod bulk_insert {
     #[test]
     fn get_next_search_from_csv() {
         let tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, Vec::new());
-        let _ = properties::load_properties();
-        properties::set_test_mode(true);
+        properties::load_properties()
+            .expect("Could not load properties before testing app behavior.");
+        properties::set_test_mode(true)
+            .expect("Could not enable test mode before testing app behavior.");
 
         let mut app = App::new(String::new());
         app.0.selected_stores = vec![GameStore::STEAM];
@@ -281,8 +299,10 @@ pub mod bulk_insert {
     #[test]
     fn no_games_loaded_from_csv() {
         let tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, Vec::new());
-        let _ = properties::load_properties();
-        properties::set_test_mode(true);
+        properties::load_properties()
+            .expect("Could not load properties before testing app behavior.");
+        properties::set_test_mode(true)
+            .expect("Could not enable test mode before testing app behavior.");
 
         let mut app = App::new(String::new());
         app.0.bulk_simple_threshs.clear();
@@ -308,8 +328,10 @@ pub mod thresholds {
     #[test]
     fn insert() {
         let tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, Vec::new());
-        let _ = properties::load_properties();
-        properties::set_test_mode(true);
+        properties::load_properties()
+            .expect("Could not load properties before testing app behavior.");
+        properties::set_test_mode(true)
+            .expect("Could not enable test mode before testing app behavior.");
 
         let mut thresholds_list = Vec::new();
 
@@ -336,8 +358,10 @@ pub mod thresholds {
     #[test]
     fn update() {
         let tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, Vec::new());
-        let _ = properties::load_properties();
-        properties::set_test_mode(true);
+        properties::load_properties()
+            .expect("Could not load properties before testing app behavior.");
+        properties::set_test_mode(true)
+            .expect("Could not enable test mode before testing app behavior.");
 
         let mut thresholds_list = vec![GameThreshold {
             title: "Example Game".into(),
@@ -373,8 +397,10 @@ pub mod thresholds {
     #[test]
     fn sync_to_alias_and_price_edits() {
         let tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, Vec::new());
-        let _ = properties::load_properties();
-        properties::set_test_mode(true);
+        properties::load_properties()
+            .expect("Could not load properties before testing app behavior.");
+        properties::set_test_mode(true)
+            .expect("Could not enable test mode before testing app behavior.");
 
         let mut app = App::new(String::new());
         app.0.thresholds = vec![
@@ -409,8 +435,10 @@ pub mod thresholds {
     #[test]
     fn sort_column_order_cycle() {
         let tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, Vec::new());
-        let _ = properties::load_properties();
-        properties::set_test_mode(true);
+        properties::load_properties()
+            .expect("Could not load properties before testing app behavior.");
+        properties::set_test_mode(true)
+            .expect("Could not enable test mode before testing app behavior.");
 
         let mut app = App::new(String::new());
         app.0.threshold_sort_column = None;
@@ -439,8 +467,10 @@ pub mod thresholds {
     #[test]
     fn threshold_edits_capture_user_changes() {
         let tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, Vec::new());
-        let _ = properties::load_properties();
-        properties::set_test_mode(true);
+        properties::load_properties()
+            .expect("Could not load properties before testing app behavior.");
+        properties::set_test_mode(true)
+            .expect("Could not enable test mode before testing app behavior.");
 
         let mut app = App::new(String::new());
         app.0.threshold_alias_edits = vec!["Original Alias".into()];
@@ -462,8 +492,10 @@ pub mod thresholds {
     #[test]
     fn alias_and_price_changes_for_new_entries_saved_in_buffer() {
         let tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, Vec::new());
-        let _ = properties::load_properties();
-        properties::set_test_mode(true);
+        properties::load_properties()
+            .expect("Could not load properties before testing app behavior.");
+        properties::set_test_mode(true)
+            .expect("Could not enable test mode before testing app behavior.");
 
         let mut app = App::new(String::new());
 
@@ -487,8 +519,10 @@ pub mod caching {
     #[test]
     fn update_cache_error_shows_dialog() {
         let tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, Vec::new());
-        let _ = properties::load_properties();
-        properties::set_test_mode(true);
+        properties::load_properties()
+            .expect("Could not load properties before testing app behavior.");
+        properties::set_test_mode(true)
+            .expect("Could not enable test mode before testing app behavior.");
 
         let mut app = App::new(String::new());
         let _ = app
@@ -510,8 +544,10 @@ pub mod logging {
     #[test]
     fn log_start_search_with_no_stores() {
         let tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, Vec::new());
-        let _ = properties::load_properties();
-        properties::set_test_mode(true);
+        properties::load_properties()
+            .expect("Could not load properties before testing app behavior.");
+        properties::set_test_mode(true)
+            .expect("Could not enable test mode before testing app behavior.");
 
         let mut app = App::new(String::new());
         app.0.selected_stores.clear();
@@ -533,8 +569,10 @@ pub mod logging {
     #[test]
     fn logs_start_search_with_no_query() {
         let tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, Vec::new());
-        let _ = properties::load_properties();
-        properties::set_test_mode(true);
+        properties::load_properties()
+            .expect("Could not load properties before testing app behavior.");
+        properties::set_test_mode(true)
+            .expect("Could not enable test mode before testing app behavior.");
 
         let mut app = App::new(String::new());
         app.0.search_query.clear();
@@ -564,8 +602,10 @@ pub mod interface {
     #[test]
     fn opening_and_closing_settings_page() {
         let tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, Vec::new());
-        let _ = properties::load_properties();
-        properties::set_test_mode(true);
+        properties::load_properties()
+            .expect("Could not load properties before testing app behavior.");
+        properties::set_test_mode(true)
+            .expect("Could not enable test mode before testing app behavior.");
 
         let mut app = App::new(String::new());
 
@@ -584,8 +624,10 @@ pub mod interface {
     #[test]
     fn opening_and_closing_logging_page() {
         let tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, Vec::new());
-        let _ = properties::load_properties();
-        properties::set_test_mode(true);
+        properties::load_properties()
+            .expect("Could not load properties before testing app behavior.");
+        properties::set_test_mode(true)
+            .expect("Could not enable test mode before testing app behavior.");
 
         let mut app = App::new(String::new());
 
@@ -603,8 +645,10 @@ pub mod interface {
     #[test]
     fn opening_and_closing_sales_preview_page() {
         let tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, Vec::new());
-        let _ = properties::load_properties();
-        properties::set_test_mode(true);
+        properties::load_properties()
+            .expect("Could not load properties before testing app behavior.");
+        properties::set_test_mode(true)
+            .expect("Could not enable test mode before testing app behavior.");
 
         let mut app = App::new(String::new());
 
@@ -622,8 +666,10 @@ pub mod interface {
     #[test]
     fn opens_email_settings() {
         let tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, Vec::new());
-        let _ = properties::load_properties();
-        properties::set_test_mode(true);
+        properties::load_properties()
+            .expect("Could not load properties before testing app behavior.");
+        properties::set_test_mode(true)
+            .expect("Could not enable test mode before testing app behavior.");
 
         let mut app = App::new(String::new());
 
@@ -640,8 +686,10 @@ pub mod interface {
     #[test]
     fn toggle_store_options() {
         let tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, Vec::new());
-        let _ = properties::load_properties();
-        properties::set_test_mode(true);
+        properties::load_properties()
+            .expect("Could not load properties before testing app behavior.");
+        properties::set_test_mode(true)
+            .expect("Could not enable test mode before testing app behavior.");
 
         let mut app = App::new(String::new());
         app.0.available_stores = vec![GameStore::STEAM, GameStore::GOOD_OLD_GAMES];
@@ -665,8 +713,10 @@ pub mod interface {
     #[test]
     fn hide_dialog_clears_error_state() {
         let tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, Vec::new());
-        let _ = properties::load_properties();
-        properties::set_test_mode(true);
+        properties::load_properties()
+            .expect("Could not load properties before testing app behavior.");
+        properties::set_test_mode(true)
+            .expect("Could not enable test mode before testing app behavior.");
 
         let mut app = App::new(String::new());
         app.0.show_dialog = true;

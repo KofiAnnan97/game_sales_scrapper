@@ -15,7 +15,7 @@ const TMP_DIR_TITLE: &str = "properties";
 #[test]
 fn create_properties_file() {
     let _tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, Vec::new());
-    let properties_path = properties::get_properties_path();
+    let properties_path = properties::get_properties_path().expect("Unit test setup failed.");
     assert!(Path::new(&properties_path).is_file());
     assert!(properties_path.ends_with(&format!(
         "{}{}{}",
@@ -24,8 +24,9 @@ fn create_properties_file() {
         PROPERTIES_FILENAME
     )));
 
-    let contents = read_to_string(&properties_path).unwrap();
-    let json: Value = serde_json::from_str(&contents).unwrap();
+    let contents = read_to_string(&properties_path).expect("Could not read the properties file.");
+    let json: Value =
+        serde_json::from_str(&contents).expect("Could not parse the properties file JSON.");
     assert_eq!(
         json[PROP_STEAM_API_KEY].as_str().unwrap(),
         "",
@@ -93,7 +94,7 @@ fn create_properties_file() {
 #[test]
 fn load_properties_from_file() {
     let _tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, Vec::new());
-    let _ = properties::get_properties_path();
+    properties::get_properties_path().expect("Unit test setup failed.");
     let loaded_properties = properties::load_properties().expect("Properties should load");
 
     assert_eq!(
@@ -152,10 +153,12 @@ fn load_properties_from_file() {
 #[test]
 fn sub_directories_created() {
     let _tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, Vec::new());
-    let _ = properties::get_properties_path();
+    properties::get_properties_path().expect("Unit test setup failed.");
 
-    let data_path = properties::get_data_path();
-    let config_path = properties::get_config_path();
+    let data_path =
+        properties::get_data_path().expect("Could not retrieve the data directory path.");
+    let config_path = properties::get_config_path()
+        .expect("Could not retrieve the configuration directory path.");
 
     assert_eq!(
         data_path,
@@ -226,18 +229,26 @@ fn update_properties_from_env() {
         env::remove_var(PROJECT_PATH_ENV);
         env::remove_var(TEST_PATH_ENV);
     }
-    env::set_current_dir(&_tmp_env.temp_dir).unwrap();
+    env::set_current_dir(&_tmp_env.temp_dir)
+        .expect("Could not set the current directory to the temporary test directory.");
 
-    properties::update_properties_from_env();
-    let updated_properties = properties::load_properties().expect("Updated properties should load");
-    let key_str = properties::env_vars::get_decrypt_key(properties::get_project_path());
+    properties::update_properties_from_env()
+        .expect("Could not update properties from the environment file.");
+    let updated_properties =
+        properties::load_properties().expect("Could not load the updated properties.");
+    let project_path =
+        properties::get_project_path().expect("Could not retrieve the project path.");
+    let key_str = properties::env_vars::get_decrypt_key(project_path)
+        .expect("Could not retrieve the decryption key.");
 
     let encrypted_steam_key = updated_properties[PROP_STEAM_API_KEY]
         .as_str()
         .unwrap()
         .to_string();
     let steam_key = Password::new_encrypted(encrypted_steam_key);
-    let decrypted_steam_key = steam_key.get_value(Some(&key_str)).unwrap();
+    let decrypted_steam_key = steam_key
+        .get_value(Some(&key_str))
+        .expect("Could not decrypt the Steam API key.");
     assert_eq!(decrypted_steam_key, steam_api_key_val);
     assert_eq!(
         updated_properties[PROP_RECIPIENT_EMAIL].as_str().unwrap(),
@@ -276,7 +287,9 @@ fn update_properties_from_env() {
         .unwrap()
         .to_string();
     let smtp_pwd = Password::new_encrypted(encrypted_smtp_pwd);
-    let decrypted_smtp_pwd = smtp_pwd.get_value(Some(&key_str)).unwrap();
+    let decrypted_smtp_pwd = smtp_pwd
+        .get_value(Some(&key_str))
+        .expect("Could not decrypt the SMTP password.");
     assert_eq!(decrypted_smtp_pwd, smtp_password_val);
     assert_eq!(
         updated_properties[PROP_PROJECT_PATH].as_str().unwrap(),

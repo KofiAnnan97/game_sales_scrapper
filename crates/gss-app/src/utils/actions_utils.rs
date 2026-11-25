@@ -1,5 +1,5 @@
 use crate::utils::pricing_utils::check_prices_for_email;
-use alerting::email;
+use notifications::email;
 use properties;
 use reqwest::Client;
 use stores::pc::steam;
@@ -16,15 +16,18 @@ pub async fn send_sales_email(search_provider: SearchProvider) -> Result<String,
                 println!("No game(s) on sale at price thresholds");
             } else {
                 println!("Sending email...");
-                let to_address = &properties::get_recipient();
-                return match email::send_html_msg(
-                    to_address,
-                    "Check Out Which Games Are On Sale",
-                    &html_body,
-                ) {
-                    Ok(_) => Ok("Email sent (or send attempt completed).".into()),
-                    Err(e) => Err(format!("{}", e)),
-                };
+                if let Ok(to_address) = &properties::get_recipient() {
+                    return match email::send_html_msg(
+                        to_address,
+                        "Check Out Which Games Are On Sale",
+                        &html_body,
+                    ) {
+                        Ok(_) => Ok("Email sent (or send attempt completed).".into()),
+                        Err(e) => Err(format!("{}", e)),
+                    };
+                } else {
+                    return Err(String::from("Could not get recipient."));
+                }
             }
             Ok(String::from("Email sent (or send attempt completed)."))
         }

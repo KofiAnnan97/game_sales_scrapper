@@ -78,7 +78,7 @@ impl Display for SecretsError {
             SecretsError::ParseError(e) => write!(f, "Parse Error - {}", e),
             SecretsError::EncryptError(e) => write!(f, "Encrypt Error - {}", e),
             SecretsError::DecryptError(e) => write!(f, "{}", e),
-            SecretsError::Message(msg) => write!(f, "File Operation Error - {}", msg),
+            SecretsError::Message(msg) => write!(f, "{}", msg),
         }
     }
 }

@@ -11,6 +11,7 @@ use constants::operations::properties::{
     SMTP_USERNAME_ENV, STEAM_API_KEY_ENV, TEST_PATH_ENV,
 };
 use errors::config::ConfigError;
+use errors::input::FileOperationError;
 use errors::secrets::SecretsError;
 use files::general;
 
@@ -75,7 +76,7 @@ impl EnvVar {
     }
 }
 
-pub fn get_decrypt_key(project_path: String) -> String {
+pub fn get_decrypt_key(project_path: String) -> Result<String, FileOperationError> {
     let mut path_buf: PathBuf = [&project_path, CONFIG_DIR].iter().collect();
     let mut path_str: String = path_buf.display().to_string();
     general::create_dir(&path_str);
@@ -83,8 +84,7 @@ pub fn get_decrypt_key(project_path: String) -> String {
     path_str = path_buf.display().to_string();
     let mut key_str = String::new();
     if !path_buf.is_file() {
-        // TODO: Propagate key-file creation errors instead of panicking
-        File::create_new(&path_str).expect("Failed to create decrypt key file");
+        File::create_new(&path_str)?;
         match metadata(&path_buf) {
             Ok(md) => {
                 if md.len() == 0 {
@@ -92,15 +92,17 @@ pub fn get_decrypt_key(project_path: String) -> String {
                     let _ = general::write_to_file(path_str, key_str.to_owned());
                 }
             }
-            Err(e) => eprintln!(
-                "Could not create decrypt key file: {}\n{}",
-                DECRYPT_FILENAME, e
-            ),
+            Err(e) => {
+                return Err(FileOperationError::Message(format!(
+                    "Could not create decrypt key file: {}\n{}",
+                    DECRYPT_FILENAME, e
+                )));
+            }
         }
     } else {
         key_str = fs::read_to_string(path_str).unwrap_or_default();
     }
-    key_str
+    Ok(key_str)
 }
 
 pub fn load_dotenv(file: Option<&str>) -> Result<(), ConfigError> {
@@ -122,7 +124,7 @@ pub fn get_variables() -> Result<HashMap<String, EnvVar>, ConfigError> {
     if env_path.is_file() {
         let steam_key_plain = std::env::var(STEAM_API_KEY_ENV).expect("STEAM_API_KEY must be set");
         let steam_key_encrypted = Password::new(
-            get_decrypt_key(get_project_path()).as_str(),
+            get_decrypt_key(get_project_path())?.as_str(),
             steam_key_plain,
         );
         let recipient = std::env::var(RECIPIENT_EMAIL_ENV).expect("RECIPIENT_EMAIL must be set");
@@ -134,8 +136,10 @@ pub fn get_variables() -> Result<HashMap<String, EnvVar>, ConfigError> {
         let smtp_email = std::env::var(SMTP_EMAIL_ENV).expect("SMTP_EMAIL must be set");
         let smtp_user = std::env::var(SMTP_USERNAME_ENV).expect("SMTP_USERNAME must be set");
         let smtp_pwd_plain = std::env::var(SMTP_PASSWORD_ENV).expect("SMTP_PWD must be set");
-        let smtp_pwd_encrypted =
-            Password::new(get_decrypt_key(get_project_path()).as_str(), smtp_pwd_plain);
+        let smtp_pwd_encrypted = Password::new(
+            get_decrypt_key(get_project_path())?.as_str(),
+            smtp_pwd_plain,
+        );
         let cwd = std::env::current_dir().unwrap().display().to_string();
         let project_path = std::env::var(PROJECT_PATH_ENV).unwrap_or_else(|_| cwd.clone());
         let path_buf: PathBuf = [&project_path, DEFAULT_TEST_DIR].iter().collect();

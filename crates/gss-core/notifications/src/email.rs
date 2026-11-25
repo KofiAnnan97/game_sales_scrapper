@@ -4,26 +4,26 @@ use lettre::{Message, SmtpTransport, Transport};
 use std::net::IpAddr;
 use url::Url;
 
-use constants::alerting::email::{
+use constants::notifications::email::{
     ALLOWED_IMAGE_DOMAINS, ALLOWED_STORE_DOMAINS, EMAIL_STYLESHEET, HTML_BODY_HEADER,
 };
 use constants::operations::properties::{
     PROP_RECIPIENT_EMAIL, PROP_SMTP_EMAIL, PROP_SMTP_HOST, PROP_SMTP_PASSWORD, PROP_SMTP_PORT,
     PROP_SMTP_USERNAME,
 };
-use errors::alert::AlertError;
+use errors::notifications::NotificationError;
 use properties;
 use types::internal::data::SaleInfo;
 use types::internal::store::GameStore;
 
-pub fn params_check() -> Result<(), AlertError> {
+pub fn params_check() -> Result<(), NotificationError> {
     // Get email parameters
-    let recipient = properties::get_recipient();
-    let smtp_host = properties::get_smtp_host();
-    let smtp_port: u16 = properties::get_smtp_port();
-    let smtp_email = properties::get_smtp_email();
-    let smtp_user = properties::get_smtp_user();
-    let smtp_pwd = properties::get_smtp_pwd(false);
+    let recipient = properties::get_recipient()?;
+    let smtp_host = properties::get_smtp_host()?;
+    let smtp_port: u16 = properties::get_smtp_port()?;
+    let smtp_email = properties::get_smtp_email()?;
+    let smtp_user = properties::get_smtp_user()?;
+    let smtp_pwd = properties::get_smtp_pwd(false)?;
 
     // Create error message
     let mut err_msg = String::new();
@@ -46,7 +46,7 @@ pub fn params_check() -> Result<(), AlertError> {
         err_msg.push_str(&format!("  - {}\n", PROP_SMTP_PASSWORD));
     }
     if !err_msg.is_empty() {
-        return Err(AlertError::Message(format!(
+        return Err(NotificationError::Message(format!(
             "Cannot send email without the following properties:\n{}",
             err_msg
         )));
@@ -58,12 +58,12 @@ pub fn send_plain_text_msg(
     recipient: &str,
     subject: &str,
     body: &str,
-) -> Result<String, AlertError> {
-    let smtp_host = properties::get_smtp_host();
-    let smtp_port: u16 = properties::get_smtp_port();
-    let smtp_email = properties::get_smtp_email();
-    let smtp_user = properties::get_smtp_user();
-    let smtp_pwd = properties::get_smtp_pwd(false);
+) -> Result<String, NotificationError> {
+    let smtp_host = properties::get_smtp_host()?;
+    let smtp_port: u16 = properties::get_smtp_port()?;
+    let smtp_email = properties::get_smtp_email()?;
+    let smtp_user = properties::get_smtp_user()?;
+    let smtp_pwd = properties::get_smtp_pwd(false)?;
 
     let email = Message::builder()
         .from(smtp_email.parse()?)
@@ -81,7 +81,9 @@ pub fn send_plain_text_msg(
 
     match mailer.send(&email) {
         Ok(_) => Ok("Email sent successfully".into()),
-        Err(e) => Err(AlertError::Message(format!("Failed to send email: {e}"))),
+        Err(e) => Err(NotificationError::Message(format!(
+            "Failed to send email: {e}"
+        ))),
     }
 }
 
@@ -179,12 +181,16 @@ pub fn create_html_body(sales_info_html: &str) -> String {
     html_body
 }
 
-pub fn send_html_msg(recipient: &str, subject: &str, body: &str) -> Result<String, AlertError> {
-    let smtp_host = properties::get_smtp_host();
-    let smtp_port: u16 = properties::get_smtp_port();
-    let smtp_email = properties::get_smtp_email();
-    let smtp_user = properties::get_smtp_user();
-    let smtp_pwd = properties::get_smtp_pwd(false);
+pub fn send_html_msg(
+    recipient: &str,
+    subject: &str,
+    body: &str,
+) -> Result<String, NotificationError> {
+    let smtp_host = properties::get_smtp_host()?;
+    let smtp_port: u16 = properties::get_smtp_port()?;
+    let smtp_email = properties::get_smtp_email()?;
+    let smtp_user = properties::get_smtp_user()?;
+    let smtp_pwd = properties::get_smtp_pwd(false)?;
 
     let email = Message::builder()
         .from(smtp_email.parse()?)
@@ -202,7 +208,10 @@ pub fn send_html_msg(recipient: &str, subject: &str, body: &str) -> Result<Strin
 
     match mailer.send(&email) {
         Ok(_) => Ok("Email send attempt completed successfully".into()),
-        Err(e) => Err(AlertError::Message(format!("Failed to send email - {}", e))),
+        Err(e) => Err(NotificationError::Message(format!(
+            "Failed to send email - {}",
+            e
+        ))),
     }
 }
 

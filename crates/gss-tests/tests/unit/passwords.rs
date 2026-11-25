@@ -8,10 +8,13 @@ static ENCRYPTED_PASSWORD: &str = "MzEwYzA2NzU1OTBjMmIxYjFhNWQ1NmJhODA4MmE0NWZlY
 
 #[test]
 fn encryption_test() {
-    let encrypted = Password::new(KEY_STR, PLAINTEXT_PASSWORD.to_string()).unwrap();
+    let encrypted = Password::new(KEY_STR, PLAINTEXT_PASSWORD.to_string())
+        .expect("Could not encrypt the test password.");
     assert_eq!(
         PLAINTEXT_PASSWORD,
-        encrypted.get_value(Some(KEY_STR)).unwrap(),
+        encrypted
+            .get_value(Some(KEY_STR))
+            .expect("Could not decrypt the test password."),
         "Passwords was not encrypted correctly"
     );
 }
@@ -19,7 +22,9 @@ fn encryption_test() {
 #[test]
 fn decryption_test_successful() {
     let pass = Password::new_encrypted(ENCRYPTED_PASSWORD.to_string());
-    let decrypt = pass.get_value(Some(KEY_STR)).unwrap();
+    let decrypt = pass
+        .get_value(Some(KEY_STR))
+        .expect("Could not decrypt the test password.");
     assert_eq!(
         PLAINTEXT_PASSWORD, decrypt,
         "Passwords was not decrypted correctly"

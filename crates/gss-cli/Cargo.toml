@@ -6,7 +6,7 @@ edition.workspace = true
 
 [dependencies]
 # Internal crates
-alerting = { path = "../gss-core/alerting" }
+notifications = { path = "../gss-core/notifications" }
 file_ops = { path = "../gss-core/file_ops" }
 files = { path = "../gss-core/files" }
 stores = { path = "../gss-core/stores" }

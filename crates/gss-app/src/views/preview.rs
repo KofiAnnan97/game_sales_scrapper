@@ -2,7 +2,6 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use constants::icons::RETRY;
-use constants::operations::settings::{GOG_STORE_NAME, MICROSOFT_STORE_NAME, STEAM_STORE_NAME};
 use iced::widget::{
     Button, Checkbox, Column, Container, Scrollable, TextInput, button, center, column, container,
     pick_list, row, scrollable, stack, text,
@@ -492,15 +491,15 @@ impl PreviewView {
 
         let cmp_header = row![
             bold_text("Game").size(20).width(Length::FillPortion(2)),
-            bold_text(STEAM_STORE_NAME)
+            bold_text(GameStore::STEAM.get_name())
                 .size(20)
                 .width(Length::FillPortion(1))
                 .center(),
-            bold_text(GOG_STORE_NAME)
+            bold_text(GameStore::GOOD_OLD_GAMES.get_name())
                 .size(20)
                 .width(Length::FillPortion(1))
                 .center(),
-            bold_text(MICROSOFT_STORE_NAME)
+            bold_text(GameStore::MICROSOFT_STORE_PC.get_name())
                 .size(20)
                 .width(Length::FillPortion(1))
                 .center(),

@@ -2,10 +2,11 @@ use std::collections::HashMap;
 use std::io::{self, Write};
 use std::sync::Arc;
 
-use alerting::email;
 use constants::stores::gog::VERSION as GOG_VERSION;
 use errors::GenericError;
+use errors::input::UserInputError;
 use file_ops::{settings, thresholds};
+use notifications::email;
 use stores::pc::{gog, microsoft_store, steam};
 use stores::search::provider::{SearchError, SearchProvider};
 use types::internal::{
@@ -26,7 +27,9 @@ pub fn storefront_check() -> Result<Vec<GameStore>, GenericError> {
 }
 
 pub fn print_test_flag() {
-    if properties::is_testing_enabled() {
+    if let Ok(testing_enabled) = properties::is_testing_enabled()
+        && testing_enabled
+    {
         print_title("* TEST MODE IS ENABLED *");
     }
 }
@@ -38,6 +41,25 @@ pub fn print_title(title: &str) {
         title,
         "-".repeat(title.len() + 2)
     );
+}
+
+pub fn get_u16_input() -> Result<u16, UserInputError> {
+    let mut port_str = String::new();
+    print!("Enter SMTP port number: ");
+    io::stdout().flush()?;
+    io::stdin().read_line(&mut port_str)?;
+    let port_num = port_str.trim().parse::<u16>()?;
+    Ok(port_num)
+}
+
+pub fn get_string_input(info_text: &str) -> Result<String, UserInputError> {
+    let mut input_str = String::new();
+    print!("{}", info_text);
+    io::stdout().flush()?;
+    io::stdin().read_line(&mut input_str)?;
+    let final_input = input_str.trim().to_string();
+    //user[0..user.len() - 1]
+    Ok(final_input)
 }
 
 pub fn get_simple_prices_str(store_name: GameStore, sales: Vec<SaleInfo>) -> String {
@@ -216,24 +238,34 @@ pub async fn steam_insert_sequence(
     title: &str,
     price: f64,
     provider: &SearchProvider,
-) -> Result<(), GenericError> {
+) -> Result<String, GenericError> {
     match steam::check_game(title, &provider.client).await {
-        Some(data) => {
-            thresholds::add_steam_game(alias.to_string(), data, price, &provider.client).await?
-        }
+        Some(data) => Ok(thresholds::add_steam_game(
+            alias.to_string(),
+            data,
+            price,
+            &provider.client,
+        )
+        .await?),
         None => {
             if let Some(t) = steam::search_game(title, &provider.client).await {
                 match steam::check_game(&t, &provider.client).await {
-                    Some(data) => {
-                        thresholds::add_steam_game(alias.to_string(), data, price, &provider.client)
-                            .await?
-                    }
-                    None => return Err(GenericError::Message("Something went wrong".into())),
+                    Some(data) => Ok(thresholds::add_steam_game(
+                        alias.to_string(),
+                        data,
+                        price,
+                        &provider.client,
+                    )
+                    .await?),
+                    None => Err(GenericError::Message(
+                        "Could not find steam game data.".into(),
+                    )),
                 }
+            } else {
+                Err(GenericError::Message("Could not find steam game.".into()))
             }
         }
     }
-    Ok(())
 }
 
 pub async fn gog_insert_sequence(
@@ -241,7 +273,7 @@ pub async fn gog_insert_sequence(
     title: &str,
     price: f64,
     provider: &SearchProvider,
-) -> Result<(), GenericError> {
+) -> Result<String, GenericError> {
     let mut search_list: Vec<GOGGameInfo> = Vec::new();
     match gog::search_game_by_title_v2(title, &provider.client).await {
         Ok(data) => search_list = data,
@@ -257,33 +289,40 @@ pub async fn gog_insert_sequence(
             println!("  [{}] {} - ${}", i, game.title, price);
         }
         println!("  [q] SKIP");
-        let mut input = String::new();
-        print!("Type integer corresponding to game title or type \'q\' to skip: ");
-        let _ = io::stdout().flush();
-        // TODO: Propagate terminal input errors instead of panicking
-        io::stdin()
-            .read_line(&mut input)
-            .expect("Failed to read user input");
+        let input =
+            get_string_input("Type integer corresponding to game title or type \'q\' to skip: ")?;
         if input.trim() == "q" {
-            eprintln!("Request terminated.");
+            Err(GenericError::Message("Request terminated.".into()))
         } else {
             match input.trim().parse::<usize>() {
                 Ok(idx) => {
                     if idx < search_list.len() {
                         //title = &search_list[idx].title;
                         let game = &search_list[idx];
-                        thresholds::add_gog_game(alias.to_string(), game, price)?;
-                    } else if idx >= search_list.len() {
-                        eprintln!("Integer \"{}\" is invalid. Request terminated.", idx);
+                        Ok(thresholds::add_gog_game(
+                            alias.to_string(),
+                            game,
+                            price,
+                        )?)
+                    } else {
+                        Err(GenericError::Message(format!(
+                            "Integer \"{}\" is invalid. Request terminated.",
+                            idx
+                        )))
                     }
                 }
-                Err(e) => println!("Invalid input: {}\nError: {}", input, e),
+                Err(e) => Err(GenericError::Message(format!(
+                    "Invalid input: {}\nError: {}",
+                    input, e
+                ))),
             }
         }
     } else {
-        println!("Could not find a game title matching \"{}\" on GOG.", title);
+        Err(GenericError::Message(format!(
+            "Could not find a game title matching \"{}\" on GOG.",
+            title
+        )))
     }
-    Ok(())
 }
 
 pub async fn microsoft_store_insert_sequence(
@@ -291,7 +330,7 @@ pub async fn microsoft_store_insert_sequence(
     title: &str,
     price: f64,
     provider: &SearchProvider,
-) -> Result<(), GenericError> {
+) -> Result<String, GenericError> {
     let mut search_list: Vec<ProductInfo> = Vec::new();
     match microsoft_store::search_game_by_title(title, &provider.client).await {
         Ok(data) => search_list = data,
@@ -308,33 +347,37 @@ pub async fn microsoft_store_insert_sequence(
             );
         }
         println!("  [q] SKIP");
-        let mut input = String::new();
-        print!("Type integer corresponding to game title or type \"q\" to quit: ");
-        let _ = io::stdout().flush();
-        // TODO: Propagate terminal input errors instead of panicking
-        io::stdin()
-            .read_line(&mut input)
-            .expect("Failed to read user input");
+        let input =
+            get_string_input("Type integer corresponding to game title or type \'q\' to skip: ")?;
         if input.trim() == "q" {
-            eprintln!("Request terminated.");
+            Err(GenericError::Message("Request terminated.".into()))
         } else {
             match input.trim().parse::<usize>() {
                 Ok(idx) => {
                     if idx < search_list.len() {
                         let game = &search_list[idx];
-                        thresholds::add_microsoft_store_game(alias.to_string(), game, price)?;
-                    } else if idx >= search_list.len() {
-                        eprintln!("Integer \"{}\" is invalid. Request terminated.", idx);
+                        Ok(thresholds::add_microsoft_store_game(
+                            alias.to_string(),
+                            game,
+                            price,
+                        )?)
+                    } else {
+                        Err(GenericError::Message(format!(
+                            "Integer \"{}\" is invalid. Request terminated.",
+                            idx
+                        )))
                     }
                 }
-                Err(e) => println!("Invalid input: {}\nError: {}", input, e),
+                Err(e) => Err(GenericError::Message(format!(
+                    "Invalid input: {}\nError: {}",
+                    input, e
+                ))),
             }
         }
     } else {
-        println!(
+        Err(GenericError::Message(format!(
             "Could not find a game title matching \"{}\" on the Microsoft Store.",
             title
-        );
+        )))
     }
-    Ok(())
 }

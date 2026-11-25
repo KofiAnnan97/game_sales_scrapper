@@ -8,14 +8,14 @@ members = [
     "crates/gss-core/properties",
     "crates/gss-core/file_ops",
     "crates/gss-core/stores",
-    "crates/gss-core/alerting", 
+    "crates/gss-core/notifications",
     "crates/gss-app",
     "crates/gss-cli", 
     "crates/gss-tests"
 ]
 
 [workspace.package]
-version = "0.3.2-alpha"
+version = "0.3.2-beta"
 authors = ["Elinam Gbordzoe <elinamgbordzoe@gmail.com>"]
 edition = "2024"
 

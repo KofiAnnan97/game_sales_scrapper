@@ -3,15 +3,18 @@ use std::fs::{metadata, read_to_string};
 use std::path::PathBuf;
 
 use constants::operations::settings::*;
-use errors::file::FileOperationError;
+use errors::input::FileOperationError;
 use files::general;
 use properties;
 use types::internal::store::GameStore;
 
 fn get_path() -> Result<String, FileOperationError> {
-    let path_buf: PathBuf = [properties::get_config_path(), SETTINGS_FILENAME.to_string()]
-        .iter()
-        .collect();
+    let path_buf: PathBuf = [
+        properties::get_config_path()?,
+        SETTINGS_FILENAME.to_string(),
+    ]
+    .iter()
+    .collect();
     let config_path = path_buf.display().to_string();
     let path_str = general::get_path(&config_path)?; //Creates file if it does not exist already
     match metadata(&path_str) {

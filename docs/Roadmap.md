@@ -3,8 +3,6 @@
 ### Release 0.3.2 Alpha (Code Hardening)
 - Features/Updates
   - General
-    - New functionality
-      - [ ] Add a cacheless alternative to Steam search (use concurrency to check mutliple chunks of requests at once)
     - Security
       - Fix HTML injection for generated email content
         - [X] Reject `javascript:` and `<script>`
@@ -33,8 +31,8 @@
           - [X] Secrets and environment variables
           - [X] Files
           - [X] Settings and thresholds
-          - [ ] Properties
-          - [ ] Command Line
+          - [X] Properties
+          - [X] Command Line
           - [ ] Application
         - [ ] Individual storefront failures are isolated
       - [ ] Add cargo deny to audit workflow
@@ -62,8 +60,6 @@
     - [X] Steam data does not seem to always send the correct steam app id when retrieving game data. More robust checking and error handling was added.
     - [X] Sales preview doesn't exit when the user hits the close button
     - [ ] Handle games thresholds with corrupted or incorrect data (try to run search on fake query with incorrect store ids)
-  - Application
-    - [ ] Only update settings if needed (currently always update)
 - Testing:
   - [X] Add caching to GitHub Actions
   - [X] Add more app focused tests where possible
@@ -73,6 +69,8 @@
 ### Backlog
 - Features/Updates
   - General
+    - Add a cacheless alternative to Steam search (use concurrency to check mutliple chunks of requests at once)
+    - Implement remove alias functionality (use to exist in the update alias logic)
     - Determine if defaulting the path should be in getters for project and test path if properties and dot env file have an invalid/empty path
     - Set up Humble Bundle Storefront & test
     - Retrieve pricing data from Steam bundles 
@@ -115,6 +113,7 @@
     - Add feedback Prune all logs button in Settings
     - Add message dialog for failure for updating cache (Steam settings)
     - Add message dialog for failed storefront calls
+    - Only update settings if needed (currently always update)
 - Testing
   - In Scope
     - Mock api calls for user commands (check prices) -> may need to moved out to later

@@ -12,13 +12,21 @@ static TMP_DIR_TITLE: &str = "steam_api";
 
 #[tokio::test]
 async fn search_game() {
-    let mut cache_filepath: PathBuf = [&properties::get_test_path(), DATA_DIR, CACHE_FILENAME]
+    let mut cache_filepath: PathBuf = [
+        &properties::get_test_path().expect("Could not get test path for cache"),
+        DATA_DIR,
+        CACHE_FILENAME,
+    ]
+    .iter()
+    .collect();
+    if !Path::new(&cache_filepath).is_file() {
+        cache_filepath = [
+            &properties::get_project_path().expect("Could not get project path for cache "),
+            DATA_DIR,
+            CACHE_FILENAME,
+        ]
         .iter()
         .collect();
-    if !Path::new(&cache_filepath).is_file() {
-        cache_filepath = [&properties::get_project_path(), DATA_DIR, CACHE_FILENAME]
-            .iter()
-            .collect();
     }
 
     if !Path::new(&cache_filepath).is_file() {

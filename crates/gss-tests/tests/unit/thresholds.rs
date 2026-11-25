@@ -10,7 +10,7 @@ const TMP_DIR_TITLE: &str = "thresholds";
 async fn add_steam_game() {
     let _tmp_env: tmp_setup::TempEnvironment =
         tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, Vec::new());
-    let _ = properties::load_properties();
+    properties::load_properties().expect("Could not load properties for the Steam game test.");
 
     // delete_thresholds();
     let client = reqwest::Client::new();
@@ -18,8 +18,8 @@ async fn add_steam_game() {
     let game_title = &app.name.clone();
     let game_id = app.app_id;
     thresholds::add_steam_game(game_title.clone(), app, 10.00, &client)
-        .await
-        .expect("Steam game could not be added.");
+    .await
+    .expect("Could not add the Steam game threshold.");
 
     match thresholds::load_thresholds() {
         Ok(thresholds) => {
@@ -45,13 +45,16 @@ async fn add_steam_game() {
 #[test]
 fn add_gog_game() {
     let _tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, Vec::new());
-    let _ = properties::load_properties();
+    properties::load_properties().expect("Could not load properties for the GOG game test.");
 
     let game = threshold_stubs::test_gog_game();
     let game_title = &game.title.clone();
-    let game_id = game.id.parse::<u32>().unwrap();
+    let game_id = game
+        .id
+        .parse::<u32>()
+        .expect("The GOG game ID should be a valid integer.");
     thresholds::add_gog_game(game_title.clone(), &game, 10.00)
-        .expect("GOG gam could not be added.");
+    .expect("Could not add the GOG game threshold.");
 
     match thresholds::load_thresholds() {
         Ok(thresholds) => {
@@ -77,13 +80,14 @@ fn add_gog_game() {
 #[test]
 fn add_microsoft_store_game() {
     let _tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, Vec::new());
-    let _ = properties::load_properties();
+    properties::load_properties()
+        .expect("Could not load properties for the Microsoft Store game test.");
 
     let game = threshold_stubs::test_ms_game();
     let game_title = &game.title.clone();
     let game_id = &game.product_id.clone();
     thresholds::add_microsoft_store_game(game_title.clone(), &game, 10.00)
-        .expect("MS game could not be added");
+    .expect("Could not add the Microsoft Store game threshold.");
 
     match thresholds::load_thresholds() {
         Ok(thresholds) => {
@@ -109,7 +113,7 @@ fn add_microsoft_store_game() {
 #[test]
 fn update_alias() {
     let _tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, Vec::new());
-    let _ = properties::load_properties();
+    properties::load_properties().expect("Could not load properties for the alias update test.");
 
     let game_title = String::from("Random Game");
     let game_alias = String::from("rg");
@@ -148,7 +152,7 @@ fn update_alias() {
     // Check that new alias is present in threshold
     let new_alias = String::from("new_rg");
     thresholds::update_threshold_alias(game_title.clone(), &new_alias)
-        .expect("Threshold alias was not updated.");
+        .expect("Could not update the threshold alias.");
     match thresholds::load_thresholds() {
         Ok(thresholds) => assert_eq!(
             new_alias, thresholds[0].alias,
@@ -192,7 +196,7 @@ fn update_alias() {
 fn update_price() {
     let _tmp_env: tmp_setup::TempEnvironment =
         tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, Vec::new());
-    let _ = properties::load_properties();
+    properties::load_properties().expect("Could not load properties for the price update test.");
 
     let first_game = String::from("Random Game");
     let game_alias = String::from("rg");
@@ -244,7 +248,7 @@ fn update_price() {
 #[test]
 fn update_id() {
     let _tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, Vec::new());
-    let _ = properties::load_properties();
+    properties::load_properties().expect("Could not load properties for the ID update test.");
 
     let game_title = String::from("Random Game");
     let game_alias = String::from("rg");
@@ -278,7 +282,8 @@ fn update_id() {
 #[test]
 fn update_id_str() {
     let _tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, Vec::new());
-    let _ = properties::load_properties();
+    properties::load_properties()
+        .expect("Could not load properties for the string ID update test.");
 
     let game_title = String::from("Random Game");
     let game_alias = String::from("rg");
@@ -305,7 +310,7 @@ fn update_id_str() {
 #[test]
 fn remove_game() {
     let _tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, Vec::new());
-    let _ = properties::load_properties();
+    properties::load_properties().expect("Could not load properties for the remove-game test.");
 
     let first_game = String::from("Random Game");
     let second_game = String::from("Random Game 2");
