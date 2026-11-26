@@ -1,12 +1,10 @@
 use std::collections::HashMap;
-use std::io::{self, Write};
 use std::sync::Arc;
 
 use constants::stores::gog::VERSION as GOG_VERSION;
 use errors::GenericError;
-use errors::input::UserInputError;
-use file_ops::{settings, thresholds};
 use notifications::email;
+use operations::{inputs, settings, thresholds};
 use stores::pc::{gog, microsoft_store, steam};
 use stores::search::provider::{SearchError, SearchProvider};
 use types::internal::{
@@ -43,25 +41,6 @@ pub fn print_title(title: &str) {
     );
 }
 
-pub fn get_u16_input() -> Result<u16, UserInputError> {
-    let mut port_str = String::new();
-    print!("Enter SMTP port number: ");
-    io::stdout().flush()?;
-    io::stdin().read_line(&mut port_str)?;
-    let port_num = port_str.trim().parse::<u16>()?;
-    Ok(port_num)
-}
-
-pub fn get_string_input(info_text: &str) -> Result<String, UserInputError> {
-    let mut input_str = String::new();
-    print!("{}", info_text);
-    io::stdout().flush()?;
-    io::stdin().read_line(&mut input_str)?;
-    let final_input = input_str.trim().to_string();
-    //user[0..user.len() - 1]
-    Ok(final_input)
-}
-
 pub fn get_simple_prices_str(store_name: GameStore, sales: Vec<SaleInfo>) -> String {
     let mut prices_str = String::new();
     for game in sales.iter() {
@@ -80,8 +59,11 @@ pub fn get_simple_prices_str(store_name: GameStore, sales: Vec<SaleInfo>) -> Str
     prices_str
 }
 
-pub async fn check_prices(use_html: bool, provider: &Arc<SearchProvider>) -> String {
-    let thresholds = thresholds::load_thresholds().unwrap_or_else(|_e| Vec::new());
+pub async fn check_prices(
+    use_html: bool,
+    provider: &Arc<SearchProvider>,
+) -> Result<String, GenericError> {
+    let thresholds = thresholds::load_thresholds()?;
 
     let mut tasks: Vec<tokio::task::JoinHandle<(GameStore, StorePriceResult)>> = Vec::new();
 
@@ -137,13 +119,13 @@ pub async fn check_prices(use_html: bool, provider: &Arc<SearchProvider>) -> Str
 
             let task = tokio::spawn(async move {
                 let result = gog_provider
-                    .option_search(|| async {
+                    .result_search(|| async {
                         gog::get_price_details_v2(&title, &gog_provider.client).await
                     })
                     .await;
 
                 match result {
-                    Some(info) if desired_price >= info.current_price => (
+                    Ok(info) if desired_price >= info.current_price => (
                         GameStore::GOOD_OLD_GAMES,
                         StorePriceResult::Success(vec![info]),
                     ),
@@ -160,13 +142,13 @@ pub async fn check_prices(use_html: bool, provider: &Arc<SearchProvider>) -> Str
 
             let task = tokio::spawn(async move {
                 let result = ms_provider
-                    .option_search(|| async {
+                    .result_search(|| async {
                         microsoft_store::get_price_details(&store_id, &ms_provider.client).await
                     })
                     .await;
 
                 match result {
-                    Some(info) if desired_price >= info.current_price => (
+                    Ok(info) if desired_price >= info.current_price => (
                         GameStore::MICROSOFT_STORE_PC,
                         StorePriceResult::Success(vec![info]),
                     ),
@@ -230,7 +212,7 @@ pub async fn check_prices(use_html: bool, provider: &Arc<SearchProvider>) -> Str
             ));
         }
     }
-    output
+    Ok(output)
 }
 
 pub async fn steam_insert_sequence(
@@ -240,29 +222,29 @@ pub async fn steam_insert_sequence(
     provider: &SearchProvider,
 ) -> Result<String, GenericError> {
     match steam::check_game(title, &provider.client).await {
-        Some(data) => Ok(thresholds::add_steam_game(
-            alias.to_string(),
-            data,
-            price,
-            &provider.client,
-        )
-        .await?),
-        None => {
-            if let Some(t) = steam::search_game(title, &provider.client).await {
+        Ok(data) => {
+            Ok(
+                thresholds::add_steam_game(alias.to_string(), data, price, &provider.client)
+                    .await?,
+            )
+        }
+        Err(e) => {
+            if let Ok(t) = steam::search_game(title, &provider.client).await {
                 match steam::check_game(&t, &provider.client).await {
-                    Some(data) => Ok(thresholds::add_steam_game(
+                    Ok(data) => Ok(thresholds::add_steam_game(
                         alias.to_string(),
                         data,
                         price,
                         &provider.client,
                     )
                     .await?),
-                    None => Err(GenericError::Message(
-                        "Could not find steam game data.".into(),
-                    )),
+                    Err(e) => Err(e.into()),
                 }
             } else {
-                Err(GenericError::Message("Could not find steam game.".into()))
+                Err(GenericError::Message(format!(
+                    "Could not find steam game. {}",
+                    e
+                )))
             }
         }
     }
@@ -274,11 +256,8 @@ pub async fn gog_insert_sequence(
     price: f64,
     provider: &SearchProvider,
 ) -> Result<String, GenericError> {
-    let mut search_list: Vec<GOGGameInfo> = Vec::new();
-    match gog::search_game_by_title_v2(title, &provider.client).await {
-        Ok(data) => search_list = data,
-        Err(e) => println!("Search GOG Game Error: {}", e),
-    }
+    let search_list: Vec<GOGGameInfo> =
+        gog::search_game_by_title_v2(title, &provider.client).await?;
     if !search_list.is_empty() {
         println!("GOG search results:");
         for (i, game) in search_list.iter().enumerate() {
@@ -289,8 +268,9 @@ pub async fn gog_insert_sequence(
             println!("  [{}] {} - ${}", i, game.title, price);
         }
         println!("  [q] SKIP");
-        let input =
-            get_string_input("Type integer corresponding to game title or type \'q\' to skip: ")?;
+        let input = inputs::get_string_input(
+            "Type integer corresponding to game title or type \'q\' to skip",
+        )?;
         if input.trim() == "q" {
             Err(GenericError::Message("Request terminated.".into()))
         } else {
@@ -299,11 +279,7 @@ pub async fn gog_insert_sequence(
                     if idx < search_list.len() {
                         //title = &search_list[idx].title;
                         let game = &search_list[idx];
-                        Ok(thresholds::add_gog_game(
-                            alias.to_string(),
-                            game,
-                            price,
-                        )?)
+                        Ok(thresholds::add_gog_game(alias.to_string(), game, price)?)
                     } else {
                         Err(GenericError::Message(format!(
                             "Integer \"{}\" is invalid. Request terminated.",
@@ -331,11 +307,8 @@ pub async fn microsoft_store_insert_sequence(
     price: f64,
     provider: &SearchProvider,
 ) -> Result<String, GenericError> {
-    let mut search_list: Vec<ProductInfo> = Vec::new();
-    match microsoft_store::search_game_by_title(title, &provider.client).await {
-        Ok(data) => search_list = data,
-        Err(e) => println!("Search Microsoft Store Error: {}", e),
-    }
+    let search_list: Vec<ProductInfo> =
+        microsoft_store::search_game_by_title(title, &provider.client).await?;
     if !search_list.is_empty() {
         println!("Microsoft Store search results:");
         for (i, game) in search_list.iter().enumerate() {
@@ -347,8 +320,9 @@ pub async fn microsoft_store_insert_sequence(
             );
         }
         println!("  [q] SKIP");
-        let input =
-            get_string_input("Type integer corresponding to game title or type \'q\' to skip: ")?;
+        let input = inputs::get_string_input(
+            "Type integer corresponding to game title or type \'q\' to skip:",
+        )?;
         if input.trim() == "q" {
             Err(GenericError::Message("Request terminated.".into()))
         } else {

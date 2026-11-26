@@ -48,14 +48,17 @@ where
     Ok(game_list)
 }
 
-pub fn generate_csv(file_path: &str, thresholds: Vec<SimpleGameThreshold>) {
+pub fn generate_csv(
+    file_path: &str,
+    thresholds: Vec<SimpleGameThreshold>,
+) -> Result<(), FileOperationError> {
     let mut data = String::from("game, price");
     for sgt in thresholds {
         let row = format!("\n{}, {}", sgt.name, sgt.price);
         data.push_str(row.as_str());
     }
     match general::write_to_file(file_path.to_owned(), data) {
-        Ok(_) => {}
-        Err(_e) => {}
+        Ok(_) => Ok(()),
+        Err(e) => Err(e),
     }
 }

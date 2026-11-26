@@ -1,12 +1,14 @@
+use std::env::VarError;
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 
-use crate::input::FileOperationError;
+use crate::input::{FileOperationError, UserInputError};
 use crate::secrets::SecretsError;
 #[derive(Debug)]
 pub enum ConfigError {
     File(FileOperationError),
     Secret(SecretsError),
+    Environ(VarError),
     Message(String),
 }
 
@@ -22,6 +24,18 @@ impl From<SecretsError> for ConfigError {
     }
 }
 
+impl From<VarError> for ConfigError {
+    fn from(err: VarError) -> Self {
+        ConfigError::Environ(err)
+    }
+}
+
+impl From<UserInputError> for ConfigError {
+    fn from(err: UserInputError) -> Self {
+        ConfigError::Message(err.to_string())
+    }
+}
+
 impl Error for ConfigError {}
 
 impl Display for ConfigError {
@@ -29,6 +43,7 @@ impl Display for ConfigError {
         match self {
             ConfigError::File(e) => write!(f, "{}", e),
             ConfigError::Secret(e) => write!(f, "{}", e),
+            ConfigError::Environ(e) => write!(f, "{}", e),
             ConfigError::Message(msg) => write!(f, "Config Error - {}", msg),
         }
     }

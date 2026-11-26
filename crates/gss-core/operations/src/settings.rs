@@ -62,11 +62,9 @@ pub fn get_available_stores() -> Vec<GameStore> {
 pub fn get_selected_stores() -> Result<Vec<GameStore>, FileOperationError> {
     let filepath = get_path()?;
     let mut stores: Vec<GameStore> = Vec::new();
-    // TODO: Propagate file and JSON parsing errors instead of panicking
     let data = read_to_string(filepath)?;
-    let body: Value =
-        serde_json::from_str(&data).expect("Get selected stores - could not convert to JSON");
-    let selected = serde_json::to_string(&body[SELECTED_STORES.to_string()]).unwrap();
+    let body: Value = serde_json::from_str(&data)?; //.expect("Get selected stores - could not convert to JSON");
+    let selected = serde_json::to_string(&body[SELECTED_STORES.to_string()])?;
     match serde_json::from_str::<Vec<String>>(&selected) {
         Ok(data) => {
             for id in data.iter() {
@@ -88,7 +86,7 @@ pub fn get_alias_state() -> Result<bool, FileOperationError> {
     let filepath = get_path()?;
     let data = read_to_string(filepath)?;
     let body: Value = serde_json::from_str(&data)?; //.expect("Get alias state - could not convert to JSON");
-    let alias_enabled = serde_json::to_string(&body[ALIASES_ENABLED.to_string()]).unwrap();
+    let alias_enabled = serde_json::to_string(&body[ALIASES_ENABLED.to_string()])?;
     Ok(serde_json::from_str::<i32>(&alias_enabled)? == 1) // {
 }
 
@@ -96,16 +94,19 @@ pub fn get_alias_reuse_state() -> Result<bool, FileOperationError> {
     let filepath = get_path()?;
     let data = read_to_string(filepath)?;
     let body: Value = serde_json::from_str(&data)?; //.expect("Get alias dup state - could not convert to JSON");
-    let allow_dups =
-        serde_json::to_string(&body[ALLOW_ALIAS_REUSE_AFTER_CREATION.to_string()]).unwrap();
+    let allow_dups = serde_json::to_string(&body[ALLOW_ALIAS_REUSE_AFTER_CREATION.to_string()])?;
     Ok(serde_json::from_str::<i32>(&allow_dups)? == 1) // {
 }
 
 pub fn update_selected_stores(selected: Vec<GameStore>) -> Result<(), FileOperationError> {
-    let data = load_data()?;
-    let mut settings = data;
-    // TODO: Propagate errors when required settings keys are missing
-    let selected_stores = settings.get_mut(SELECTED_STORES.to_string()).unwrap();
+    let mut settings = load_data()?;
+    let selected_stores =
+        settings
+            .get_mut(SELECTED_STORES.to_string())
+            .ok_or(FileOperationError::Message(format!(
+                "Missing '{}' in settings",
+                SELECTED_STORES
+            )))?;
     let mut unique_stores: Vec<String> =
         selected.iter().map(|store| store.get_id().into()).collect();
     unique_stores.dedup();
@@ -119,15 +120,18 @@ pub fn update_selected_stores(selected: Vec<GameStore>) -> Result<(), FileOperat
 }
 
 pub fn update_alias_state(is_enabled: i32) -> Result<(), FileOperationError> {
-    let data = load_data()?;
-    let mut settings = data;
+    let mut settings = load_data()?;
     let enabled_status = if is_enabled == ENABLED_STATE || is_enabled == DISABLED_STATE {
         is_enabled
     } else {
         DISABLED_STATE
     };
-    // TODO: Propagate errors when required settings keys are missing
-    *settings.get_mut(ALIASES_ENABLED.to_string()).unwrap() = json!(enabled_status);
+    *settings
+        .get_mut(ALIASES_ENABLED.to_string())
+        .ok_or(FileOperationError::Message(format!(
+            "Missing '{}' in settings",
+            ALIASES_ENABLED
+        )))? = json!(enabled_status);
     let settings_str = serde_json::to_string_pretty(&settings)?;
     general::write_to_file(
         get_path()?,
@@ -137,44 +141,41 @@ pub fn update_alias_state(is_enabled: i32) -> Result<(), FileOperationError> {
 }
 
 pub fn update_alias_reuse_state(is_enabled: i32) -> Result<(), FileOperationError> {
-    match load_data() {
-        Ok(data) => {
-            let mut settings = data;
-            let enabled_status = if is_enabled == ENABLED_STATE || is_enabled == DISABLED_STATE {
-                is_enabled
-            } else {
-                DISABLED_STATE
-            };
-            // TODO: Propagate errors when required settings keys are missing
-            *settings
-                .get_mut(ALLOW_ALIAS_REUSE_AFTER_CREATION.to_string())
-                .unwrap() = json!(enabled_status);
-            let settings_str = serde_json::to_string_pretty(&settings);
-            general::write_to_file(
-                get_path()?,
-                settings_str.expect("Cannot set state of alias duplicates"),
-            )?;
-        }
-        Err(e) => eprintln!("Error: {}", e),
-    }
+    let mut settings = load_data()?;
+    let enabled_status = if is_enabled == ENABLED_STATE || is_enabled == DISABLED_STATE {
+        is_enabled
+    } else {
+        DISABLED_STATE
+    };
+    *settings
+        .get_mut(ALLOW_ALIAS_REUSE_AFTER_CREATION.to_string())
+        .ok_or(FileOperationError::Message(format!(
+            "Missing '{}' in settings",
+            ALLOW_ALIAS_REUSE_AFTER_CREATION
+        )))? = json!(enabled_status);
+    let settings_str = serde_json::to_string_pretty(&settings);
+    general::write_to_file(
+        get_path()?,
+        settings_str.expect("Cannot set state of alias duplicates"),
+    )?;
     Ok(())
 }
 
 pub fn clear_selected_stores() -> Result<(), FileOperationError> {
-    match load_data() {
-        Ok(data) => {
-            let mut settings = data;
-            // TODO: Propagate errors when required settings keys are missing
-            let selected_stores = settings.get_mut(SELECTED_STORES.to_string()).unwrap();
-            *selected_stores = json!([]);
-            let settings_str = serde_json::to_string_pretty(&settings);
-            general::write_to_file(
-                get_path()?,
-                settings_str.expect("Cannot clear store search settings"),
-            )?;
-        }
-        Err(e) => eprintln!("Error: {}", e),
-    }
+    let mut settings = load_data()?;
+    let selected_stores =
+        settings
+            .get_mut(SELECTED_STORES.to_string())
+            .ok_or(FileOperationError::Message(format!(
+                "Missing '{}' in settings",
+                SELECTED_STORES
+            )))?;
+    *selected_stores = json!([]);
+    let settings_str = serde_json::to_string_pretty(&settings);
+    general::write_to_file(
+        get_path()?,
+        settings_str.expect("Cannot clear store search settings"),
+    )?;
     Ok(())
 }
 

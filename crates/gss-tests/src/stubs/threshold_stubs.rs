@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use file_ops::thresholds;
+use operations::thresholds;
 use types::{
     internal::data::GameThreshold,
     response::{

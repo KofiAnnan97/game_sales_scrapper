@@ -1417,9 +1417,7 @@ dependencies = [
  "csv",
  "lettre",
  "reqwest",
- "serde",
  "serde_json",
- "tokio",
 ]
 
 [[package]]
@@ -1497,20 +1495,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1e6853b52649d4ac5c0bd02320cddc5ba956bdb407c4b75a2c6b75bf51500f8c"
 dependencies = [
  "simd-adler32",
-]
-
-[[package]]
-name = "file_ops"
-version = "0.3.2-beta"
-dependencies = [
- "constants",
- "errors",
- "files",
- "properties",
- "reqwest",
- "serde_json",
- "stores",
- "types",
 ]
 
 [[package]]
@@ -1952,12 +1936,12 @@ dependencies = [
  "chrono",
  "constants",
  "errors",
- "file_ops",
  "files",
  "futures",
  "iced",
  "iced_aw",
  "notifications",
+ "operations",
  "properties",
  "reqwest",
  "rfd",
@@ -1975,10 +1959,10 @@ dependencies = [
  "clap",
  "constants",
  "errors",
- "file_ops",
  "files",
  "futures",
  "notifications",
+ "operations",
  "properties",
  "reqwest",
  "rpassword",
@@ -1994,9 +1978,9 @@ version = "0.3.2-beta"
 dependencies = [
  "constants",
  "dotenvy",
- "file_ops",
  "files",
  "gss-app",
+ "operations",
  "properties",
  "rand 0.9.5",
  "regex",
@@ -3848,6 +3832,20 @@ dependencies = [
  "libc",
  "pkg-config",
  "vcpkg",
+]
+
+[[package]]
+name = "operations"
+version = "0.3.2-beta"
+dependencies = [
+ "constants",
+ "errors",
+ "files",
+ "properties",
+ "reqwest",
+ "serde_json",
+ "stores",
+ "types",
 ]
 
 [[package]]

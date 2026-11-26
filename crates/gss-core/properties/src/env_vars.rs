@@ -79,7 +79,7 @@ impl EnvVar {
 pub fn get_decrypt_key(project_path: String) -> Result<String, FileOperationError> {
     let mut path_buf: PathBuf = [&project_path, CONFIG_DIR].iter().collect();
     let mut path_str: String = path_buf.display().to_string();
-    general::create_dir(&path_str);
+    general::create_dir(&path_str)?;
     path_buf = [&path_str, DECRYPT_FILENAME].iter().collect();
     path_str = path_buf.display().to_string();
     let mut key_str = String::new();
@@ -100,7 +100,7 @@ pub fn get_decrypt_key(project_path: String) -> Result<String, FileOperationErro
             }
         }
     } else {
-        key_str = fs::read_to_string(path_str).unwrap_or_default();
+        key_str = fs::read_to_string(path_str)?;
     }
     Ok(key_str)
 }
@@ -118,30 +118,40 @@ pub fn load_dotenv(file: Option<&str>) -> Result<(), ConfigError> {
 pub fn get_variables() -> Result<HashMap<String, EnvVar>, ConfigError> {
     load_dotenv(None)?;
     let mut vars: HashMap<String, EnvVar> = HashMap::new();
-    let mut env_path = std::env::current_dir()
-        .map_err(|err| ConfigError::Message(format!("Could not read current directory: {err}")))?;
-    env_path.push(ENV_FILENAME);
+    let cwd = std::env::current_dir()
+        .map_err(|e| ConfigError::Message(format!("Could not read current directory: {e}")))?;
+    let env_path = cwd.join(ENV_FILENAME);
     if env_path.is_file() {
-        let steam_key_plain = std::env::var(STEAM_API_KEY_ENV).expect("STEAM_API_KEY must be set");
+        let steam_key_plain = std::env::var(STEAM_API_KEY_ENV).map_err(|_| {
+            FileOperationError::Message(format!("{} must be set", STEAM_API_KEY_ENV))
+        })?;
         let steam_key_encrypted = Password::new(
             get_decrypt_key(get_project_path())?.as_str(),
             steam_key_plain,
         );
-        let recipient = std::env::var(RECIPIENT_EMAIL_ENV).expect("RECIPIENT_EMAIL must be set");
-        let smtp_host = std::env::var(SMTP_HOST_ENV).expect("SMTP_HOST must be set");
-        let smtp_port_str = std::env::var(SMTP_PORT_ENV).expect("SMTP_PORT must be set");
-        let smtp_port = smtp_port_str
-            .parse::<u16>()
-            .expect("SMTP_PORT must be an integer");
-        let smtp_email = std::env::var(SMTP_EMAIL_ENV).expect("SMTP_EMAIL must be set");
-        let smtp_user = std::env::var(SMTP_USERNAME_ENV).expect("SMTP_USERNAME must be set");
-        let smtp_pwd_plain = std::env::var(SMTP_PASSWORD_ENV).expect("SMTP_PWD must be set");
+        let recipient = std::env::var(RECIPIENT_EMAIL_ENV).map_err(|_| {
+            FileOperationError::Message(format!("{} must be set", RECIPIENT_EMAIL_ENV))
+        })?;
+        let smtp_host = std::env::var(SMTP_HOST_ENV)
+            .map_err(|_| FileOperationError::Message(format!("{} must be set", SMTP_HOST_ENV)))?;
+        let smtp_port_str = std::env::var(SMTP_PORT_ENV)
+            .map_err(|_| FileOperationError::Message(format!("{} must be set", SMTP_PORT_ENV)))?;
+        let smtp_port = smtp_port_str.parse::<u16>().map_err(|_| {
+            FileOperationError::Message(format!("{} must be an integer", SMTP_PORT_ENV))
+        })?;
+        let smtp_email = std::env::var(SMTP_EMAIL_ENV)
+            .map_err(|_| FileOperationError::Message(format!("{} must be set", SMTP_EMAIL_ENV)))?;
+        let smtp_user = std::env::var(SMTP_USERNAME_ENV).map_err(|_| {
+            FileOperationError::Message(format!("{} must be set", SMTP_USERNAME_ENV))
+        })?;
+        let smtp_pwd_plain = std::env::var(SMTP_PASSWORD_ENV).map_err(|_| {
+            FileOperationError::Message(format!("{} must be set", SMTP_PASSWORD_ENV))
+        })?;
         let smtp_pwd_encrypted = Password::new(
             get_decrypt_key(get_project_path())?.as_str(),
             smtp_pwd_plain,
         );
-        let cwd = std::env::current_dir().unwrap().display().to_string();
-        let project_path = std::env::var(PROJECT_PATH_ENV).unwrap_or_else(|_| cwd.clone());
+        let project_path = std::env::var(PROJECT_PATH_ENV).unwrap_or(cwd.display().to_string());
         let path_buf: PathBuf = [&project_path, DEFAULT_TEST_DIR].iter().collect();
         let generic_test_path = path_buf.display().to_string();
         let test_path = std::env::var(TEST_PATH_ENV).unwrap_or(generic_test_path);

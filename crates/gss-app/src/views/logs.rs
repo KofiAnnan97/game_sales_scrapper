@@ -26,7 +26,6 @@ pub enum Screen {
     Sales,
     Settings,
     Logs,
-    Internal,
     All,
     None,
 }
@@ -39,7 +38,6 @@ impl std::fmt::Display for Screen {
             Screen::Sales => write!(f, "Sales Preview"),
             Screen::Settings => write!(f, "Settings"),
             Screen::Logs => write!(f, "Logs"),
-            Screen::Internal => write!(f, "Internal"),
             Screen::All => write!(f, "All"),
             Screen::None => write!(f, "-"),
         }
@@ -47,14 +45,13 @@ impl std::fmt::Display for Screen {
 }
 
 impl Screen {
-    pub const OPTIONS: [Screen; 7] = [
+    pub const OPTIONS: [Screen; 6] = [
         Screen::All,
         Screen::Search,
         Screen::Thresholds,
         Screen::Sales,
         Screen::Settings,
         Screen::Logs,
-        Screen::Internal,
     ];
 }
 
@@ -66,7 +63,6 @@ impl From<String> for Screen {
             "Sales Preview" => Screen::Sales,
             "Settings" => Screen::Settings,
             "Logs" => Screen::Logs,
-            "Internal" => Screen::Internal,
             "All" => Screen::All,
             _ => Screen::None,
         }
@@ -639,8 +635,10 @@ impl LoggingView {
                 .map_or(0, |state| state.file_size)
         };
 
-        let file_size = general::get_file_size(&path);
-        if !force_refresh && file_size == cached_file_size {
+        if let Ok(file_size) = general::get_file_size(&path)
+            && !force_refresh
+            && file_size == cached_file_size
+        {
             self.logs_loading = false;
             self.show_loading = false;
             self.refresh_filter_cache();

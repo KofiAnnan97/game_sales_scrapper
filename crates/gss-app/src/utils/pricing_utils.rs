@@ -2,8 +2,8 @@ use iced::widget::image::Handle;
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use file_ops::thresholds;
 use notifications::email;
+use operations::thresholds;
 use stores::pc::{gog, microsoft_store, steam};
 use stores::search::provider::SearchProvider;
 use types::internal::{data::SaleInfo, store::GameStore};
@@ -238,13 +238,13 @@ pub async fn get_sales(provider: &Arc<SearchProvider>) -> Result<Vec<StoreSale>,
             let gog_provider = Arc::clone(provider);
             let task = tokio::spawn(async move {
                 let result = gog_provider
-                    .option_search(|| async {
+                    .result_search(|| async {
                         gog::get_price_details_v2(&title, &gog_provider.client).await
                     })
                     .await;
 
                 match result {
-                    Some(info) if desired_price >= info.current_price => {
+                    Ok(info) if desired_price >= info.current_price => {
                         let icon_handler =
                             Some(load_url_image_with_fallback(&info.icon_link).await);
                         (
@@ -278,13 +278,13 @@ pub async fn get_sales(provider: &Arc<SearchProvider>) -> Result<Vec<StoreSale>,
             let ms_provider = Arc::clone(provider);
             let task = tokio::spawn(async move {
                 let result = ms_provider
-                    .option_search(|| async {
+                    .result_search(|| async {
                         microsoft_store::get_price_details(&store_id, &ms_provider.client).await
                     })
                     .await;
 
                 match result {
-                    Some(info) if desired_price >= info.current_price => {
+                    Ok(info) if desired_price >= info.current_price => {
                         let icon_handler =
                             Some(load_url_image_with_fallback(&info.icon_link).await);
                         (

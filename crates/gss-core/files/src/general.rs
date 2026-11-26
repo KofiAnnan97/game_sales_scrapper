@@ -4,7 +4,6 @@ use std::path::{Path, PathBuf};
 
 use errors::input::FileOperationError;
 
-// TODO: Return result instead of panic
 pub fn get_path(path_str: &str) -> Result<String, FileOperationError> {
     let path = Path::new(path_str);
     let mut is_new = false;
@@ -37,19 +36,25 @@ pub fn get_file(file_path: &str) -> Result<File, FileOperationError> {
     Ok(file)
 }
 
-pub fn get_file_size(path: &PathBuf) -> u64 {
+pub fn get_file_size(path: &PathBuf) -> Result<u64, FileOperationError> {
     match fs::metadata(path) {
-        Ok(metadata) => metadata.len(),
-        Err(_) => 0,
+        Ok(metadata) => Ok(metadata.len()),
+        Err(e) => Err(e.into()),
     }
 }
 
-pub fn create_dir(file_path: &str) {
-    if !Path::new(file_path).is_dir() {
-        match fs::create_dir_all(file_path) {
-            Ok(_) => println!("Created directory: {}", file_path),
-            Err(e) => println!("Failed to create directory: {}, {}", file_path, e),
-        }
+pub fn create_dir(file_path: &str) -> Result<(), FileOperationError> {
+    if Path::new(file_path).is_dir() {
+        return Ok(());
+    }
+
+    match fs::create_dir_all(file_path) {
+        Ok(_) => Ok(()),
+        Err(e) => Err(FileOperationError::Message(format!(
+            "Failed to create directory: {}, {}",
+            file_path,
+            e
+        ))),
     }
 }
 

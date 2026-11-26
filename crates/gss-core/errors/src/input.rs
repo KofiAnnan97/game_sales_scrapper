@@ -1,7 +1,7 @@
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 use std::io::Error as IOError;
-use std::num::ParseIntError;
+use std::num::{ParseFloatError, ParseIntError};
 
 #[derive(Debug)]
 pub enum FileOperationError {
@@ -45,7 +45,8 @@ impl Display for FileOperationError {
 #[derive(Debug)]
 pub enum UserInputError {
     IO(IOError),
-    Parse(ParseIntError),
+    ParseInt(ParseIntError),
+    ParseFloat(ParseFloatError),
 }
 
 impl From<IOError> for UserInputError {
@@ -56,7 +57,13 @@ impl From<IOError> for UserInputError {
 
 impl From<ParseIntError> for UserInputError {
     fn from(err: ParseIntError) -> Self {
-        UserInputError::Parse(err)
+        UserInputError::ParseInt(err)
+    }
+}
+
+impl From<ParseFloatError> for UserInputError {
+    fn from(err: ParseFloatError) -> Self {
+        UserInputError::ParseFloat(err)
     }
 }
 
@@ -66,7 +73,8 @@ impl Display for UserInputError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             UserInputError::IO(e) => write!(f, "IO Error - {}", e),
-            UserInputError::Parse(e) => write!(f, "Parse Error - {}", e),
+            UserInputError::ParseInt(e) => write!(f, "ParseInt Error - {}", e),
+            UserInputError::ParseFloat(e) => write!(f, "ParseFloat Error - {}", e),
         }
     }
 }

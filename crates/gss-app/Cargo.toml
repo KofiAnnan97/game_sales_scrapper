@@ -11,7 +11,7 @@ test = false
 [dependencies]
 # Internal crates
 notifications = { path = "../gss-core/notifications" }
-file_ops = { path = "../gss-core/file_ops" }
+operations = { path = "../gss-core/operations" }
 files = { path = "../gss-core/files" }
 stores = { path = "../gss-core/stores" }
 types = { path = "../gss-core/types" }

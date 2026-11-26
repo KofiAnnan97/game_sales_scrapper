@@ -42,7 +42,7 @@
     - Security
       - [X] Gated --reveal-screts flag so execution is intentional
     - Reliability
-      - [ ] Return meaningful exits codes for unrecoverable errors
+      - [X] Return meaningful exits codes for unrecoverable errors
   - Application
     - Optimize log pagination
       - [X] Refactor log filtering to iterate over references instead of cloning all entries.

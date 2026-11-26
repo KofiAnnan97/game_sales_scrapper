@@ -75,7 +75,7 @@ impl Error for SecretsError {}
 impl Display for SecretsError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            SecretsError::ParseError(e) => write!(f, "Parse Error - {}", e),
+            SecretsError::ParseError(e) => write!(f, "ParseInt Error - {}", e),
             SecretsError::EncryptError(e) => write!(f, "Encrypt Error - {}", e),
             SecretsError::DecryptError(e) => write!(f, "{}", e),
             SecretsError::Message(msg) => write!(f, "{}", msg),

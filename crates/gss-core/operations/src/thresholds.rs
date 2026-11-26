@@ -1,10 +1,9 @@
 use serde_json::{Value, json};
 use std::collections::HashMap;
 use std::fs::{metadata, read_to_string};
-use std::io::{self, Write};
 use std::path::PathBuf;
 
-use crate::settings;
+use crate::{inputs, settings};
 use constants::operations::thresholds::*;
 use errors::GenericError;
 use errors::config::ConfigError;
@@ -52,9 +51,15 @@ pub fn load_data() -> Result<Value, FileOperationError> {
 
 pub fn load_thresholds() -> Result<Vec<GameThreshold>, FileOperationError> {
     let filepath = get_path()?;
-    let data = read_to_string(filepath)?; //.unwrap();
-    let body: Value = serde_json::from_str(&data)?; //.expect("Load thresholds - could not convert to JSON");
-    let thresholds = serde_json::to_string(&body[THRESHOLDS])?;
+    let data = read_to_string(filepath)?;
+    let body: Value = serde_json::from_str(&data)?;
+    let threshold_segment = body
+        .get(THRESHOLDS)
+        .ok_or(FileOperationError::Message(format!(
+            "Missing '{}' field in thresholds",
+            THRESHOLDS
+        )))?;
+    let thresholds = serde_json::to_string(&threshold_segment)?;
     match serde_json::from_str::<Vec<GameThreshold>>(&thresholds) {
         Ok(thresholds) => Ok(thresholds),
         Err(e) => Err(e.into()),
@@ -64,8 +69,14 @@ pub fn load_thresholds() -> Result<Vec<GameThreshold>, FileOperationError> {
 pub fn load_alias_map() -> Result<HashMap<String, Vec<String>>, FileOperationError> {
     let filepath = get_path()?;
     let data = read_to_string(filepath)?;
-    let body: Value = serde_json::from_str(&data)?; //.expect("Load alias map - could not convert to JSON");
-    let alias_map = serde_json::to_string(&body[ALIAS_MAP])?;
+    let body: Value = serde_json::from_str(&data)?;
+    let alias_segment = body
+        .get(ALIAS_MAP)
+        .ok_or(FileOperationError::Message(format!(
+            "Missing '{}' field in thresholds",
+            ALIAS_MAP
+        )))?;
+    let alias_map = serde_json::to_string(&alias_segment)?;
     match serde_json::from_str::<HashMap<String, Vec<String>>>(&alias_map) {
         Ok(map) => Ok(map),
         Err(e) => Err(e.into()),
@@ -73,21 +84,21 @@ pub fn load_alias_map() -> Result<HashMap<String, Vec<String>>, FileOperationErr
 }
 
 pub fn update_thresholds(thresholds: Vec<GameThreshold>) -> Result<(), FileOperationError> {
-    match load_data() {
-        Ok(data) => {
-            let mut thresholds_data = data;
-            *thresholds_data.get_mut(THRESHOLDS.to_string()).unwrap() = json!(thresholds);
-            match serde_json::to_string_pretty(&thresholds_data) {
-                Ok(thresholds_str) => general::write_to_file(get_path()?, thresholds_str)?,
-                Err(e) => {
-                    return Err(FileOperationError::Message(format!(
-                        "Cannot update thresholds. {}",
-                        e
-                    )));
-                }
-            }
+    let mut thresholds_data = load_data()?;
+    *thresholds_data
+        .get_mut(THRESHOLDS.to_string())
+        .ok_or(FileOperationError::Message(format!(
+            "Could not find '{}' key in thresholds",
+            THRESHOLDS
+        )))? = json!(thresholds);
+    match serde_json::to_string_pretty(&thresholds_data) {
+        Ok(thresholds_str) => general::write_to_file(get_path()?, thresholds_str)?,
+        Err(e) => {
+            return Err(FileOperationError::Message(format!(
+                "Cannot update thresholds. {}",
+                e
+            )));
         }
-        Err(e) => return Err(FileOperationError::Message(format!("Error: {}", e))),
     }
     Ok(())
 }
@@ -97,7 +108,7 @@ pub fn update_thresholds_and_alias_map(
     game_title: &str,
     alias: &str,
 ) -> Result<(), FileOperationError> {
-    let mut alias_map = load_alias_map().unwrap_or_default();
+    let mut alias_map = load_alias_map()?;
 
     // Remove old alias for game in alias map
     let old_alias;
@@ -138,8 +149,18 @@ pub fn update_thresholds_and_alias_map(
 
     // Save changes to thresholds and alias map
     let mut thresholds_data = load_data()?;
-    *thresholds_data.get_mut(ALIAS_MAP.to_string()).unwrap() = json!(alias_map);
-    *thresholds_data.get_mut(THRESHOLDS.to_string()).unwrap() = json!(thresholds);
+    *thresholds_data
+        .get_mut(ALIAS_MAP.to_string())
+        .ok_or(FileOperationError::Message(format!(
+            "Could not find '{}' key in thresholds",
+            ALIAS_MAP
+        )))? = json!(alias_map);
+    *thresholds_data
+        .get_mut(THRESHOLDS.to_string())
+        .ok_or(FileOperationError::Message(format!(
+            "Could not find '{}' key in thresholds",
+            THRESHOLDS
+        )))? = json!(thresholds);
     match serde_json::to_string_pretty(&thresholds_data) {
         Ok(alias_map_str) => general::write_to_file(get_path()?, alias_map_str)?,
         Err(e) => {
@@ -153,9 +174,13 @@ pub fn update_thresholds_and_alias_map(
 }
 
 pub fn update_alias_map(alias_map: HashMap<String, Vec<String>>) -> Result<(), FileOperationError> {
-    let data = load_data()?;
-    let mut alias_data = data;
-    *alias_data.get_mut(ALIAS_MAP.to_string()).unwrap() = json!(alias_map);
+    let mut alias_data = load_data()?;
+    *alias_data
+        .get_mut(ALIAS_MAP.to_string())
+        .ok_or(FileOperationError::Message(format!(
+            "Could not find '{}' key in thresholds",
+            ALIAS_MAP
+        )))? = json!(alias_map);
     match serde_json::to_string_pretty(&alias_data) {
         Ok(alias_str) => general::write_to_file(get_path()?, alias_str)?,
         Err(e) => {
@@ -172,10 +197,10 @@ pub fn update_threshold_alias(
     game_title: String,
     new_alias: &str,
 ) -> Result<bool, FileOperationError> {
-    let mut alias_map = load_alias_map().unwrap_or_default();
+    let mut alias_map = load_alias_map()?;
 
     // Remove old alias for game in alias map
-    let mut thresholds = load_thresholds().unwrap_or_default();
+    let mut thresholds = load_thresholds()?;
     let old_alias;
     if let Some(i) = thresholds
         .iter()
@@ -216,8 +241,18 @@ pub fn update_threshold_alias(
     match load_data() {
         Ok(data) => {
             let mut alias_data = data;
-            *alias_data.get_mut(ALIAS_MAP.to_string()).unwrap() = json!(alias_map);
-            *alias_data.get_mut(THRESHOLDS.to_string()).unwrap() = json!(thresholds);
+            *alias_data
+                .get_mut(ALIAS_MAP.to_string())
+                .ok_or(FileOperationError::Message(format!(
+                    "Could not find '{}' key in thresholds",
+                    ALIAS_MAP
+                )))? = json!(alias_map);
+            *alias_data
+                .get_mut(THRESHOLDS.to_string())
+                .ok_or(FileOperationError::Message(format!(
+                    "Could not find '{}' key in thresholds",
+                    THRESHOLDS
+                )))? = json!(thresholds);
             match serde_json::to_string_pretty(&alias_data) {
                 Ok(alias_map_str) => general::write_to_file(get_path()?, alias_map_str)?,
                 Err(e) => {
@@ -230,10 +265,7 @@ pub fn update_threshold_alias(
             // println!("{} threshold alias set to \'{}\'", game_title, new_alias);
             Ok(true)
         }
-        Err(e) => {
-            eprintln!("Error: {}", e);
-            Ok(false)
-        }
+        Err(e) => Err(e),
     }
 }
 
@@ -248,7 +280,7 @@ pub fn update_threshold_alias_fuzzy(
     let mut fuzzy_thresholds: Vec<String> = Vec::new();
     if !alias_updated {
         // Find other potential game thresholds
-        let thresholds = load_thresholds().unwrap_or_default();
+        let thresholds = load_thresholds()?;
         for thresh in thresholds {
             let mut dist = fuzzy::levenshtein_distance(&game_title, thresh.title.as_str());
             if 1.0 - (dist / thresh.title.len() as f32) >= LEVENSTEIN_DIST_PERCENTAGE {
@@ -270,13 +302,7 @@ pub fn update_threshold_alias_fuzzy(
             println!("  [{}] {}", idx, game_title);
         }
         println!("  [c] Cancel");
-        let mut input = String::new();
-        print!("Update alias by index or type \'c\' to cancel: ");
-        let _ = io::stdout().flush();
-        // TODO: Propagate terminal input errors instead of panicking
-        io::stdin()
-            .read_line(&mut input)
-            .expect("Failed to read user input");
+        let input = inputs::get_string_input("Update alias by index or type \'c\' to cancel:")?;
         if input.trim() == "c" {
             println!("Threshold alias update of '{}' cancelled.", game_title);
         } else {
@@ -304,9 +330,9 @@ pub fn update_threshold_alias_fuzzy(
     Ok(())
 }
 
-pub fn does_alias_exist(alias_name: &str) -> bool {
-    let alias_map = load_alias_map().unwrap_or_default();
-    alias_map.contains_key(alias_name)
+pub fn does_alias_exist(alias_name: &str) -> Result<bool, FileOperationError> {
+    let alias_map = load_alias_map()?;
+    Ok(alias_map.contains_key(alias_name))
 }
 
 fn is_threshold(title: &str, game_thresh: &GameThreshold) -> bool {
@@ -319,7 +345,7 @@ pub async fn add_steam_game(
     price: f64,
     client: &reqwest::Client,
 ) -> Result<String, GenericError> {
-    let mut thresholds = load_thresholds().unwrap_or_else(|_e| Vec::new());
+    let mut thresholds = load_thresholds()?;
     match steam::get_price(app.app_id, client).await {
         Ok(po) => {
             let mut unique: bool = true;
@@ -327,7 +353,7 @@ pub async fn add_steam_game(
                 if is_threshold(&app.name, elem) {
                     unique = false;
                     if elem.steam_id == 0 {
-                        update_id(&elem.title, GameStore::STEAM, app.app_id);
+                        update_id(&elem.title, GameStore::STEAM, app.app_id)?;
                     }
                     break;
                 }
@@ -349,7 +375,7 @@ pub async fn add_steam_game(
             }
             Ok(app.name)
         }
-        Err(e) => return Err(e.into()),
+        Err(e) => Err(e.into()),
     }
 }
 
@@ -358,14 +384,17 @@ pub fn add_gog_game(
     game: &GOGGameInfo,
     price: f64,
 ) -> Result<String, ConfigError> {
-    let mut thresholds = load_thresholds().unwrap_or_else(|_e| Vec::new());
+    let mut thresholds = load_thresholds()?;
     let mut unique: bool = true;
     for elem in thresholds.iter() {
         if is_threshold(&game.title, elem) {
             unique = false;
             if elem.gog_id == 0 {
-                let game_id = game.id.parse::<u32>().unwrap();
-                update_id(&elem.title, GameStore::GOOD_OLD_GAMES, game_id);
+                let game_id = game
+                    .id
+                    .parse::<u32>()
+                    .map_err(|e| ConfigError::Message(e.to_string()))?;
+                update_id(&elem.title, GameStore::GOOD_OLD_GAMES, game_id)?;
             }
             break;
         }
@@ -380,7 +409,10 @@ pub fn add_gog_game(
             title: game.title.clone(),
             alias: alias_str.clone(),
             steam_id: 0,
-            gog_id: game.id.parse::<u32>().unwrap(),
+            gog_id: game
+                .id
+                .parse::<u32>()
+                .map_err(|e| ConfigError::Message(e.to_string()))?,
             microsoft_store_id: String::new(),
             //currency: game.price.currency.clone(), // Version 1
             currency: currency_code,
@@ -398,14 +430,14 @@ pub fn add_microsoft_store_game(
     game: &ProductInfo,
     price: f64,
 ) -> Result<String, ConfigError> {
-    let mut thresholds = load_thresholds().unwrap_or_else(|_e| Vec::new());
+    let mut thresholds = load_thresholds()?;
     let mut unique: bool = true;
     for elem in thresholds.iter() {
         if is_threshold(&game.title, elem) {
             unique = false;
             if elem.microsoft_store_id.is_empty() {
                 let game_id = &game.product_id;
-                update_id_str(&elem.title, GameStore::MICROSOFT_STORE_PC, game_id);
+                update_id_str(&elem.title, GameStore::MICROSOFT_STORE_PC, game_id)?;
             }
             break;
         }
@@ -428,10 +460,8 @@ pub fn add_microsoft_store_game(
     Ok(game.title.clone())
 }
 
-pub fn get_alias_if_available(
-    alias: &str,
-) -> Result<(String, bool), FileOperationError> {
-    if alias.is_empty() || !does_alias_exist(alias) {
+pub fn get_alias_if_available(alias: &str) -> Result<(String, bool), FileOperationError> {
+    if alias.is_empty() || !does_alias_exist(alias)? {
         return Ok((alias.to_string(), true));
     }
 
@@ -446,22 +476,10 @@ pub fn set_game_alias() -> Result<String, ConfigError> {
     let mut alias = String::new();
     match settings::get_alias_state() {
         Ok(_) => {
-            let mut input = String::new();
-            print!("Do you want to assign an alias [Y\\N]? ");
-            let _ = io::stdout().flush();
-            // TODO: Propagate terminal input errors instead of panicking
-            io::stdin()
-                .read_line(&mut input)
-                .expect("Failed to permission to assign alias.");
+            let input = inputs::get_string_input("Do you want to assign an alias [Y\\N]?")?;
             if input.trim() == "Yes" || input.trim() == "Y" || input.trim() == "YES" {
-                print!("Alias name: ");
-                let _ = io::stdout().flush();
-                let mut alias_name = String::new();
-                // TODO: Propagate terminal input errors instead of panicking
-                io::stdin()
-                    .read_line(&mut alias_name)
-                    .expect("Failed to read alias.");
-                alias = alias_name.trim().to_string();
+                let alias_input = inputs::get_string_input("Alias name:")?;
+                alias = alias_input;
             }
         }
         Err(e) => return Err(e.into()),
@@ -469,8 +487,8 @@ pub fn set_game_alias() -> Result<String, ConfigError> {
     Ok(alias)
 }
 
-pub fn update_price(title: &str, price: f64) -> bool {
-    let mut thresholds = load_thresholds().unwrap_or_else(|_e| Vec::new());
+pub fn update_price(title: &str, price: f64) -> Result<bool, FileOperationError> {
+    let mut thresholds = load_thresholds()?;
     let mut price_updated = false;
     for threshold in thresholds.iter_mut() {
         if is_threshold(title, threshold) {
@@ -491,21 +509,22 @@ pub fn update_price(title: &str, price: f64) -> bool {
         }
     }
     if price_updated {
-        let _ = update_thresholds(thresholds);
-        true
+        update_thresholds(thresholds)?;
+        Ok(true)
     } else {
         // println!("\"{}\" does not have a configured threshold.", title);
-        false
+        Ok(false)
     }
 }
 
-pub fn update_price_fuzzy(title: &str, price: f64) {
+// CLI-Only function
+pub fn update_price_fuzzy(title: &str, price: f64) -> Result<(), GenericError> {
     //Try to run the normal update price first
-    let price_updated = update_price(title, price);
+    let price_updated = update_price(title, price)?;
 
     if !price_updated {
         // Find other potential game thresholds
-        let thresholds = load_thresholds().unwrap_or_else(|_e| Vec::new());
+        let thresholds = load_thresholds()?;
         let mut fuzzy_thresholds: Vec<String> = Vec::new();
         let mut fuzzy_alias: Vec<String> = Vec::new();
         for thresh in thresholds {
@@ -523,7 +542,9 @@ pub fn update_price_fuzzy(title: &str, price: f64) {
         }
 
         if fuzzy_thresholds.is_empty() {
-            return;
+            return Err(GenericError::Message(
+                "Could not find any thresholds with the provided title".into(),
+            ));
         }
 
         println!("Did you mean one of the following?");
@@ -531,37 +552,48 @@ pub fn update_price_fuzzy(title: &str, price: f64) {
             println!("  [{}] {}", idx, game_title);
         }
         println!("  [c] Cancel");
-        let mut input = String::new();
-        print!("Update price by index or type \'c\' to cancel: ");
-        let _ = io::stdout().flush();
-        // TODO: Propagate terminal input errors instead of panicking
-        io::stdin()
-            .read_line(&mut input)
-            .expect("Failed to read user input");
+        let input = inputs::get_string_input("Update price by index or type \'c\' to cancel:")?;
         if input.trim() == "c" {
-            println!("Threshold price update of '{}' cancelled.", title);
+            Err(GenericError::Message(format!(
+                "Threshold price update of '{}' cancelled.",
+                title
+            )))
         } else {
             match input.trim().parse::<usize>() {
                 Ok(idx) => {
                     if idx < fuzzy_thresholds.len() {
                         let alias = fuzzy_alias[idx].as_str();
                         if !alias.is_empty() {
-                            update_price(alias, price);
+                            match update_price(alias, price) {
+                                Ok(_) => Ok(()),
+                                Err(e) => Err(e.into()),
+                            }
                         } else {
-                            update_price(&fuzzy_thresholds[idx], price);
+                            match update_price(&fuzzy_thresholds[idx], price) {
+                                Ok(_) => Ok(()),
+                                Err(e) => Err(e.into()),
+                            }
                         }
-                    } else if idx >= fuzzy_thresholds.len() {
-                        eprintln!("Integer \"{}\" is invalid. Remove cancelled.", idx);
+                    } else {
+                        Err(GenericError::Message(format!(
+                            "Integer \"{}\" is invalid. Remove cancelled.",
+                            idx
+                        )))
                     }
                 }
-                Err(e) => println!("Invalid input: {}\nError: {}", input, e),
+                Err(e) => Err(GenericError::Message(format!(
+                    "Invalid input: {}\nError: {}",
+                    input, e
+                ))),
             }
         }
+    } else {
+        Ok(())
     }
 }
 
-pub fn update_id(title: &str, store_type: GameStore, id: u32) {
-    let mut thresholds = load_thresholds().unwrap_or_else(|_e| Vec::new());
+pub fn update_id(title: &str, store_type: GameStore, id: u32) -> Result<(), FileOperationError> {
+    let mut thresholds = load_thresholds()?;
     let idx = thresholds
         .iter()
         .position(|threshold| is_threshold(title, threshold));
@@ -583,14 +615,19 @@ pub fn update_id(title: &str, store_type: GameStore, id: u32) {
                 "Could not convert the {} id update to a string object.",
                 store_type
             );
-            let _ = update_thresholds(thresholds);
+            update_thresholds(thresholds)?;
             // println!("Updated {} ID for \"{}\"", store_name, title);
         }
     }
+    Ok(())
 }
 
-pub fn update_id_str(title: &str, store_type: GameStore, id: &str) {
-    let mut thresholds = load_thresholds().unwrap_or_else(|_e| Vec::new());
+pub fn update_id_str(
+    title: &str,
+    store_type: GameStore,
+    id: &str,
+) -> Result<(), FileOperationError> {
+    let mut thresholds = load_thresholds()?;
     let idx = thresholds
         .iter()
         .position(|threshold| is_threshold(title, threshold));
@@ -608,24 +645,25 @@ pub fn update_id_str(title: &str, store_type: GameStore, id: &str) {
                 "Could not convert the {} id update to a string object.",
                 store_type
             );
-            let _ = update_thresholds(thresholds);
+            update_thresholds(thresholds)?;
             // println!("Updated {} ID for \"{}\"", store_name, title);
         }
     }
+    Ok(())
 }
 
-pub fn remove(title: &str) -> bool {
-    let mut alias_map: HashMap<String, Vec<String>> = load_alias_map().unwrap_or_default();
-    let mut thresholds = load_thresholds().unwrap_or_else(|_e| Vec::new());
+pub fn remove(title: &str) -> Result<bool, FileOperationError> {
+    let mut alias_map: HashMap<String, Vec<String>> = load_alias_map()?;
+    let mut thresholds = load_thresholds()?;
     let mut threshold_removed = false;
-    if does_alias_exist(title) {
+    if does_alias_exist(title)? {
         let title_list = alias_map.get(title).unwrap();
         for game_title in title_list.iter() {
             if let Some(idx) = thresholds
                 .iter()
                 .position(|threshold| *game_title == threshold.title)
             {
-                println!("Removing \"{}\".", thresholds[idx].title);
+                // println!("Removing \"{}\".", thresholds[idx].title);
                 thresholds.remove(idx);
                 threshold_removed = true;
             };
@@ -647,29 +685,30 @@ pub fn remove(title: &str) -> bool {
                         alias_map.remove(&thresholds[i].alias);
                     }
                 }
-                println!("Removing \"{}\".", thresholds[i].title);
+                // println!("Removing \"{}\".", thresholds[i].title);
                 thresholds.remove(i);
                 threshold_removed = true;
             }
         }
     }
     if threshold_removed {
-        let _ = update_alias_map(alias_map);
-        let _ = update_thresholds(thresholds);
-        true
+        update_alias_map(alias_map)?;
+        update_thresholds(thresholds)?;
+        Ok(true)
     } else {
         // println!("Failed to remove game using title/alias: \"{}\".", title);
-        false
+        Ok(false)
     }
 }
 
-pub fn remove_fuzzy(title: &str) {
+// CLI-Only function
+pub fn remove_fuzzy(title: &str) -> Result<(), GenericError> {
     //Try to run the normal remove first
-    let is_removed = remove(title);
+    let is_removed = remove(title)?;
 
     if !is_removed {
         // Find other potential game thresholds
-        let thresholds = load_thresholds().unwrap_or_else(|_e| Vec::new());
+        let thresholds = load_thresholds()?;
         let mut fuzzy_thresholds: Vec<String> = Vec::new();
         for thresh in thresholds {
             let mut dist = fuzzy::levenshtein_distance(title, thresh.title.as_str());
@@ -684,7 +723,9 @@ pub fn remove_fuzzy(title: &str) {
         }
 
         if fuzzy_thresholds.is_empty() {
-            return;
+            return Err(GenericError::Message(
+                "Could not find any games that match the provided title".into(),
+            ));
         }
 
         println!("Did you mean one of the following?");
@@ -692,27 +733,36 @@ pub fn remove_fuzzy(title: &str) {
             println!("  [{}] {}", idx, game_title);
         }
         println!("  [c] Cancel");
-        let mut input = String::new();
-        print!("Remove game title by index or type \'c\' to cancel: ");
-        let _ = io::stdout().flush();
-        // TODO: Propagate terminal input errors instead of panicking
-        io::stdin()
-            .read_line(&mut input)
-            .expect("Failed to read user input");
+        let input =
+            inputs::get_string_input("Remove game title by index or type \'c\' to cancel:")?;
         if input.trim() == "c" {
-            println!("Threshold removal of '{}' cancelled.", title);
+            Err(GenericError::Message(format!(
+                "Threshold removal of '{}' cancelled.",
+                title
+            )))
         } else {
             match input.trim().parse::<usize>() {
                 Ok(idx) => {
                     if idx < fuzzy_thresholds.len() {
-                        remove(&fuzzy_thresholds[idx]);
-                    } else if idx >= fuzzy_thresholds.len() {
-                        eprintln!("Integer \"{}\" is invalid. Remove cancelled.", idx);
+                        match remove(&fuzzy_thresholds[idx]) {
+                            Ok(_) => Ok(()),
+                            Err(e) => Err(e.into()),
+                        }
+                    } else {
+                        Err(GenericError::Message(format!(
+                            "Integer \"{}\" is invalid. Remove cancelled.",
+                            idx
+                        )))
                     }
                 }
-                Err(e) => println!("Invalid input: {}\nError: {}", input, e),
+                Err(e) => Err(GenericError::Message(format!(
+                    "Invalid input: {}\nError: {}",
+                    input, e
+                ))),
             }
         }
+    } else {
+        Ok(())
     }
 }
 

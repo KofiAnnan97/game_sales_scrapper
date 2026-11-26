@@ -36,9 +36,9 @@ enum SearchPattern {
 // #[automock]
 #[async_trait]
 pub trait SteamApi {
-    async fn search_game(&self, keyphrase: &str) -> Option<String>;
+    async fn search_game(&self, keyphrase: &str) -> Result<String, ApiError>;
     async fn search_by_keyphrase(&self, keyphrase: &str) -> Result<Vec<String>, ApiError>;
-    async fn check_game(&self, name: &str) -> Option<App>;
+    async fn check_game(&self, name: &str) -> Result<App, ApiError>;
     async fn get_price(&self, app_id: u32) -> Result<PriceOverview, ApiError>;
     async fn get_price_details(&self, app_id: u32) -> Result<SaleInfo, ApiError>;
     async fn get_bulk_filtered_price_details(
@@ -60,7 +60,7 @@ impl<'a> SteamClient<'a> {
 
 #[async_trait]
 impl<'a> SteamApi for SteamClient<'a> {
-    async fn search_game(&self, keyphrase: &str) -> Option<String> {
+    async fn search_game(&self, keyphrase: &str) -> Result<String, ApiError> {
         match self.search_by_keyphrase(keyphrase).await {
             Ok(search_list) => {
                 if !search_list.is_empty() {
@@ -72,10 +72,9 @@ impl<'a> SteamApi for SteamClient<'a> {
                     let mut input = String::new();
                     print!("Type integer corresponding to game title or type \'q\' to skip: ");
                     let _ = io::stdout().flush();
-                    // TODO: Propagate terminal input errors instead of panicking
                     io::stdin()
                         .read_line(&mut input)
-                        .expect("Failed to read user input");
+                        .map_err(|e| ApiError::Message(e.to_string()))?;
                     if input.trim() == "q" {
                         eprintln!("Request terminated.");
                     } else {
@@ -83,7 +82,7 @@ impl<'a> SteamApi for SteamClient<'a> {
                             Ok(idx) => {
                                 if idx < search_list.len() {
                                     let title = search_list[idx].clone();
-                                    return Some(title);
+                                    return Ok(title);
                                 } else if idx >= search_list.len() {
                                     eprintln!(
                                         "Integer \"{}\" is invalid. Request terminated.",
@@ -103,14 +102,14 @@ impl<'a> SteamApi for SteamClient<'a> {
             }
             Err(e) => println!("Error: {}", e),
         }
-        None
+        Err(ApiError::Message("Failed to search Steam game".into()))
     }
 
     async fn search_by_keyphrase(&self, keyphrase: &str) -> Result<Vec<String>, ApiError> {
-        let mut games_list: Vec<App> = load_cached_games().unwrap_or_default();
+        let mut games_list: Vec<App> = load_cached_games()?;
         if games_list.is_empty() {
-            let _ = update_cached_games(self.http_client).await;
-            games_list = load_cached_games().unwrap_or_default();
+            update_cached_games(self.http_client).await?;
+            games_list = load_cached_games()?;
         }
         let mut search_list: Vec<String> = Vec::new();
         let search_type = SearchPattern::FuzzySmithWatrerman;
@@ -127,12 +126,13 @@ impl<'a> SteamApi for SteamClient<'a> {
                         let sem = Arc::clone(&semaphore);
                         let chunk = chunk.to_vec();
                         let keyphrase_owned = keyphrase.to_string();
+                        let keyphrase_ignore_case = format!("(?i){}", keyphrase_owned);
+                        let re = Regex::new(&keyphrase_ignore_case).map_err(|e| {
+                            ApiError::Message(format!("Failed to search game: {}", e))
+                        })?;
                         let task = tokio::spawn(async move {
                             let _permit = sem.acquire().await.ok();
                             let mut temp_list: Vec<String> = Vec::new();
-                            let keyphrase_ignore_case = format!("(?i){}", keyphrase_owned);
-                            // TODO: Handle invalid search patterns instead of panicking
-                            let re = Regex::new(&keyphrase_ignore_case).unwrap();
                             for game in chunk.iter() {
                                 let caps = re.captures(&game.name);
                                 if !caps.is_none() {
@@ -144,7 +144,10 @@ impl<'a> SteamApi for SteamClient<'a> {
                         tasks.push(task);
                     }
                     let results = futures::future::join_all(tasks).await;
-                    for game_names in results.into_iter().take(SEARCH_SIZE_LIMIT).flatten() {
+                    for result in results.into_iter().take(SEARCH_SIZE_LIMIT) {
+                        let game_names = result.map_err(|e| {
+                            ApiError::Message(format!("Steam search task failed: {}", e))
+                        })?;
                         search_list.extend(game_names);
                     }
                 }
@@ -186,7 +189,10 @@ impl<'a> SteamApi for SteamClient<'a> {
                     }
                     let mut combined_fuzzy_scores: HashMap<String, f32> = HashMap::new();
                     let results = futures::future::join_all(tasks).await;
-                    for fuzzy_scores in results.into_iter().flatten() {
+                    for result in results.into_iter() {
+                        let fuzzy_scores = result.map_err(|e| {
+                            ApiError::Message(format!("Steam search task failed: {}", e))
+                        })?;
                         combined_fuzzy_scores.extend(fuzzy_scores);
                     }
                     search_list = combined_fuzzy_scores.keys().cloned().collect();
@@ -204,15 +210,15 @@ impl<'a> SteamApi for SteamClient<'a> {
         Ok(search_list)
     }
 
-    async fn check_game(&self, name: &str) -> Option<App> {
-        let mut games_list: Vec<App> = load_cached_games().unwrap_or_default();
+    async fn check_game(&self, name: &str) -> Result<App, ApiError> {
+        let mut games_list: Vec<App> = load_cached_games()?;
         if games_list.is_empty() {
-            let _ = update_cached_games(self.http_client).await;
-            games_list = load_cached_games().unwrap_or_default();
+            update_cached_games(self.http_client).await?;
+            games_list = load_cached_games()?;
         }
         for elem in games_list.iter() {
             if name == elem.name {
-                return Some(App {
+                return Ok(App {
                     name: name.to_owned(),
                     app_id: elem.app_id,
                     last_modified: elem.last_modified,
@@ -220,7 +226,7 @@ impl<'a> SteamApi for SteamClient<'a> {
                 });
             }
         }
-        None
+        Err(ApiError::Message(format!("Game '{}' not found", name)))
     }
 
     async fn get_price(&self, app_id: u32) -> Result<PriceOverview, ApiError> {
@@ -262,8 +268,9 @@ impl<'a> SteamApi for SteamClient<'a> {
                 let success = app_details.success;
                 if success {
                     if let Some(data) = app_details.app_data {
-                        // TODO: Handle games without pricing data instead of panicking
-                        let price_overview = data.price_overview.unwrap();
+                        let price_overview = data
+                            .price_overview
+                            .ok_or(ApiError::Message("Price details could not be found".into()))?;
                         Ok(SaleInfo {
                             icon_link: data.header_image,
                             title: data.name,
@@ -301,7 +308,9 @@ impl<'a> SteamApi for SteamClient<'a> {
         match get_bulk_prices(app_ids, self.http_client).await {
             Ok(app_prices) => {
                 for (app_id, response) in app_prices.prices {
-                    let id = app_id.parse::<u32>().unwrap_or_default();
+                    let id = app_id.parse::<u32>().map_err(|e| {
+                        ApiError::Message(format!("Steam game id could not be parsed. {}", e))
+                    })?;
                     if let Some(po) = response.data.price_overview
                         && let Some(price) = desired_prices.get(&app_id)
                         && *price >= po.final_price / 100.0
@@ -407,7 +416,7 @@ fn add_entries_to_cache(new_games: &mut Vec<App>, cached_games: &mut Vec<App>) -
 
 // Updated to return a boolean and propagate error
 pub async fn update_cached_games(client: &reqwest::Client) -> Result<String, ApiError> {
-    let mut games_list: Vec<App> = load_cached_games().unwrap_or_default();
+    let mut games_list: Vec<App> = load_cached_games()?;
     let last_appid = get_last_appid(&games_list);
     let mut temp: Vec<App> = get_games(client, NUM_OF_RESULTS, last_appid).await?;
     let mut cache_changed = add_entries_to_cache(&mut temp, &mut games_list);
@@ -568,7 +577,7 @@ pub async fn get_price_details(
 }
 
 // Search Functions
-pub async fn check_game(name: &str, client: &reqwest::Client) -> Option<App> {
+pub async fn check_game(name: &str, client: &reqwest::Client) -> Result<App, ApiError> {
     SteamClient::new(client).check_game(name).await
 }
 
@@ -581,7 +590,7 @@ pub async fn search_by_keyphrase(
         .await
 }
 
-pub async fn search_game(keyphrase: &str, client: &reqwest::Client) -> Option<String> {
+pub async fn search_game(keyphrase: &str, client: &reqwest::Client) -> Result<String, ApiError> {
     SteamClient::new(client).search_game(keyphrase).await
 }
 

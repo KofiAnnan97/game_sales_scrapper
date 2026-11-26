@@ -1,3 +1,11 @@
+use iced::{Element, Subscription, Task, Theme, exit, time, window};
+use reqwest::Client;
+use std::collections::{HashMap, HashSet};
+use std::path::Path;
+use std::sync::Arc;
+use std::time::Duration;
+use tokio::sync::Semaphore;
+
 use crate::app::constants::{LOADING_FRAMES_SIZE, SKIP_STORE_SELECTION, STATUS_ERR};
 use crate::app::enums::{SortColumn, SortOrder, Tab, View};
 use crate::app::message::{MainMessage, Message};
@@ -12,16 +20,9 @@ use crate::views::logs::Screen;
 use crate::views::logs::{LoggingMessage, LoggingView};
 use crate::views::preview::{PreviewMessage, PreviewView};
 use crate::views::settings::Page;
-use file_ops::{settings, thresholds};
 use files::csv;
-use iced::{Element, Subscription, Task, Theme, exit, time, window};
-use reqwest::Client;
-use std::collections::{HashMap, HashSet};
-use std::path::Path;
-use std::sync::Arc;
-use std::time::Duration;
+use operations::{settings, thresholds};
 use stores::search::provider::SearchProvider;
-use tokio::sync::Semaphore;
 use types::internal::data::{GameThreshold, SimpleGameThreshold};
 use types::internal::store::{DEFAULT_CONCURRENCY_LIMIT, GameStore};
 

@@ -17,6 +17,7 @@ config/
 logs/
 *.json
 *.csv
+*.html
 
 # Exceptions
 !.env.template

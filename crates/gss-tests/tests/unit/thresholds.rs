@@ -1,6 +1,6 @@
-use file_ops::thresholds;
 use gss_tests::stubs::threshold_stubs;
 use gss_tests::utils::tmp_setup;
+use operations::thresholds;
 use properties;
 use types::internal::store::GameStore;
 
@@ -18,8 +18,8 @@ async fn add_steam_game() {
     let game_title = &app.name.clone();
     let game_id = app.app_id;
     thresholds::add_steam_game(game_title.clone(), app, 10.00, &client)
-    .await
-    .expect("Could not add the Steam game threshold.");
+        .await
+        .expect("Could not add the Steam game threshold.");
 
     match thresholds::load_thresholds() {
         Ok(thresholds) => {
@@ -54,7 +54,7 @@ fn add_gog_game() {
         .parse::<u32>()
         .expect("The GOG game ID should be a valid integer.");
     thresholds::add_gog_game(game_title.clone(), &game, 10.00)
-    .expect("Could not add the GOG game threshold.");
+        .expect("Could not add the GOG game threshold.");
 
     match thresholds::load_thresholds() {
         Ok(thresholds) => {
@@ -87,7 +87,7 @@ fn add_microsoft_store_game() {
     let game_title = &game.title.clone();
     let game_id = &game.product_id.clone();
     thresholds::add_microsoft_store_game(game_title.clone(), &game, 10.00)
-    .expect("Could not add the Microsoft Store game threshold.");
+        .expect("Could not add the Microsoft Store game threshold.");
 
     match thresholds::load_thresholds() {
         Ok(thresholds) => {

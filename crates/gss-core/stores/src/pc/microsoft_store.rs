@@ -15,8 +15,12 @@ use types::response::microsoft_store::{GameInfo, ProductInfo};
 pub trait MicrosoftStoreApi {
     async fn search_game_by_title(&self, title: &str) -> Result<Vec<ProductInfo>, ApiError>;
     async fn get_game_data(&self, xbox_id: &str) -> Result<GameInfo, ApiError>;
-    async fn get_price_using_search(&self, title: &str, xbox_id: &str) -> Option<SaleInfo>;
-    async fn get_price_details(&self, xbox_id: &str) -> Option<SaleInfo>;
+    async fn get_price_using_search(
+        &self,
+        title: &str,
+        xbox_id: &str,
+    ) -> Result<SaleInfo, ApiError>;
+    async fn get_price_details(&self, xbox_id: &str) -> Result<SaleInfo, ApiError>;
 }
 
 pub struct MSClient<'a> {
@@ -77,20 +81,23 @@ impl<'a> MicrosoftStoreApi for MSClient<'a> {
         Ok(game)
     }
 
-    async fn get_price_using_search(&self, title: &str, xbox_id: &str) -> Option<SaleInfo> {
-        let search_list: Vec<ProductInfo> = self
-            .search_game_by_title(title)
-            .await
-            .unwrap_or_else(|_e| Vec::new());
+    async fn get_price_using_search(
+        &self,
+        title: &str,
+        xbox_id: &str,
+    ) -> Result<SaleInfo, ApiError> {
+        let search_list: Vec<ProductInfo> = self.search_game_by_title(title).await?;
         for game in search_list {
             if game.product_id == xbox_id {
-                let mut discount_str = game.price_info.badge_text.unwrap_or_default();
+                let mut discount_str = game.price_info.badge_text.ok_or(ApiError::Message(
+                    "Discount percent could not be found".into(),
+                ))?;
                 discount_str = if !discount_str.is_empty() {
                     discount_str[1..discount_str.len() - 1].to_string()
                 } else {
                     String::from("0")
                 };
-                return Some(SaleInfo {
+                return Ok(SaleInfo {
                     icon_link: game.box_icon_url.clone(),
                     title: game.title.clone(),
                     original_price: game.price_info.msrp.unwrap_or(f64::MIN),
@@ -100,10 +107,12 @@ impl<'a> MicrosoftStoreApi for MSClient<'a> {
                 });
             }
         }
-        None
+        Err(ApiError::Message(
+            "Could not retrieve the price details for the game.".into(),
+        ))
     }
 
-    async fn get_price_details(&self, xbox_id: &str) -> Option<SaleInfo> {
+    async fn get_price_details(&self, xbox_id: &str) -> Result<SaleInfo, ApiError> {
         match self.get_game_data(xbox_id).await {
             Ok(game) => {
                 let mut discount_str = game.price_info.badge_text.unwrap_or_default();
@@ -112,16 +121,16 @@ impl<'a> MicrosoftStoreApi for MSClient<'a> {
                 } else {
                     String::from("0")
                 };
-                return Some(SaleInfo {
+                Ok(SaleInfo {
                     icon_link: game.box_icon_url.clone(),
                     title: game.title.clone(),
                     original_price: game.price_info.msrp.unwrap_or(f64::MIN),
                     current_price: game.price_info.price.unwrap_or(f64::MAX),
                     discount_percentage: discount_str,
                     store_page_link: game.redirect_url.unwrap_or_default(),
-                });
+                })
             }
-            Err(_) => None,
+            Err(e) => Err(e),
         }
     }
 }
@@ -137,12 +146,15 @@ pub async fn get_price_using_search(
     title: &str,
     xbox_id: &str,
     http_client: &reqwest::Client,
-) -> Option<SaleInfo> {
+) -> Result<SaleInfo, ApiError> {
     MSClient::new(http_client)
         .get_price_using_search(title, xbox_id)
         .await
 }
 
-pub async fn get_price_details(xbox_id: &str, http_client: &reqwest::Client) -> Option<SaleInfo> {
+pub async fn get_price_details(
+    xbox_id: &str,
+    http_client: &reqwest::Client,
+) -> Result<SaleInfo, ApiError> {
     MSClient::new(http_client).get_price_details(xbox_id).await
 }

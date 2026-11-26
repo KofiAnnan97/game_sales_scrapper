@@ -2,7 +2,7 @@ use iced::widget::{Button, Radio, Scrollable, TextInput, column, container, row,
 use iced::{Element, Length};
 
 use constants::icons::{LEFT_ARROW_LONG, RIGHT_ARROW_LONG};
-use file_ops::thresholds;
+use operations::thresholds;
 
 use crate::app::constants::{LOADING_FRAMES_SIZE, SKIP_STORE_SELECTION};
 use crate::app::message::{MainMessage, Message};
@@ -31,7 +31,10 @@ pub fn search_tab(app: &App) -> Element<'_, Message> {
         column![text(
             "No search in progress. Enter a query and press Search."
         )]
-    } else if !app.alias_reuse_enabled && thresholds::does_alias_exist(&app.add_alias) {
+    } else if !app.alias_reuse_enabled
+        && let Ok(does_exist) = thresholds::does_alias_exist(&app.add_alias)
+        && does_exist
+    {
         //app.log_batch.push_str(&log_utils::message_builder("L", log_utils::LogLevel::WARN));
         column![text(format!(
             "The alias \'{}\' is already is use. Please enable alias reuse in Settings to use this alias again.",

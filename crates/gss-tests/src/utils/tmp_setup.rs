@@ -90,8 +90,9 @@ pub fn create(title: &str, steam_cache: Vec<App>) -> PathBuf {
     let data_dir = base_dir.join(DATA_DIR);
     let config_dir = base_dir.join(CONFIG_DIR);
 
-    general::create_dir(&data_dir.display().to_string());
-    general::create_dir(&config_dir.display().to_string());
+    general::create_dir(&data_dir.display().to_string()).expect("Data directory was not created.");
+    general::create_dir(&config_dir.display().to_string())
+        .expect("Config directory was not created.");
 
     let tmp_thresholds_file = data_dir
         .join(THRESHOLD_FILENAME)
@@ -122,8 +123,10 @@ pub fn create(title: &str, steam_cache: Vec<App>) -> PathBuf {
     let test_data_dir = test_root.join(DATA_DIR);
     let test_config_dir = test_root.join(CONFIG_DIR);
 
-    general::create_dir(&test_data_dir.display().to_string());
-    general::create_dir(&test_config_dir.display().to_string());
+    general::create_dir(&test_data_dir.display().to_string())
+        .expect("Test data directory was not created.");
+    general::create_dir(&test_config_dir.display().to_string())
+        .expect("Test config directory was not created.");
 
     let tmp_thresholds_file_test = test_data_dir
         .join(THRESHOLD_FILENAME)

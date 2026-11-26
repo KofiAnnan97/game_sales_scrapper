@@ -21,12 +21,11 @@ use errors::input::FileOperationError;
 pub fn get_properties_path() -> Result<String, FileOperationError> {
     let mut project_path = env_vars::get_project_path();
     if project_path.is_empty() {
-        // TODO: Propagate current-directory errors instead of panicking
-        project_path = std::env::current_dir().unwrap().display().to_string();
+        project_path = std::env::current_dir()?.display().to_string();
     }
     let mut path_buf: PathBuf = [&project_path, CONFIG_DIR].iter().collect();
     let data_path = path_buf.display().to_string();
-    general::create_dir(&data_path);
+    general::create_dir(&data_path)?;
     path_buf = [data_path, PROPERTIES_FILENAME.to_string()]
         .iter()
         .collect();
@@ -43,7 +42,7 @@ pub fn get_properties_path() -> Result<String, FileOperationError> {
                             let path_buf: PathBuf =
                                 [&project_path, DEFAULT_TEST_DIR].iter().collect();
                             generic_test_path = path_buf.display().to_string();
-                            general::create_dir(&generic_test_path);
+                            general::create_dir(&generic_test_path)?;
                         }
                         let properties = json!({
                             PROP_STEAM_API_KEY : if let Some(EnvVar::Secret(steam_key)) = vars.get(STEAM_API_KEY_ENV) && let Ok(data) = steam_key.get_value(None){ data } else { String::new() },
@@ -86,7 +85,7 @@ pub fn get_data_path() -> Result<String, FileOperationError> {
     };
     let path: PathBuf = [&data_path, DATA_DIR].iter().collect();
     data_path = path.display().to_string();
-    general::create_dir(&data_path);
+    general::create_dir(&data_path)?;
     Ok(data_path)
 }
 
@@ -98,14 +97,14 @@ pub fn get_config_path() -> Result<String, FileOperationError> {
     };
     let path: PathBuf = [&config_path, CONFIG_DIR].iter().collect();
     config_path = path.display().to_string();
-    general::create_dir(&config_path);
+    general::create_dir(&config_path)?;
     Ok(config_path)
 }
 
 pub fn get_log_path() -> Result<String, FileOperationError> {
     let path: PathBuf = [&get_project_path()?, LOG_DIR].iter().collect();
     let log_path = path.display().to_string();
-    general::create_dir(&log_path);
+    general::create_dir(&log_path)?;
     Ok(log_path)
 }
 
@@ -264,40 +263,40 @@ pub fn load_properties() -> Result<Value, FileOperationError> {
 
 // Getters
 
-fn get_secret_var(var_name: &str) -> Option<Password> {
+fn get_secret_var(var_name: &str) -> Result<Password, FileOperationError> {
     match load_properties() {
         Ok(properties) => match properties.get(var_name) {
             Some(result) => match serde_json::to_string(result) {
                 Ok(val) => {
                     let trimmed_val = &val[1..val.len() - 1];
-                    Some(Password::new_encrypted(trimmed_val.to_string()))
+                    Ok(Password::new_encrypted(trimmed_val.to_string()))
                 }
-                Err(e) => {
-                    eprintln!(
-                        "Could not extract string from property, \"{}\", {}",
-                        var_name, e
-                    );
-                    None
-                }
+                Err(e) => Err(FileOperationError::Message(format!(
+                    "Could not extract string from property, \"{}\", {}",
+                    var_name, e
+                ))),
             },
-            None => {
-                eprintln!(
-                    "Warning: Property \"{}\" is empty/does not exist.",
-                    var_name
-                );
-                None
-            }
+            None => Err(FileOperationError::Message(format!(
+                "Warning: Property \"{}\" is empty/does not exist.",
+                var_name
+            ))),
         },
-        // TODO: Return result instead of panic
-        Err(_) => panic!("Failed to load secret from properties file"),
+        Err(_) => Err(FileOperationError::Message(
+            "Failed to load secret from properties file".into(),
+        )),
     }
 }
 
 fn get_string_var(var_name: &str) -> Result<String, FileOperationError> {
     match load_properties() {
         Ok(properties) => match properties.get(var_name) {
-            // TODO: Validate property types instead of panicking on non-string values
-            Some(result) => Ok(result.as_str().unwrap_or("").to_string()),
+            Some(result) => match result.as_str() {
+                Some(str) => Ok(str.to_string()),
+                None => Err(FileOperationError::Message(format!(
+                    "'{}' did not return a string value",
+                    var_name
+                ))),
+            },
             None => Err(FileOperationError::Message(format!(
                 "Warning: Property \"{}\" is empty/does not exist.",
                 var_name
@@ -311,10 +310,16 @@ fn get_string_var(var_name: &str) -> Result<String, FileOperationError> {
 }
 
 fn get_integer_var(var_name: &str) -> Result<i64, FileOperationError> {
-    let default_int: i64 = 0;
+    //let default_int: i64 = 0;
     match load_properties() {
         Ok(properties) => match properties.get(var_name) {
-            Some(var) => Ok(var.as_i64().unwrap_or(default_int)),
+            Some(var) => match var.as_i64() {
+                Some(digits) => Ok(digits),
+                None => Err(FileOperationError::Message(format!(
+                    "'{}' did not return an integer value",
+                    var_name
+                ))),
+            },
             None => Err(FileOperationError::Message(format!(
                 "Failed to parse \"{}\". Please check that this is an integer.",
                 var_name
@@ -330,7 +335,7 @@ fn get_integer_var(var_name: &str) -> Result<i64, FileOperationError> {
 pub fn get_steam_api_key(hidden: bool) -> Result<String, FileOperationError> {
     let steam_api_key = get_secret_var(PROP_STEAM_API_KEY);
 
-    if let Some(mut key) = steam_api_key {
+    if let Ok(mut key) = steam_api_key {
         if hidden {
             key.set_state(passwords::PasswordState::Hidden);
         } else {
@@ -368,7 +373,7 @@ pub fn get_smtp_user() -> Result<String, FileOperationError> {
 
 pub fn get_smtp_pwd(hidden: bool) -> Result<String, FileOperationError> {
     let smtp_pwd = get_secret_var(PROP_SMTP_PASSWORD);
-    if let Some(mut key) = smtp_pwd {
+    if let Ok(mut key) = smtp_pwd {
         if hidden {
             key.set_state(passwords::PasswordState::Hidden);
         } else {
@@ -394,7 +399,6 @@ pub fn get_project_path() -> Result<String, FileOperationError> {
                 project_path
             );
         }
-        // TODO: Propagate current-directory errors instead of panicking
         project_path = std::env::current_dir()?.display().to_string();
         set_project_path(&project_path)?;
     }
@@ -415,7 +419,7 @@ pub fn get_test_path() -> Result<String, FileOperationError> {
         }
         let path_buf: PathBuf = [&get_project_path()?, DEFAULT_TEST_DIR].iter().collect();
         test_path = path_buf.display().to_string();
-        general::create_dir(&test_path);
+        general::create_dir(&test_path)?;
         set_test_path(&test_path)?;
     }
     Ok(test_path)
@@ -445,7 +449,12 @@ pub fn set_steam_api_key(api_key: String) -> Result<(), FileOperationError> {
     let mut properties = load_properties()?;
     match Password::new(&get_decrypt_key(get_project_path()?)?, api_key) {
         Ok(steam_key) if let Ok(data) = steam_key.get_value(None) => {
-            *properties.get_mut(PROP_STEAM_API_KEY).unwrap() = json!(&data);
+            *properties
+                .get_mut(PROP_STEAM_API_KEY)
+                .ok_or(FileOperationError::Message(format!(
+                    "Missing '{}' in properties",
+                    PROP_STEAM_API_KEY
+                )))? = json!(&data);
             match serde_json::to_string_pretty(&properties) {
                 Ok(properties_str) => {
                     if let Err(e) = general::write_to_file(get_properties_path()?, properties_str) {
@@ -469,7 +478,12 @@ pub fn set_steam_api_key(api_key: String) -> Result<(), FileOperationError> {
 
 pub fn set_recipient(email_str: &str) -> Result<(), FileOperationError> {
     let mut properties = load_properties()?;
-    *properties.get_mut(PROP_RECIPIENT_EMAIL).unwrap() = json!(email_str);
+    *properties
+        .get_mut(PROP_RECIPIENT_EMAIL)
+        .ok_or(FileOperationError::Message(format!(
+            "Missing '{}' in properties",
+            PROP_RECIPIENT_EMAIL
+        )))? = json!(email_str);
     match serde_json::to_string_pretty(&properties) {
         Ok(properties_str) => {
             if let Err(e) = general::write_to_file(get_properties_path()?, properties_str) {
@@ -497,21 +511,46 @@ pub fn set_stmp_vars(
 ) -> Result<(), FileOperationError> {
     let mut properties = load_properties()?;
     if !host.is_empty() {
-        *properties.get_mut(PROP_SMTP_HOST).unwrap() = json!(host);
+        *properties
+            .get_mut(PROP_SMTP_HOST)
+            .ok_or(FileOperationError::Message(format!(
+                "Missing '{}' in properties",
+                PROP_SMTP_HOST
+            )))? = json!(host);
     }
     if port != 0 {
-        *properties.get_mut(PROP_SMTP_PORT).unwrap() = json!(port);
+        *properties
+            .get_mut(PROP_SMTP_PORT)
+            .ok_or(FileOperationError::Message(format!(
+                "Missing '{}' in properties",
+                PROP_SMTP_PORT
+            )))? = json!(port);
     }
     if !email.is_empty() {
-        *properties.get_mut(PROP_SMTP_EMAIL).unwrap() = json!(email);
+        *properties
+            .get_mut(PROP_SMTP_EMAIL)
+            .ok_or(FileOperationError::Message(format!(
+                "Missing '{}' in properties",
+                PROP_SMTP_EMAIL
+            )))? = json!(email);
     }
     if !user.is_empty() {
-        *properties.get_mut(PROP_SMTP_USERNAME).unwrap() = json!(user);
+        *properties
+            .get_mut(PROP_SMTP_USERNAME)
+            .ok_or(FileOperationError::Message(format!(
+                "Missing '{}' in properties",
+                PROP_SMTP_USERNAME
+            )))? = json!(user);
     }
     if !pass.is_empty() {
         match Password::new(&get_decrypt_key(get_project_path()?)?, pass) {
             Ok(val) if let Ok(data) = val.get_value(None) => {
-                *properties.get_mut(PROP_SMTP_PASSWORD).unwrap() = json!(&data)
+                *properties
+                    .get_mut(PROP_SMTP_PASSWORD)
+                    .ok_or(FileOperationError::Message(format!(
+                        "Missing '{}' in properties",
+                        PROP_SMTP_PASSWORD
+                    )))? = json!(&data)
             }
             _ => (),
         }
@@ -542,7 +581,12 @@ pub fn set_project_path(path: &str) -> Result<(), FileOperationError> {
         )));
     }
     let mut properties = load_properties()?;
-    *properties.get_mut(PROP_PROJECT_PATH).unwrap() = json!(path);
+    *properties
+        .get_mut(PROP_PROJECT_PATH)
+        .ok_or(FileOperationError::Message(format!(
+            "Missing '{}' in properties",
+            PROP_PROJECT_PATH
+        )))? = json!(path);
     match serde_json::to_string_pretty(&properties) {
         Ok(properties_str) => {
             if let Err(e) = general::write_to_file(get_properties_path()?, properties_str) {
@@ -569,7 +613,12 @@ pub fn set_test_path(path: &str) -> Result<(), FileOperationError> {
         )));
     }
     let mut properties = load_properties()?;
-    *properties.get_mut(PROP_TEST_PATH).unwrap() = json!(path);
+    *properties
+        .get_mut(PROP_TEST_PATH)
+        .ok_or(FileOperationError::Message(format!(
+            "Missing '{}' in properties",
+            PROP_TEST_PATH
+        )))? = json!(path);
     match serde_json::to_string_pretty(&properties) {
         Ok(properties_str) => {
             if let Err(e) = general::write_to_file(get_properties_path()?, properties_str) {
@@ -590,7 +639,12 @@ pub fn set_test_path(path: &str) -> Result<(), FileOperationError> {
 
 pub fn set_sliding_steam_appid(steam_appid: u32) -> Result<(), FileOperationError> {
     let mut properties = load_properties()?;
-    *properties.get_mut(PROP_SLIDING_STEAM_APPID).unwrap() = json!(steam_appid);
+    *properties
+        .get_mut(PROP_SLIDING_STEAM_APPID)
+        .ok_or(FileOperationError::Message(format!(
+            "Missing '{}' in properties",
+            PROP_SLIDING_STEAM_APPID
+        )))? = json!(steam_appid);
     match serde_json::to_string_pretty(&properties) {
         Ok(properties_str) => {
             if let Err(e) = general::write_to_file(get_properties_path()?, properties_str) {
@@ -612,7 +666,12 @@ pub fn set_sliding_steam_appid(steam_appid: u32) -> Result<(), FileOperationErro
 pub fn set_test_mode(is_enabled: bool) -> Result<(), FileOperationError> {
     let mut properties = load_properties()?;
     let enabled = if is_enabled { 1 } else { 0 };
-    *properties.get_mut(PROP_TEST_MODE).unwrap() = json!(enabled);
+    *properties
+        .get_mut(PROP_TEST_MODE)
+        .ok_or(FileOperationError::Message(format!(
+            "Missing '{}' in properties",
+            PROP_TEST_MODE
+        )))? = json!(enabled);
     match serde_json::to_string_pretty(&properties) {
         Ok(properties_str) => {
             if let Err(e) = general::write_to_file(get_properties_path()?, properties_str) {

@@ -24,7 +24,7 @@ async fn search_game() {
 async fn get_price_info() {
     let client = reqwest::Client::new();
     match microsoft_store::get_price_details(GAME_ID, &client).await {
-        Some(info) => {
+        Ok(info) => {
             assert_eq!(info.title, GAME_TITLE, "{} != {}", info.title, GAME_TITLE);
             assert_ne!(
                 f64::MIN,
@@ -36,6 +36,6 @@ async fn get_price_info() {
             assert_ne!("", info.icon_link, "Icon link field is empty");
             //assert_ne!("", info.store_page_link, "Store page link field is empty");
         }
-        None => unreachable!("Game with id {} does not exist", GAME_ID),
+        Err(_) => unreachable!("Game with id {} does not exist", GAME_ID),
     }
 }

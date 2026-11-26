@@ -13,15 +13,15 @@ use types::response::gog::{Game, GameInfo, PriceOverview};
 // #[automock]
 #[async_trait]
 pub trait GogApi {
-    async fn search_game_by_title(&self, title: &str) -> serde_json::Result<Vec<Game>>;
-    async fn get_price_details(&self, title: &str) -> Option<PriceOverview>;
+    async fn search_game_by_title(&self, title: &str) -> Result<Vec<Game>, ApiError>;
+    async fn get_price_details(&self, title: &str) -> Result<PriceOverview, ApiError>;
     async fn search_game_by_title_v2(
         &self,
         title: &str,
         limit: u32,
     ) -> Result<Vec<GameInfo>, ApiError>;
     async fn get_game_data(&self, title: &str) -> Result<GameInfo, ApiError>;
-    async fn get_price_details_v2(&self, title: &str) -> Option<SaleInfo>;
+    async fn get_price_details_v2(&self, title: &str) -> Result<SaleInfo, ApiError>;
 }
 
 pub struct GogClient<'a> {
@@ -36,7 +36,7 @@ impl<'a> GogClient<'a> {
 
 #[async_trait]
 impl<'a> GogApi for GogClient<'a> {
-    async fn search_game_by_title(&self, title: &str) -> serde_json::Result<Vec<Game>> {
+    async fn search_game_by_title(&self, title: &str) -> Result<Vec<Game>, ApiError> {
         let media_type = "game";
         let limit: i32 = 30;
         let url = format!(
@@ -48,21 +48,17 @@ impl<'a> GogApi for GogClient<'a> {
             .get(url)
             .timeout(Duration::from_secs(DEFAULT_TIMEOUT_IN_SECS))
             .send()
-            .await
-            // TODO: Propagate HTTP and response-body errors instead of panicking
-            .expect("Failed to get response")
+            .await?
             .text()
-            .await
-            .expect("Failed to get data");
-        // TODO: Propagate JSON parsing errors instead of panicking
-        let body: Value = serde_json::from_str(&resp).expect("Could not convert to JSON");
+            .await?;
+        let body: Value = serde_json::from_str(&resp)?;
         //println!("{:?}", body);
-        let products = serde_json::to_string(&body["products"]).unwrap();
+        let products = serde_json::to_string(&body["products"])?;
         let games_list: Vec<Game> = serde_json::from_str::<Vec<Game>>(&products)?;
         Ok(games_list)
     }
 
-    async fn get_price_details(&self, title: &str) -> Option<PriceOverview> {
+    async fn get_price_details(&self, title: &str) -> Result<PriceOverview, ApiError> {
         let media_type = "game";
         let limit_num: i32 = 30;
         let url = format!(
@@ -74,27 +70,30 @@ impl<'a> GogApi for GogClient<'a> {
             .get(url)
             .timeout(Duration::from_secs(DEFAULT_TIMEOUT_IN_SECS))
             .send()
-            .await
-            // TODO: Return HTTP and response-body errors instead of panicking
-            .expect("Failed to get response")
+            .await?
             .text()
-            .await
-            .expect("Failed to get data");
-        // TODO: Return JSON parsing errors instead of panicking
-        let body: Value = serde_json::from_str(&resp).expect("Could not convert to JSON");
+            .await?;
+        let body: Value = serde_json::from_str(&resp)?;
         //println!("{:?}", body);
-        if let Some(products) = body["products"].as_array() {
-            for product in products {
-                let game_title = product["title"].to_string();
-                if *title == game_title[1..game_title.len() - 1] {
-                    let price = serde_json::to_string(&product["price"]).unwrap();
-                    // TODO: Handle malformed price data instead of panicking
-                    let price_overview = serde_json::from_str::<PriceOverview>(&price).unwrap();
-                    return Some(price_overview);
-                }
+        let products = body["products"]
+            .as_array()
+            .ok_or(ApiError::Message(format!(
+                "Could not find price details for {}",
+                title
+            )))?;
+
+        for product in products {
+            let game_title = product["title"].to_string();
+            if *title == game_title[1..game_title.len() - 1] {
+                let price = serde_json::to_string(&product["price"])?;
+                let price_overview = serde_json::from_str::<PriceOverview>(&price)?;
+                return Ok(price_overview);
             }
         }
-        None
+        Err(ApiError::Message(format!(
+            "Could not find price details for {}",
+            title
+        )))
     }
 
     async fn search_game_by_title_v2(
@@ -147,7 +146,7 @@ impl<'a> GogApi for GogClient<'a> {
         }
     }
 
-    async fn get_price_details_v2(&self, title: &str) -> Option<SaleInfo> {
+    async fn get_price_details_v2(&self, title: &str) -> Result<SaleInfo, ApiError> {
         match self.get_game_data(title).await {
             Ok(data) => match data.price {
                 Some(po) => {
@@ -155,46 +154,58 @@ impl<'a> GogApi for GogClient<'a> {
                     if let Some(discount) = po.discount {
                         discount_str = discount[1..discount.len() - 1].to_string()
                     } else {
-                        // TODO: Handle invalid price amounts instead of panicking
-                        let base_amount = po.base_money.amount.parse::<f64>().unwrap();
-                        let final_amount = po.final_money.amount.parse::<f64>().unwrap();
+                        let base_amount = po.base_money.amount.parse::<f64>().map_err(|e| {
+                            ApiError::Message(format!("Base price could not be parsed. {}", e))
+                        })?;
+                        let final_amount = po.final_money.amount.parse::<f64>().map_err(|e| {
+                            ApiError::Message(format!("Final price could not be parsed. {}", e))
+                        })?;
                         discount_str = format!(
                             "{}",
                             (100.0 * (1.0 - final_amount / base_amount)).round() as i64
                         )
                     };
-                    return Some(SaleInfo {
+                    Ok(SaleInfo {
                         title: data.title,
                         original_price: po.base_money.amount.parse::<f64>().unwrap_or(f64::MIN),
                         current_price: po.final_money.amount.parse::<f64>().unwrap_or(f64::MAX),
                         discount_percentage: discount_str,
                         icon_link: data.c_horizontal,
                         store_page_link: data.store_link,
-                    });
+                    })
                 }
-                None => None,
+                None => Err(ApiError::Message(format!(
+                    "Could not retrieve price details for {}",
+                    title
+                ))),
             },
-            Err(_) => None,
+            Err(e) => Err(e),
         }
     }
 }
 
-pub fn get_price_from_list(title: &str, games_list: Vec<Game>) -> Option<f64> {
+pub fn get_price_from_list(title: &str, games_list: Vec<Game>) -> Result<f64, ApiError> {
     for game in games_list.iter() {
         if title == game.title {
-            // TODO: Handle invalid price amounts instead of panicking
-            let game_price: f64 = game.price.final_amount.parse::<f64>().unwrap();
-            return Some(game_price);
+            let game_price: f64 = game
+                .price
+                .final_amount
+                .parse::<f64>()
+                .map_err(|e| ApiError::Message(format!("{}", e)))?;
+            return Ok(game_price);
         }
     }
-    None
+    Err(ApiError::Message(format!(
+        "Could not find price details for {}",
+        title
+    )))
 }
 
 // Version 1
 pub async fn search_game_by_title(
     title: &str,
     http_client: &reqwest::Client,
-) -> serde_json::Result<Vec<Game>> {
+) -> Result<Vec<Game>, ApiError> {
     GogClient::new(http_client)
         .search_game_by_title(title)
         .await
@@ -203,7 +214,7 @@ pub async fn search_game_by_title(
 pub async fn get_price_details(
     title: &str,
     http_client: &reqwest::Client,
-) -> Option<PriceOverview> {
+) -> Result<PriceOverview, ApiError> {
     GogClient::new(http_client).get_price_details(title).await
 }
 
@@ -217,7 +228,10 @@ pub async fn search_game_by_title_v2(
         .await
 }
 
-pub async fn get_price_details_v2(title: &str, http_client: &reqwest::Client) -> Option<SaleInfo> {
+pub async fn get_price_details_v2(
+    title: &str,
+    http_client: &reqwest::Client,
+) -> Result<SaleInfo, ApiError> {
     GogClient::new(http_client)
         .get_price_details_v2(title)
         .await

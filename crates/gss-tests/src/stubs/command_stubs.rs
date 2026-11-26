@@ -70,7 +70,7 @@ pub fn get_sample_csv(filename: &str) -> String {
     let test_path = properties::get_test_path().expect("Cannot get test path for stub");
     let path_buf: PathBuf = [&test_path, DATA_DIR, filename].iter().collect();
     let csv_path = path_buf.display().to_string();
-    csv::generate_csv(&csv_path, thresholds);
+    csv::generate_csv(&csv_path, thresholds).expect("Cannot generate csv");
     csv_path
 }
 
