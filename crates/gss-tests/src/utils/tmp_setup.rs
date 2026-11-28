@@ -4,7 +4,9 @@ use std::sync::{Mutex, MutexGuard, OnceLock};
 use std::{env, fs};
 
 use constants::operations::properties::{
-    CONFIG_DIR, DATA_DIR, DEFAULT_TEST_DIR, PROJECT_PATH_ENV, TEST_PATH_ENV,
+    CONFIG_DIR, DATA_DIR, DEFAULT_TEST_DIR, ENV_FILENAME, PROJECT_PATH_ENV, RECIPIENT_EMAIL_ENV,
+    SMTP_EMAIL_ENV, SMTP_HOST_ENV, SMTP_PASSWORD_ENV, SMTP_PORT_ENV, SMTP_USERNAME_ENV,
+    STEAM_API_KEY_ENV, TEST_PATH_ENV,
 };
 use constants::operations::settings::{
     ALIASES_ENABLED, ALLOW_ALIAS_REUSE_AFTER_CREATION, SELECTED_STORES, SETTINGS_FILENAME,
@@ -41,10 +43,14 @@ pub struct TempEnvironment {
     pub prev_project_path: Option<String>,
     pub prev_test_path: Option<String>,
     pub prev_dir: PathBuf,
+    prev_dotenv_vars: Vec<(String, Option<String>)>,
 }
 
 impl TempEnvironment {
     pub fn tear_down(self) {
+        for (env_var, value) in &self.prev_dotenv_vars {
+            restore_env_var(env_var, value.clone());
+        }
         clean_up(
             &self.prev_dir,
             &self.temp_dir,
@@ -155,7 +161,11 @@ pub fn create(title: &str, steam_cache: Vec<App>) -> PathBuf {
     base_dir
 }
 
-pub fn setup_tmp_environment(title: &str, steam_cache: Vec<App>) -> TempEnvironment {
+pub fn setup_tmp_environment(
+    title: &str,
+    steam_cache: Vec<App>,
+    dotenv_vars: Vec<(&str, &str)>,
+) -> TempEnvironment {
     let guard = test_lock()
         .lock()
         .unwrap_or_else(|poisoned| poisoned.into_inner());
@@ -172,13 +182,58 @@ pub fn setup_tmp_environment(title: &str, steam_cache: Vec<App>) -> TempEnvironm
         );
     }
 
+    let managed_dotenv_vars = [
+        STEAM_API_KEY_ENV,
+        RECIPIENT_EMAIL_ENV,
+        SMTP_HOST_ENV,
+        SMTP_PORT_ENV,
+        SMTP_EMAIL_ENV,
+        SMTP_USERNAME_ENV,
+        SMTP_PASSWORD_ENV,
+    ];
+    let prev_dotenv_vars = managed_dotenv_vars
+        .iter()
+        .map(|env_var| (env_var.to_string(), retrieve_env_var(env_var)))
+        .collect::<Vec<_>>();
+
+    for env_var in managed_dotenv_vars {
+        unsafe {
+            env::remove_var(env_var);
+        }
+    }
+
+    if !dotenv_vars.is_empty() {
+        let env_data = dotenv_vars
+            .iter()
+            .map(|(env_var, value)| format!("{env_var}=\"{value}\""))
+            .collect::<Vec<_>>()
+            .join("\n");
+        general::write_file(&temp_dir, ENV_FILENAME, &env_data)
+            .expect("Could not write the test environment file.");
+        env::set_current_dir(&temp_dir)
+            .expect("Could not set the current directory to the test environment.");
+    }
+
     TempEnvironment {
         _guard: guard,
         temp_dir,
         prev_project_path,
         prev_test_path,
         prev_dir,
+        prev_dotenv_vars,
     }
+}
+
+pub fn test_dotenv_vars() -> Vec<(&'static str, &'static str)> {
+    vec![
+        (STEAM_API_KEY_ENV, "test-api-key"),
+        (RECIPIENT_EMAIL_ENV, "test@example.com"),
+        (SMTP_HOST_ENV, "localhost"),
+        (SMTP_PORT_ENV, "2525"),
+        (SMTP_EMAIL_ENV, "test@example.com"),
+        (SMTP_USERNAME_ENV, "test-user"),
+        (SMTP_PASSWORD_ENV, "test-password"),
+    ]
 }
 
 pub fn clean_up(

@@ -9,7 +9,8 @@ static TMP_DIR_TITLE: &str = "settings";
 
 #[test]
 fn get_available_stores() {
-    let _tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, Vec::new());
+    let _tmp_env =
+        tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, Vec::new(), tmp_setup::test_dotenv_vars());
     properties::load_properties()
         .expect("Could not load properties for the available-stores test.");
 
@@ -35,7 +36,8 @@ fn get_available_stores() {
 
 #[test]
 fn get_proper_store_name() {
-    let _tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, Vec::new());
+    let _tmp_env =
+        tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, Vec::new(), tmp_setup::test_dotenv_vars());
     properties::load_properties().expect("Could not load properties for the store-name test.");
 
     let mut store_name = GameStore::STEAM.get_name();
@@ -58,7 +60,8 @@ fn get_proper_store_name() {
 
 #[test]
 fn get_selected_stores() {
-    let _tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, Vec::new());
+    let _tmp_env =
+        tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, Vec::new(), tmp_setup::test_dotenv_vars());
     properties::load_properties().expect("Could not load properties for the selected-stores test.");
 
     let stores = vec![GameStore::STEAM, GameStore::GOOD_OLD_GAMES];
@@ -95,7 +98,8 @@ fn get_selected_stores() {
 
 #[test]
 fn get_alias_state() {
-    let _test_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, Vec::new());
+    let _test_env =
+        tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, Vec::new(), tmp_setup::test_dotenv_vars());
     properties::load_properties().expect("Could not load properties for the alias-state test.");
 
     let are_aliases_enabled =
@@ -107,7 +111,8 @@ fn get_alias_state() {
 
 #[test]
 fn update_selected_stores() {
-    let _tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, Vec::new());
+    let _tmp_env =
+        tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, Vec::new(), tmp_setup::test_dotenv_vars());
     properties::load_properties().expect("Could not load properties for the selected-stores test.");
 
     let mut selected_stores =
@@ -174,7 +179,8 @@ fn update_selected_stores() {
 
 #[test]
 fn update_alias_state() {
-    let _tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, Vec::new());
+    let _tmp_env =
+        tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, Vec::new(), tmp_setup::test_dotenv_vars());
     properties::load_properties().expect("Could not load properties for the alias-state test.");
 
     let mut are_aliases_enabled =

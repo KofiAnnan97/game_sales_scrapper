@@ -29,7 +29,7 @@ const TMP_DIR_TITLE: &str = "commands";
 
 #[test]
 fn config_cmd() {
-    let _tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, Vec::new());
+    let _tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, Vec::new(), Vec::new());
     let _ = properties::load_properties();
     let _ = Command::new("cargo")
         .args([
@@ -82,7 +82,7 @@ fn config_cmd() {
 #[tokio::test]
 #[ignore = "Not yet implemented"]
 async fn add_cmd() {
-    let _tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, Vec::new());
+    let _tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, Vec::new(), Vec::new());
     // Check that add fails without config setup
     // let price_str = "19.99";
     // let add_wo_config = Command::new("cargo")
@@ -134,7 +134,7 @@ async fn add_cmd() {
 #[tokio::test]
 #[ignore = "Not yet implemented"]
 async fn bulk_insert_cmd() {
-    let _tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, Vec::new());
+    let _tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, Vec::new(), Vec::new());
     let filename = "bulk-insert-test.csv";
     let _csv_path = command_stubs::get_sample_csv(filename);
 
@@ -175,9 +175,12 @@ async fn bulk_insert_cmd() {
 
 #[test]
 fn update_price_cmd() {
-    let _tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, Vec::new());
+    let _tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, Vec::new(), Vec::new());
     let _ = properties::load_properties();
-    properties::set_test_mode(true);
+    match properties::set_test_mode(true) {
+        Ok(_) => (),
+        Err(_) => eprintln!("Setting test mode for update_price_cmd failed"),
+    };
     let thresholds_path = _tmp_env
         .temp_dir
         .join(DEFAULT_TEST_DIR)
@@ -306,9 +309,12 @@ fn update_price_cmd() {
 
 #[test]
 fn update_alias_cmd() {
-    let _tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, Vec::new());
+    let _tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, Vec::new(), Vec::new());
     let _ = properties::load_properties();
-    properties::set_test_mode(true);
+    match properties::set_test_mode(true) {
+        Ok(_) => (),
+        Err(_) => eprintln!("Setting test mode for update_alias_cmd failed"),
+    };
     let thresholds_path = _tmp_env
         .temp_dir
         .join(DEFAULT_TEST_DIR)
@@ -400,9 +406,12 @@ fn update_alias_cmd() {
 
 #[test]
 fn remove_cmd() {
-    let _tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, Vec::new());
+    let _tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, Vec::new(), Vec::new());
     let _ = properties::load_properties();
-    properties::set_test_mode(true);
+    match properties::set_test_mode(true) {
+        Ok(_) => (),
+        Err(_) => eprintln!("Setting test mode for remove_cmd failed"),
+    };
     let thresholds_path = _tmp_env
         .temp_dir
         .join(DEFAULT_TEST_DIR)
@@ -499,7 +508,7 @@ fn remove_cmd() {
 
 #[test]
 fn list_selected_stores_cmd() {
-    let _tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, Vec::new());
+    let _tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, Vec::new(), Vec::new());
     let _ = properties::load_properties();
     let _ = Command::new("cargo")
         .args([
@@ -562,9 +571,12 @@ fn list_selected_stores_cmd() {
 
 #[test]
 fn list_thresholds_cmd() {
-    let _tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, Vec::new());
+    let _tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, Vec::new(), Vec::new());
     let _ = properties::load_properties();
-    properties::set_test_mode(true);
+    match properties::set_test_mode(true) {
+        Ok(_) => (),
+        Err(_) => eprintln!("Setting test mode for list_thresholds_cmd failed"),
+    };
     let thresholds_path = _tmp_env
         .temp_dir
         .join(DEFAULT_TEST_DIR)
@@ -613,10 +625,13 @@ fn list_thresholds_cmd() {
 }
 
 #[tokio::test]
-async fn check_prices() {
-    let _tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, Vec::new());
+async fn check_prices_cmd() {
+    let _tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, Vec::new(), Vec::new());
     let _ = properties::load_properties();
-    properties::set_test_mode(true);
+    match properties::set_test_mode(true) {
+        Ok(_) => (),
+        Err(_) => eprintln!("Setting test mode for check_prices_cmd failed"),
+    };
     let thresholds_path = _tmp_env
         .temp_dir
         .join(DEFAULT_TEST_DIR)

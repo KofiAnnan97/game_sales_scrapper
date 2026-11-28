@@ -36,9 +36,13 @@ async fn search_game() {
     let _test_env = tmp_setup::setup_tmp_environment(
         TMP_DIR_TITLE,
         file_operations::load_steam_cache(&cache_filepath),
+        Vec::new(),
     );
     let _ = properties::load_properties();
-    properties::set_test_mode(true);
+    match properties::set_test_mode(true) {
+        Ok(_) => (),
+        Err(_) => eprintln!("Setting test mode true for Steam search failed"),
+    };
 
     let client = reqwest::Client::new();
     let search_list = steam::search_by_keyphrase(GAME_TITLE, &client)

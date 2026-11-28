@@ -25,7 +25,7 @@ fn delete_decrypt_key() {
 
 #[test]
 fn check_environment_variables() {
-    let _tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, Vec::new());
+    let _tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, Vec::new(), Vec::new());
     let steam_api_key_val = "INITIAL";
     let recipient_email_val = "recipient@example.com";
     let smtp_host_val = "smtp.initial.com";
@@ -168,7 +168,7 @@ fn check_environment_variables() {
 
 #[test]
 fn no_variables() {
-    let _tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, Vec::new());
+    let _tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, Vec::new(), Vec::new());
     let steam_api_key_val = "";
     let recipient_email_val = "";
     let smtp_host_val = "";
@@ -302,7 +302,7 @@ fn no_variables() {
 
 #[test]
 fn decrypt_key_created() {
-    let _tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, Vec::new());
+    let _tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, Vec::new(), Vec::new());
 
     let decrypt_file: PathBuf = [
         _tmp_env.temp_dir.display().to_string(),
@@ -337,7 +337,7 @@ fn decrypt_key_created() {
 
 #[test]
 fn read_custom_env_file() {
-    let _tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, Vec::new());
+    let _tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, Vec::new(), Vec::new());
     env::set_current_dir(&_tmp_env.temp_dir)
         .expect("Could not set the current directory to the custom dotenv test directory.");
 

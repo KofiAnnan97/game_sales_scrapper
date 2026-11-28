@@ -57,7 +57,7 @@
   - General
     - [X] Steam data does not seem to always send the correct steam app id when retrieving game data. More robust checking and error handling was added.
     - [X] Sales preview doesn't exit when the user hits the close button
-    - [ ] Fixed issue Windows not being able to run settings and thresholds unit tests (.env file needed to be generated)
+    - [X] Fixed issue Windows not being able to run settings and thresholds unit tests (.env file needed to be generated)
 - Testing:
   - [X] Add caching to GitHub Actions
   - [X] Add more app focused tests where possible

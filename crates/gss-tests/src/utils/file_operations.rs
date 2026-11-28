@@ -1,9 +1,11 @@
+use serde_json::Value;
+use std::fs::read_to_string;
+use std::path::Path;
+
 use constants::operations::properties::*;
 use constants::operations::settings::{ALIASES_ENABLED, SELECTED_STORES};
 use constants::operations::thresholds::THRESHOLDS;
-use serde_json::{Result, Value};
-use std::fs::read_to_string;
-use std::path::Path;
+use errors::input::FileOperationError;
 use types::{internal::data::GameThreshold, response::steam::App};
 
 pub fn load_steam_cache(path: &Path) -> Vec<App> {
@@ -14,11 +16,10 @@ pub fn load_steam_cache(path: &Path) -> Vec<App> {
     serde_json::from_str::<Vec<App>>(&cache).unwrap_or_default()
 }
 
-pub fn load_threshold_data(path: &Path) -> Result<Value> {
+pub fn load_threshold_data(path: &Path) -> Result<Value, FileOperationError> {
     let filepath = path.display().to_string();
-    // TODO: Propagate file read errors instead of panicking
-    let data = read_to_string(filepath).unwrap();
-    serde_json::from_str(&data)
+    let data = read_to_string(filepath)?;
+    Ok(serde_json::from_str(&data)?)
 }
 
 pub fn load_thresholds(path: &Path) -> Vec<GameThreshold> {
@@ -76,8 +77,20 @@ pub fn create_env_str(
         smtp_email_val = smtp_email_val,
         smtp_username_val = smtp_username_val,
         smtp_password_val = smtp_password_val,
-        project_path_val = dir_path.display(),
-        test_path_val = dir_path.join(DEFAULT_TEST_DIR).display()
+        project_path_val = if cfg!(target_os = "windows") {
+            dir_path.display().to_string().replace('\\', "\\\\")
+        } else {
+            dir_path.display().to_string()
+        },
+        test_path_val = if cfg!(target_os = "windows") {
+            dir_path
+                .join(DEFAULT_TEST_DIR)
+                .display()
+                .to_string()
+                .replace('\\', "\\\\")
+        } else {
+            dir_path.join(DEFAULT_TEST_DIR).display().to_string()
+        }
     );
     env_str
 }

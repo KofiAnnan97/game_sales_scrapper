@@ -14,7 +14,8 @@ const TMP_DIR_TITLE: &str = "properties";
 
 #[test]
 fn create_properties_file() {
-    let _tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, Vec::new());
+    let _tmp_env =
+        tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, Vec::new(), tmp_setup::test_dotenv_vars());
     let properties_path = properties::get_properties_path().expect("Unit test setup failed.");
     assert!(Path::new(&properties_path).is_file());
     assert!(properties_path.ends_with(&format!(
@@ -27,46 +28,44 @@ fn create_properties_file() {
     let contents = read_to_string(&properties_path).expect("Could not read the properties file.");
     let json: Value =
         serde_json::from_str(&contents).expect("Could not parse the properties file JSON.");
-    assert_eq!(
-        json[PROP_STEAM_API_KEY].as_str().unwrap(),
-        "",
-        "Expected {} to be empty string in properties file",
+    assert!(
+        !json[PROP_STEAM_API_KEY].as_str().unwrap().is_empty(),
+        "Expected {} to be non-empty in properties file",
         PROP_STEAM_API_KEY
     );
     assert_eq!(
         json[PROP_RECIPIENT_EMAIL].as_str().unwrap(),
-        "",
-        "Expected {} to be empty string in properties file",
+        "test@example.com",
+        "Expected {} to be populated in properties file",
         PROP_RECIPIENT_EMAIL
     );
     assert_eq!(
         json[PROP_SMTP_HOST].as_str().unwrap(),
-        "",
-        "Expected {} to be empty string in properties file",
+        "localhost",
+        "Expected {} to be populated in properties file",
         PROP_SMTP_HOST
     );
     assert_eq!(
         json[PROP_SMTP_EMAIL].as_str().unwrap(),
-        "",
-        "Expected {} to be empty string in properties file",
+        "test@example.com",
+        "Expected {} to be populated in properties file",
         PROP_SMTP_EMAIL
     );
     assert_eq!(
         json[PROP_SMTP_USERNAME].as_str().unwrap(),
-        "",
-        "Expected {} to be empty string in properties file",
+        "test-user",
+        "Expected {} to be populated in properties file",
         PROP_SMTP_USERNAME
     );
-    assert_eq!(
-        json[PROP_SMTP_PASSWORD].as_str().unwrap(),
-        "",
-        "Expected {} to be empty string in properties file",
+    assert!(
+        !json[PROP_SMTP_PASSWORD].as_str().unwrap().is_empty(),
+        "Expected {} to be non-empty in properties file",
         PROP_SMTP_PASSWORD
     );
     assert_eq!(
         json[PROP_SMTP_PORT].as_i64().unwrap(),
-        0,
-        "Expected {} to be 0 in properties file",
+        2525,
+        "Expected {} to be 2525 in properties file",
         PROP_SMTP_PORT
     );
     assert_eq!(
@@ -93,45 +92,55 @@ fn create_properties_file() {
 
 #[test]
 fn load_properties_from_file() {
-    let _tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, Vec::new());
+    let _tmp_env =
+        tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, Vec::new(), tmp_setup::test_dotenv_vars());
     properties::get_properties_path().expect("Unit test setup failed.");
     let loaded_properties = properties::load_properties().expect("Properties should load");
 
-    assert_eq!(
-        loaded_properties[PROP_STEAM_API_KEY].as_str().unwrap(),
-        "",
-        "Expected {} to be empty string in loaded properties",
+    assert!(
+        !loaded_properties[PROP_STEAM_API_KEY]
+            .as_str()
+            .unwrap()
+            .is_empty(),
+        "Expected {} to be non-empty in loaded properties",
         PROP_STEAM_API_KEY
     );
     assert_eq!(
         loaded_properties[PROP_RECIPIENT_EMAIL].as_str().unwrap(),
-        "",
-        "Expected {} to be empty string in loaded properties",
+        "test@example.com",
+        "Expected {} to be populated in loaded properties",
         PROP_RECIPIENT_EMAIL
     );
     assert_eq!(
         loaded_properties[PROP_SMTP_HOST].as_str().unwrap(),
-        "",
-        "Expected {} to be empty string in loaded properties",
+        "localhost",
+        "Expected {} to be populated in loaded properties",
         PROP_SMTP_HOST
     );
-    assert_eq!(loaded_properties[PROP_SMTP_PORT].as_i64().unwrap(), 0);
+    assert_eq!(
+        loaded_properties[PROP_SMTP_PORT].as_i64().unwrap(),
+        2525,
+        "Expected {} to be 2525 in loaded properties",
+        PROP_SMTP_PORT
+    );
     assert_eq!(
         loaded_properties[PROP_SMTP_EMAIL].as_str().unwrap(),
-        "",
-        "Expected {} to be empty string in loaded properties",
+        "test@example.com",
+        "Expected {} to be populated in loaded properties",
         PROP_SMTP_EMAIL
     );
     assert_eq!(
         loaded_properties[PROP_SMTP_USERNAME].as_str().unwrap(),
-        "",
-        "Expected {} to be empty string in loaded properties",
+        "test-user",
+        "Expected {} to be populated in loaded properties",
         PROP_SMTP_USERNAME
     );
-    assert_eq!(
-        loaded_properties[PROP_SMTP_PASSWORD].as_str().unwrap(),
-        "",
-        "Expected {} to be empty string in loaded properties",
+    assert!(
+        !loaded_properties[PROP_SMTP_PASSWORD]
+            .as_str()
+            .unwrap()
+            .is_empty(),
+        "Expected {} to be non-empty in loaded properties",
         PROP_SMTP_PASSWORD
     );
     assert_eq!(
@@ -152,7 +161,7 @@ fn load_properties_from_file() {
 
 #[test]
 fn sub_directories_created() {
-    let _tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, Vec::new());
+    let _tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, Vec::new(), Vec::new());
     properties::get_properties_path().expect("Unit test setup failed.");
 
     let data_path =
@@ -176,7 +185,7 @@ fn sub_directories_created() {
 
 #[test]
 fn update_properties_from_env() {
-    let _tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, Vec::new());
+    let _tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, Vec::new(), Vec::new());
     let mut steam_api_key_val = "INITIAL";
     let mut recipient_email_val = "recipient@example.com";
     let mut smtp_host_val = "smtp.initial.com";

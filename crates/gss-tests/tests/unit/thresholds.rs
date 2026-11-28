@@ -9,7 +9,7 @@ const TMP_DIR_TITLE: &str = "thresholds";
 #[tokio::test]
 async fn add_steam_game() {
     let _tmp_env: tmp_setup::TempEnvironment =
-        tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, Vec::new());
+        tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, Vec::new(), tmp_setup::test_dotenv_vars());
     properties::load_properties().expect("Could not load properties for the Steam game test.");
 
     // delete_thresholds();
@@ -44,7 +44,8 @@ async fn add_steam_game() {
 
 #[test]
 fn add_gog_game() {
-    let _tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, Vec::new());
+    let _tmp_env =
+        tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, Vec::new(), tmp_setup::test_dotenv_vars());
     properties::load_properties().expect("Could not load properties for the GOG game test.");
 
     let game = threshold_stubs::test_gog_game();
@@ -79,7 +80,8 @@ fn add_gog_game() {
 
 #[test]
 fn add_microsoft_store_game() {
-    let _tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, Vec::new());
+    let _tmp_env =
+        tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, Vec::new(), tmp_setup::test_dotenv_vars());
     properties::load_properties()
         .expect("Could not load properties for the Microsoft Store game test.");
 
@@ -112,7 +114,8 @@ fn add_microsoft_store_game() {
 
 #[test]
 fn update_alias() {
-    let _tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, Vec::new());
+    let _tmp_env =
+        tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, Vec::new(), tmp_setup::test_dotenv_vars());
     properties::load_properties().expect("Could not load properties for the alias update test.");
 
     let game_title = String::from("Random Game");
@@ -195,7 +198,7 @@ fn update_alias() {
 #[test]
 fn update_price() {
     let _tmp_env: tmp_setup::TempEnvironment =
-        tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, Vec::new());
+        tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, Vec::new(), tmp_setup::test_dotenv_vars());
     properties::load_properties().expect("Could not load properties for the price update test.");
 
     let first_game = String::from("Random Game");
@@ -205,7 +208,10 @@ fn update_price() {
 
     // Check that new price is present in threshold
     let new_price = 20.00;
-    thresholds::update_price(&first_game, new_price);
+    match thresholds::update_price(&first_game, new_price) {
+        Ok(_) => (),
+        Err(e) => eprintln!("Update new price failed - {}", e),
+    };
     match thresholds::load_thresholds() {
         Ok(thresholds) => assert_eq!(
             new_price, thresholds[0].desired_price,
@@ -219,7 +225,10 @@ fn update_price() {
     let second_game = String::from("Random Game 2");
     threshold_stubs::add_simple_threshold(&second_game, &game_alias, new_price);
     let last_price = 40.00;
-    thresholds::update_price(&game_alias, last_price);
+    match thresholds::update_price(&game_alias, last_price) {
+        Ok(_) => (),
+        Err(e) => eprintln!("Update last price failed - {}", e),
+    };
     match thresholds::load_thresholds() {
         Ok(thresholds) => {
             assert_eq!(
@@ -247,7 +256,8 @@ fn update_price() {
 
 #[test]
 fn update_id() {
-    let _tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, Vec::new());
+    let _tmp_env =
+        tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, Vec::new(), tmp_setup::test_dotenv_vars());
     properties::load_properties().expect("Could not load properties for the ID update test.");
 
     let game_title = String::from("Random Game");
@@ -258,8 +268,14 @@ fn update_id() {
     // Check that new store ids are successfully updated
     let new_steam_id = 333;
     let new_gog_id = 456;
-    thresholds::update_id(&game_title, GameStore::STEAM, new_steam_id);
-    thresholds::update_id(&game_title, GameStore::GOOD_OLD_GAMES, new_gog_id);
+    match thresholds::update_id(&game_title, GameStore::STEAM, new_steam_id) {
+        Ok(_) => (),
+        Err(e) => eprintln!("Update steam id failed - {}", e),
+    };
+    match thresholds::update_id(&game_title, GameStore::GOOD_OLD_GAMES, new_gog_id) {
+        Ok(_) => (),
+        Err(e) => eprintln!("Update gog id failed - {}", e),
+    };
     match thresholds::load_thresholds() {
         Ok(thresholds) => {
             assert_eq!(
@@ -281,7 +297,8 @@ fn update_id() {
 
 #[test]
 fn update_id_str() {
-    let _tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, Vec::new());
+    let _tmp_env =
+        tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, Vec::new(), tmp_setup::test_dotenv_vars());
     properties::load_properties()
         .expect("Could not load properties for the string ID update test.");
 
@@ -292,7 +309,10 @@ fn update_id_str() {
 
     // Check that new store ids are successfully updated
     let new_ms_id = "cba";
-    thresholds::update_id_str(&game_title, GameStore::MICROSOFT_STORE_PC, new_ms_id);
+    match thresholds::update_id_str(&game_title, GameStore::MICROSOFT_STORE_PC, new_ms_id) {
+        Ok(_) => (),
+        Err(e) => eprintln!("Update microsoft store id failed - {}", e),
+    };
     match thresholds::load_thresholds() {
         Ok(thresholds) => {
             assert_eq!(
@@ -309,7 +329,8 @@ fn update_id_str() {
 
 #[test]
 fn remove_game() {
-    let _tmp_env = tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, Vec::new());
+    let _tmp_env =
+        tmp_setup::setup_tmp_environment(TMP_DIR_TITLE, Vec::new(), tmp_setup::test_dotenv_vars());
     properties::load_properties().expect("Could not load properties for the remove-game test.");
 
     let first_game = String::from("Random Game");
@@ -348,7 +369,10 @@ fn remove_game() {
     }
 
     // Delete test threshold
-    thresholds::remove(&first_game);
+    match thresholds::remove(&first_game) {
+        Ok(_) => (),
+        Err(e) => eprintln!("Removing {} failed - {}", first_game, e),
+    };
     match thresholds::load_thresholds() {
         Ok(thresholds) => assert_eq!(
             0,
@@ -400,7 +424,10 @@ fn remove_game() {
         Err(_) => unreachable!("Could not load alias map after deletion."),
     }
 
-    thresholds::remove(&game_alias_2);
+    match thresholds::remove(&game_alias_2) {
+        Ok(_) => (),
+        Err(e) => eprintln!("Removing game by alis {} failed - {}", game_alias_2, e),
+    };
     match thresholds::load_thresholds() {
         Ok(thresholds) => assert_eq!(
             0,
