@@ -11,25 +11,24 @@ pub async fn send_sales_email(search_provider: SearchProvider) -> Result<String,
     match check_prices_for_email(use_html, search_provider).await {
         Ok(sales_str) => {
             let html_body = email::create_html_body(&sales_str).to_string();
-            println!("Email Contents:\n{}", html_body);
+            // println!("Email Contents:\n{}", html_body);
             if sales_str.is_empty() {
-                println!("No game(s) on sale at price thresholds");
+                Ok("No game(s) on sale at price thresholds".into())
             } else {
-                println!("Sending email...");
+                // println!("Sending email...");
                 if let Ok(to_address) = &properties::get_recipient() {
-                    return match email::send_html_msg(
+                    match email::send_html_msg(
                         to_address,
                         "Check Out Which Games Are On Sale",
                         &html_body,
                     ) {
                         Ok(_) => Ok("Email sent (or send attempt completed).".into()),
                         Err(e) => Err(format!("{}", e)),
-                    };
+                    }
                 } else {
-                    return Err(String::from("Could not get recipient."));
+                    Err(String::from("Could not get recipient."))
                 }
             }
-            Ok(String::from("Email sent (or send attempt completed)."))
         }
         Err(err) => Err(format!("Cound not send an email due to:\n{}", err)),
     }

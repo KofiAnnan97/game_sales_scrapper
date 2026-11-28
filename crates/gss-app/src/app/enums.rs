@@ -1,5 +1,8 @@
 use std::io;
 
+pub static INFO_DIALOG: &str = "INFO";
+pub static ERROR_DIALOG: &str = "ERROR";
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Tab {
     Search,

@@ -1,11 +1,13 @@
+use iced::window;
 use std::collections::HashMap;
 use std::path::PathBuf;
 
-use iced::window;
+use files::general;
 use stores::search::provider::SearchProvider;
 use types::internal::data::{GameThreshold, SimpleGameThreshold};
 use types::internal::store::GameStore;
 
+use crate::app::constants::FALLBACK_LOG;
 use crate::app::enums::*;
 use crate::utils::log_utils::{Logger, new_log};
 use crate::views::logs::LoggingView;
@@ -74,6 +76,19 @@ pub struct App {
 
 impl Default for App {
     fn default() -> App {
-        Self::new(new_log()).0
+        Self::new(new_log().unwrap_or_else(|e| {
+            eprintln!("Could not create the application log file: {}", e);
+            match general::write_to_file(FALLBACK_LOG.to_string(), String::new()) {
+                Ok(_) => FALLBACK_LOG.to_string(),
+                Err(fe) => {
+                    eprintln!(
+                        "Could not create fallback log file '{}': {}",
+                        FALLBACK_LOG, fe
+                    );
+                    FALLBACK_LOG.to_string()
+                }
+            }
+        }))
+        .0
     }
 }

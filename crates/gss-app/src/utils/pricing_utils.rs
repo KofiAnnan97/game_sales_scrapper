@@ -2,13 +2,19 @@ use iced::widget::image::Handle;
 use std::collections::HashMap;
 use std::sync::Arc;
 
+use errors::api::ApiError;
 use notifications::email;
 use operations::thresholds;
 use stores::pc::{gog, microsoft_store, steam};
-use stores::search::provider::SearchProvider;
+use stores::search::provider::{SearchError, SearchProvider};
 use types::internal::{data::SaleInfo, store::GameStore};
 
 use crate::utils::file_utils::load_url_image_with_fallback;
+
+pub static SALES_FAILURE_SEPARATOR: &str = "; ";
+
+type StoreSaleOption = Option<StoreSale>;
+type FetchError = SearchError<ApiError>;
 
 #[derive(Debug, Clone)]
 pub struct StoreSale {
@@ -52,6 +58,68 @@ impl SalesCache {
     }
 }
 
+#[derive(Debug, Clone, Default)]
+pub struct StoreFailures {
+    pub store_call: usize,
+    pub semaphore: usize,
+    pub task: usize,
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct SalesFetchResult {
+    pub sales: Vec<StoreSale>,
+    pub failures: HashMap<GameStore, StoreFailures>,
+    pub errors: Vec<String>,
+    pub attempted_lookups: usize,
+}
+
+impl SalesFetchResult {
+    pub fn all_lookups_failed(&self) -> bool {
+        let failed_lookups: usize = self
+            .failures
+            .values()
+            .map(|failures| failures.store_call + failures.semaphore + failures.task)
+            .sum();
+
+        self.attempted_lookups > 0 && failed_lookups == self.attempted_lookups
+    }
+
+    pub fn failure_summary(&self) -> Option<String> {
+        let stores = GameStore::get_all_stores();
+        let has_failures = self
+            .failures
+            .values()
+            .any(|failures| failures.store_call + failures.semaphore + failures.task > 0);
+        if !has_failures {
+            None
+        } else {
+            Some(
+                stores
+                    .into_iter()
+                    .map(|store| {
+                        let failures = self.failures.get(&store).cloned().unwrap_or_default();
+                        let total = failures.store_call + failures.semaphore + failures.task;
+                        let mut causes = format!(
+                            "{} store calls, {} search capacity",
+                            failures.store_call, failures.semaphore
+                        );
+                        if failures.task > 0 {
+                            causes.push_str(&format!(", {} task", failures.task));
+                        }
+                        format!(
+                            "{}: {} game(s) failed ({})",
+                            store.get_name(),
+                            total,
+                            causes
+                        )
+                    })
+                    .collect::<Vec<String>>()
+                    .join(SALES_FAILURE_SEPARATOR),
+            )
+        }
+    }
+}
+
 pub fn get_simple_prices_str(store_name: GameStore, sales: Vec<SaleInfo>) -> String {
     let mut prices_str = String::new();
     sales.iter().for_each(|game| {
@@ -77,6 +145,18 @@ pub fn check_prices_for_display(store_sales: &[StoreSale]) -> HashMap<GameStore,
     by_store
 }
 
+fn format_email_output(sales: Vec<SaleInfo>, store_type: GameStore, use_html: bool) -> String {
+    if !sales.is_empty() {
+        if use_html {
+            email::create_store_cards(store_type, sales)
+        } else {
+            get_simple_prices_str(store_type, sales)
+        }
+    } else {
+        String::new()
+    }
+}
+
 pub async fn check_prices_for_email(
     use_html: bool,
     search_provider: SearchProvider,
@@ -85,10 +165,12 @@ pub async fn check_prices_for_email(
     let mut gog_sales: Vec<SaleInfo> = Vec::new();
     let mut microsoft_store_sales: Vec<SaleInfo> = Vec::new();
 
-    let store_sales = get_sales(&Arc::new(search_provider))
+    let fetch_sales = get_sales(&Arc::new(search_provider))
         .await
-        .unwrap_or_default();
-    for sale in store_sales {
+        .map_err(|e| e.to_string())?;
+    let all_failed = fetch_sales.all_lookups_failed();
+    let fetch_summary = fetch_sales.failure_summary();
+    for sale in fetch_sales.sales {
         match sale.store {
             GameStore::STEAM => steam_sales.push(sale.info),
             GameStore::GOOD_OLD_GAMES => gog_sales.push(sale.info),
@@ -97,37 +179,27 @@ pub async fn check_prices_for_email(
     }
 
     let mut output = String::new();
-    if !steam_sales.is_empty() {
-        if use_html {
-            output.push_str(&email::create_store_cards(GameStore::STEAM, steam_sales));
-        } else {
-            output.push_str(&get_simple_prices_str(GameStore::STEAM, steam_sales));
-        }
+    output.push_str(&format_email_output(
+        steam_sales,
+        GameStore::STEAM,
+        use_html,
+    ));
+    output.push_str(&format_email_output(
+        gog_sales,
+        GameStore::GOOD_OLD_GAMES,
+        use_html,
+    ));
+    output.push_str(&format_email_output(
+        microsoft_store_sales,
+        GameStore::MICROSOFT_STORE_PC,
+        use_html,
+    ));
+    if all_failed && let Some(summary) = fetch_summary {
+        return Err(format!(
+            "All game lookups failed:\n{}",
+            summary.replace(SALES_FAILURE_SEPARATOR, "\n")
+        ));
     }
-    if !gog_sales.is_empty() {
-        if use_html {
-            output.push_str(&email::create_store_cards(
-                GameStore::GOOD_OLD_GAMES,
-                gog_sales,
-            ));
-        } else {
-            output.push_str(&get_simple_prices_str(GameStore::GOOD_OLD_GAMES, gog_sales));
-        }
-    }
-    if !microsoft_store_sales.is_empty() {
-        if use_html {
-            output.push_str(&email::create_store_cards(
-                GameStore::MICROSOFT_STORE_PC,
-                microsoft_store_sales,
-            ));
-        } else {
-            output.push_str(&get_simple_prices_str(
-                GameStore::MICROSOFT_STORE_PC,
-                microsoft_store_sales,
-            ));
-        }
-    }
-
     if output.is_empty() {
         Ok(String::from(
             "No thresholded games are currently below desired price.",
@@ -186,11 +258,34 @@ pub fn compare_prices(store_sales: &[StoreSale]) -> Vec<SaleInfoCompare> {
     compiled_sales
 }
 
-pub async fn get_sales(provider: &Arc<SearchProvider>) -> Result<Vec<StoreSale>, String> {
-    let mut sales: Vec<StoreSale> = Vec::new();
-    let thresholds = thresholds::load_thresholds().unwrap_or_else(|_e| Vec::new());
+async fn has_desired_sale_price(
+    store_type: GameStore,
+    store_id: &str,
+    info: SaleInfo,
+    desired_price: f64,
+    alias: String,
+) -> Option<StoreSale> {
+    if desired_price >= info.current_price {
+        let icon_handler = Some(load_url_image_with_fallback(&info.icon_link).await);
+        Some(StoreSale {
+            store: store_type,
+            info,
+            alias,
+            game_id: format!("{}_{}", store_type.get_id(), store_id),
+            icon_handler,
+        })
+    } else {
+        None
+    }
+}
 
-    let mut tasks: Vec<tokio::task::JoinHandle<(GameStore, Option<StoreSale>)>> = Vec::new();
+pub async fn get_sales(provider: &Arc<SearchProvider>) -> Result<SalesFetchResult, String> {
+    let thresholds = thresholds::load_thresholds().map_err(|e| e.to_string())?;
+
+    let mut tasks: Vec<(
+        GameStore,
+        tokio::task::JoinHandle<Result<StoreSaleOption, FetchError>>,
+    )> = Vec::new();
 
     for game in thresholds.iter() {
         if game.steam_id != 0 {
@@ -206,25 +301,18 @@ pub async fn get_sales(provider: &Arc<SearchProvider>) -> Result<Vec<StoreSale>,
                     })
                     .await;
 
-                match result {
-                    Ok(info) if desired_price >= info.current_price => {
-                        let icon_handler =
-                            Some(load_url_image_with_fallback(&info.icon_link).await);
-                        (
-                            GameStore::STEAM,
-                            Some(StoreSale {
-                                store: GameStore::STEAM,
-                                info,
-                                alias,
-                                game_id: format!("{}_{}", GameStore::STEAM.get_id(), steam_id),
-                                icon_handler,
-                            }),
-                        )
-                    }
-                    _ => (GameStore::STEAM, None),
-                }
+                let info = result?;
+                let sale = has_desired_sale_price(
+                    GameStore::STEAM,
+                    &steam_id.to_string(),
+                    info,
+                    desired_price,
+                    alias,
+                )
+                .await;
+                Ok(sale)
             });
-            tasks.push(task);
+            tasks.push((GameStore::STEAM, task));
         }
     }
 
@@ -243,29 +331,18 @@ pub async fn get_sales(provider: &Arc<SearchProvider>) -> Result<Vec<StoreSale>,
                     })
                     .await;
 
-                match result {
-                    Ok(info) if desired_price >= info.current_price => {
-                        let icon_handler =
-                            Some(load_url_image_with_fallback(&info.icon_link).await);
-                        (
-                            GameStore::GOOD_OLD_GAMES,
-                            Some(StoreSale {
-                                store: GameStore::GOOD_OLD_GAMES,
-                                info,
-                                alias,
-                                game_id: format!(
-                                    "{}_{}",
-                                    GameStore::GOOD_OLD_GAMES.get_id(),
-                                    gog_id
-                                ),
-                                icon_handler,
-                            }),
-                        )
-                    }
-                    _ => (GameStore::GOOD_OLD_GAMES, None),
-                }
+                let info = result?;
+                let sale = has_desired_sale_price(
+                    GameStore::GOOD_OLD_GAMES,
+                    &gog_id.to_string(),
+                    info,
+                    desired_price,
+                    alias,
+                )
+                .await;
+                Ok(sale)
             });
-            tasks.push(task);
+            tasks.push((GameStore::GOOD_OLD_GAMES, task));
         }
     }
 
@@ -283,38 +360,64 @@ pub async fn get_sales(provider: &Arc<SearchProvider>) -> Result<Vec<StoreSale>,
                     })
                     .await;
 
-                match result {
-                    Ok(info) if desired_price >= info.current_price => {
-                        let icon_handler =
-                            Some(load_url_image_with_fallback(&info.icon_link).await);
-                        (
-                            GameStore::MICROSOFT_STORE_PC,
-                            Some(StoreSale {
-                                store: GameStore::MICROSOFT_STORE_PC,
-                                info,
-                                alias,
-                                game_id: format!(
-                                    "{}_{}",
-                                    GameStore::MICROSOFT_STORE_PC.get_id(),
-                                    store_id
-                                ),
-                                icon_handler,
-                            }),
-                        )
-                    }
-                    _ => (GameStore::MICROSOFT_STORE_PC, None),
-                }
+                let info = result?;
+                let sale = has_desired_sale_price(
+                    GameStore::MICROSOFT_STORE_PC,
+                    &store_id,
+                    info,
+                    desired_price,
+                    alias,
+                )
+                .await;
+                Ok(sale)
             });
-            tasks.push(task);
+            tasks.push((GameStore::MICROSOFT_STORE_PC, task));
         }
     }
 
-    // Execute all tasks and return list of sales
-    let results = futures::future::join_all(tasks).await;
-    for (_store, sale_option) in results.into_iter().flatten() {
-        if let Some(sale) = sale_option {
-            sales.push(sale);
+    let mut fetch_result = SalesFetchResult {
+        attempted_lookups: tasks.len(),
+        ..SalesFetchResult::default()
+    };
+
+    for (store, result) in futures::future::join_all(
+        tasks
+            .into_iter()
+            .map(|(store, task)| async move { (store, task.await) }),
+    )
+    .await
+    {
+        match result {
+            Ok(Ok(Some(sale))) => fetch_result.sales.push(sale),
+            Ok(Ok(None)) => {}
+            Ok(Err(failure)) => {
+                let counts = fetch_result.failures.entry(store).or_default();
+                match failure {
+                    SearchError::StoreError(e) => {
+                        counts.store_call += 1;
+                        fetch_result.errors.push(format!(
+                            "{} game search failed: {}",
+                            store.get_name(),
+                            e
+                        ));
+                    }
+                    SearchError::SemaphoreError(e) => {
+                        counts.semaphore += 1;
+                        fetch_result.errors.push(format!(
+                            "{} search capacity failure: {}",
+                            store.get_name(),
+                            e
+                        ));
+                    }
+                }
+            }
+            Err(e) => {
+                fetch_result.failures.entry(store).or_default().task += 1;
+                fetch_result
+                    .errors
+                    .push(format!("{} lookup task failed: {}", store.get_name(), e));
+            }
         }
     }
-    Ok(sales)
+    Ok(fetch_result)
 }

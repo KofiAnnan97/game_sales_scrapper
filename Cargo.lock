@@ -1978,6 +1978,7 @@ version = "0.3.2-beta"
 dependencies = [
  "constants",
  "dotenvy",
+ "errors",
  "files",
  "gss-app",
  "operations",

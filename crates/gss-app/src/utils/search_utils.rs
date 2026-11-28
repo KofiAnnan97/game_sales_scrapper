@@ -24,7 +24,7 @@ pub async fn perform_store_search(
                     let steam_id = steam::check_game(&title, &provider.client)
                         .await
                         .map(|app| app.app_id)
-                        .unwrap_or(0);
+                        .map_err(|e| e.to_string())?;
                     results.push(StoreSearchResult::Steam { title, steam_id });
                 }
             }

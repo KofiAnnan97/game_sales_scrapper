@@ -10,6 +10,7 @@ operations = { path = "../gss-core/operations" }
 files = { path = "../gss-core/files" }
 stores = { path = "../gss-core/stores" }
 types = { path = "../gss-core/types" }
+errors = { path = "../gss-core/errors" }
 properties = { path = "../gss-core/properties" }
 constants = { path = "../gss-core/constants" }
 gss-app = { path = "../gss-app" }

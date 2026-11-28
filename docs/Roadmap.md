@@ -14,11 +14,8 @@
       - [X] Centralize and reuse http client
         - [X] remove unnecessary instantiations are deleted
         - [X] Configure connection pooling and user agents 
-        - [ ] Configure redirects when needed
-      - [ ] Add response size limits to HTTP calls
       - Optimize fuzzy search algorithms
         - [X] Use rolling row implementation for 2D comparison matrix
-        - [ ] Add limits to fuzzy search inputs
         - [X] Add performance benchmarks (time only)
         - [X] Separate concurrency between exact and fuzzy game search 
       - Caching improvements
@@ -27,15 +24,16 @@
         - [X] Avoid serializing the entire cache when practical
     - Reliability
       - [ ] Proper error handling for unwrap(), expect(), and panic!()
-        - [ ] Have recoverable failures with typed errors
+        - [X] Have recoverable failures with typed errors
           - [X] Secrets and environment variables
           - [X] Files
           - [X] Settings and thresholds
           - [X] Properties
           - [X] Command Line
-          - [ ] Application
+          - [X] Application
         - [ ] Individual storefront failures are isolated
-      - [ ] Add cargo deny to audit workflow
+          - [ ] Command Line
+          - [X] Application
   - Command Line
     - Performance
       - [X] Implement search via multiple game ids for Steam games
@@ -59,7 +57,7 @@
   - General
     - [X] Steam data does not seem to always send the correct steam app id when retrieving game data. More robust checking and error handling was added.
     - [X] Sales preview doesn't exit when the user hits the close button
-    - [ ] Handle games thresholds with corrupted or incorrect data (try to run search on fake query with incorrect store ids)
+    - [ ] Fixed issue Windows not being able to run settings and thresholds unit tests (.env file needed to be generated)
 - Testing:
   - [X] Add caching to GitHub Actions
   - [X] Add more app focused tests where possible
@@ -79,6 +77,7 @@
     - Remove/reduce duplicate code between the app and cli
     - Add rate limiting to search provider
     - Store decrypt key using OS specific credential solution
+    - Add cargo deny to audit workflow
   - Application  
     - Add loading animation of image for preview game icons 
       - Add a timeout which sets the image to a square missing image icon instead
@@ -108,6 +107,11 @@
 - Bugs/Fixes
   - General
     - Update dependencies and resolve any potential issues
+    - Performance
+      - Configure redirects when needed (may not be needed)
+      - Add response size limits to HTTP calls
+      - Add limits to fuzzy search inputs
+    - Handle games thresholds with corrupted or incorrect data (try to run search on fake query with incorrect store ids)
   - Application  
     - Add functionality to get and set a debug level (value should be store in settings file)
     - Add feedback Prune all logs button in Settings

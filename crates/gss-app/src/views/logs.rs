@@ -158,7 +158,7 @@ impl LoggingView {
             logs_loading: true,
             show_loading: false,
             log_items: {
-                let available_logs = log_utils::get_app_logs();
+                let available_logs = log_utils::get_app_logs().unwrap_or_default();
                 let mut items: Vec<LogItem> = Vec::new();
                 for (idx, file_name) in available_logs.iter().enumerate() {
                     items.push(LogItem {
@@ -248,9 +248,14 @@ impl LoggingView {
                     if item.file_name == current_file_name {
                         true
                     } else {
-                        let _ = log_utils::delete_log(&item.file_name);
-                        deleted_files.push(item.file_name.clone());
-                        false
+                        match log_utils::delete_log(&item.file_name) {
+                            Ok(true) => {
+                                deleted_files.push(item.file_name.clone());
+                                false
+                            }
+                            Ok(false) => true,
+                            Err(_) => true,
+                        }
                     }
                 });
                 for file_name in deleted_files {
@@ -265,9 +270,14 @@ impl LoggingView {
                 let mut deleted_files = Vec::new();
                 self.log_items.retain_mut(|item| {
                     if item.file_name != current_file_name && item.checked {
-                        let _ = log_utils::delete_log(&item.file_name);
-                        deleted_files.push(item.file_name.clone());
-                        false
+                        match log_utils::delete_log(&item.file_name) {
+                            Ok(true) => {
+                                deleted_files.push(item.file_name.clone());
+                                false
+                            }
+                            Ok(false) => true,
+                            Err(_) => true,
+                        }
                     } else {
                         true
                     }
@@ -581,7 +591,7 @@ impl LoggingView {
     }
 
     fn refresh_log_items(&mut self) {
-        let available_logs = log_utils::get_app_logs();
+        let available_logs = log_utils::get_app_logs().unwrap_or_default();
         let current_file_name = log_utils::get_filename(&self.curr_file_path);
         let previous_items = std::mem::take(&mut self.log_items);
         let previous_checked: HashMap<String, bool> = previous_items
@@ -624,7 +634,11 @@ impl LoggingView {
             PathBuf::from(&self.curr_file_path)
         } else {
             self.cache_historical_log(&file_name);
-            [&get_log_path(), &file_name].iter().collect()
+            match get_log_path() {
+                Ok(log_path) => PathBuf::from(log_path).join(&file_name),
+                // TODO: Determine if this a viable solution or throw error
+                Err(_) => PathBuf::new(),
+            }
         };
 
         let cached_file_size = if self.is_current_file(&file_name) {

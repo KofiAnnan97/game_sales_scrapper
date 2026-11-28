@@ -1,4 +1,6 @@
 use chrono::{DateTime, NaiveDateTime, TimeDelta, Utc};
+use serde::{Deserialize, Serialize};
+use serde_json::from_str;
 use std::ffi::OsStr;
 use std::fs;
 use std::panic::PanicHookInfo;
@@ -6,12 +8,10 @@ use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 
 use crate::app::constants::BATCH_LIMIT;
-use constants::operations::logging::APP_SUBDIR;
-use files::general;
-use serde::{Deserialize, Serialize};
-use serde_json::from_str;
-
 use crate::views::logs::Screen;
+use constants::operations::logging::APP_SUBDIR;
+use errors::input::FileOperationError;
+use files::general;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct LogData {
@@ -20,6 +20,11 @@ pub struct LogData {
     pub screen: String,
     pub message: String,
 }
+
+static DEBUG_STR: &str = "DEBUG";
+static WARN_STR: &str = "WARN";
+static INFO_STR: &str = "INFO";
+static ERROR_STR: &str = "ERROR";
 
 #[derive(Debug, Clone)]
 #[allow(clippy::upper_case_acronyms)]
@@ -31,6 +36,15 @@ pub enum LogLevel {
 }
 
 impl LogLevel {
+    pub fn as_str(&self) -> &str {
+        match self {
+            LogLevel::DEBUG => DEBUG_STR,
+            LogLevel::WARN => WARN_STR,
+            LogLevel::INFO => INFO_STR,
+            LogLevel::ERROR => ERROR_STR,
+        }
+    }
+
     pub fn get_options() -> Vec<String> {
         vec![
             LogLevel::DEBUG.to_string(),
@@ -56,10 +70,10 @@ impl LogLevel {
 impl std::fmt::Display for LogLevel {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            LogLevel::DEBUG => write!(f, "DEBUG"),
-            LogLevel::WARN => write!(f, "WARN"),
-            LogLevel::INFO => write!(f, "INFO"),
-            LogLevel::ERROR => write!(f, "ERROR"),
+            LogLevel::DEBUG => write!(f, "{}", DEBUG_STR),
+            LogLevel::WARN => write!(f, "{}", WARN_STR),
+            LogLevel::INFO => write!(f, "{}", INFO_STR),
+            LogLevel::ERROR => write!(f, "{}", ERROR_STR),
         }
     }
 }
@@ -175,22 +189,21 @@ pub fn get_filename(file_path: &str) -> String {
         .into()
 }
 
-pub fn get_log_path() -> String {
-    // TODO: Propagate Error when retrieving logging path
-    let log_path = properties::get_log_path().unwrap_or_default();
+pub fn get_log_path() -> Result<String, FileOperationError> {
+    let log_path = properties::get_log_path()?;
     let path_buf: PathBuf = [log_path, APP_SUBDIR.to_string()].iter().collect();
     let app_logs_path = path_buf.display().to_string();
-    general::create_dir(&app_logs_path);
-    app_logs_path
+    general::create_dir(&app_logs_path)?;
+    Ok(app_logs_path)
 }
 
-pub fn new_log() -> String {
-    let app_logs_path = get_log_path();
+pub fn new_log() -> Result<String, FileOperationError> {
+    let app_logs_path = get_log_path()?;
     let dt: DateTime<Utc> = SystemTime::now().into();
     let timestamp = dt.format(DT_STR_FORMAT).to_string();
     let filename = format!("{}{}", timestamp, LOG_SUFFIX).replace(":", "_");
 
-    let last_log = get_last_log();
+    let last_log = get_last_log()?;
     let last_log_dt_str = last_log.strip_suffix(LOG_SUFFIX).unwrap_or_default();
     let last_dt = NaiveDateTime::parse_from_str(last_log_dt_str, DT_STR_FORMAT);
 
@@ -198,27 +211,28 @@ pub fn new_log() -> String {
         Ok(val) => {
             if dt - val.and_utc() < TimeDelta::minutes(30) {
                 let path_buf: PathBuf = [app_logs_path, last_log].iter().collect();
-                path_buf.display().to_string()
+                Ok(path_buf.display().to_string())
             } else {
                 let _ = general::write_file(Path::new(&app_logs_path), &filename, "");
                 let filepath = Path::new(&app_logs_path).join(&filename);
-                filepath.display().to_string()
+                Ok(filepath.display().to_string())
             }
         }
         Err(_) => {
             let _ = general::write_file(Path::new(&app_logs_path), &filename, "");
             let filepath = Path::new(&app_logs_path).join(&filename);
-            filepath.display().to_string()
+            Ok(filepath.display().to_string())
         }
     }
 }
 
-fn get_last_log() -> String {
-    let logs = get_app_logs();
+fn get_last_log() -> Result<String, FileOperationError> {
+    let logs = get_app_logs()?;
     // The list is reversed so the first option is the last log file
     match logs.first() {
-        Some(log) => log.to_string(),
-        None => String::new(),
+        Some(log) => Ok(log.to_string()),
+        // TODO: Determine if this should be treated as an error instead
+        None => Ok(String::new()),
     }
 }
 
@@ -252,13 +266,12 @@ pub fn fatal_message_builder(panic_info: &PanicHookInfo<'_>) -> String {
     }
 }
 
-pub fn get_app_logs() -> Vec<String> {
+pub fn get_app_logs() -> Result<Vec<String>, FileOperationError> {
     let mut log_names: Vec<String> = Vec::new();
-    if let Ok(dir) = fs::read_dir(get_log_path()) {
+    if let Ok(dir) = fs::read_dir(get_log_path()?) {
         for d in dir {
-            // TODO: Handle file metadata errors instead of panicking
             if let Some(entry) = d.ok()
-                && entry.file_type().unwrap().is_file()
+                && entry.file_type()?.is_file()
             {
                 let file_name = entry.file_name();
                 if let Some(file_name) = file_name.to_str()
@@ -271,7 +284,7 @@ pub fn get_app_logs() -> Vec<String> {
         log_names.sort();
         log_names = log_names.into_iter().rev().collect();
     }
-    log_names
+    Ok(log_names)
 }
 
 fn is_valid_log_filename(file_name: &str) -> bool {
@@ -301,17 +314,17 @@ pub fn get_timestamp(file_name: &str) -> String {
     }
 }
 
-pub fn delete_log(file_name: &str) -> bool {
+pub fn delete_log(file_name: &str) -> Result<bool, FileOperationError> {
     if !is_valid_log_filename(file_name) || Path::new(file_name).components().count() != 1 {
-        return false;
+        return Ok(false);
     }
 
-    let log_dir = PathBuf::from(get_log_path());
+    let log_dir = PathBuf::from(get_log_path()?);
     let log_file = log_dir.join(file_name);
 
     if !log_dir.exists() || !log_file.exists() {
-        return false;
+        return Ok(false);
     }
 
-    general::delete_file(log_file.display().to_string()).is_ok()
+    Ok(general::delete_file(log_file.display().to_string()).is_ok())
 }

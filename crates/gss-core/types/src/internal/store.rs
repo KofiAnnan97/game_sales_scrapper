@@ -42,6 +42,14 @@ impl GameStore {
             GameStore::MICROSOFT_STORE_PC => MICROSOFT_STORE_NAME,
         }
     }
+
+    pub fn get_all_stores() -> [GameStore; 3] {
+        [
+            GameStore::STEAM,
+            GameStore::GOOD_OLD_GAMES,
+            GameStore::MICROSOFT_STORE_PC,
+        ]
+    }
 }
 
 impl Display for GameStore {

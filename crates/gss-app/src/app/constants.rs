@@ -1,11 +1,11 @@
 pub const LOADING_FRAMES_SIZE: usize = 4;
-pub const STATUS_ERR: &str = "ERROR";
 
 // Search
 pub const SKIP_STORE_SELECTION: usize = usize::MAX;
 pub static MAX_RESULTS: usize = 20;
 
 // Files
+pub const FALLBACK_LOG: &str = "temp.log";
 pub const NO_IMAGE: &[u8] = include_bytes!("../../resources/no_image.png");
 pub static IMAGE_FROM_URL_TIMEOUT: u64 = 90;
 

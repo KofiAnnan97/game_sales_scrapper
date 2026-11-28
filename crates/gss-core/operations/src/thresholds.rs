@@ -310,7 +310,7 @@ pub fn update_threshold_alias_fuzzy(
                 Ok(idx) => {
                     if idx < fuzzy_thresholds.len() {
                         let fuzzy_title = fuzzy_thresholds[idx].clone();
-                        let _ = update_threshold_alias(fuzzy_title, new_alias);
+                        update_threshold_alias(fuzzy_title, new_alias)?;
                     } else if idx >= fuzzy_thresholds.len() {
                         return Err(ConfigError::Message(format!(
                             "Integer \"{}\" is invalid. Remove cancelled.",

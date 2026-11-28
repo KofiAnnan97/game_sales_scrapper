@@ -52,8 +52,7 @@ pub fn create_dir(file_path: &str) -> Result<(), FileOperationError> {
         Ok(_) => Ok(()),
         Err(e) => Err(FileOperationError::Message(format!(
             "Failed to create directory: {}, {}",
-            file_path,
-            e
+            file_path, e
         ))),
     }
 }

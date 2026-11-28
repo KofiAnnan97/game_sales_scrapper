@@ -12,14 +12,15 @@ use tokio::sync::Semaphore;
 use types::internal::filtering::*;
 use types::internal::store::{DEFAULT_CONCURRENCY_LIMIT, GameStore};
 
-use crate::app::constants::{LOADING_FRAMES_SIZE, STATUS_ERR};
+use crate::app::constants::LOADING_FRAMES_SIZE;
 use crate::components::custom_styles::{self as cs, bold_text};
 use crate::components::custom_widgets::{
     self as cw, game_comparison_row, game_sale_row, game_store_card,
 };
 use crate::utils::log_utils::LogLevel;
 use crate::utils::pricing_utils::{
-    SalesCache, StoreSale, check_prices_for_display, compare_prices, get_sales,
+    SALES_FAILURE_SEPARATOR, SalesCache, SalesFetchResult, StoreSale, check_prices_for_display,
+    compare_prices, get_sales,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -59,8 +60,8 @@ pub enum PreviewMessage {
     PreviewResetFilters,
     RefreshSales,
     Tick,
-    GetSales(Result<Vec<StoreSale>, String>),
-    GetSalesUpdated(Result<SalesCache, String>),
+    GetSales(Result<SalesFetchResult, String>),
+    GetSalesUpdated(Result<SalesFetchResult, String>),
     CopyLinkToClipboard(String, String),
     ResetCopyMessage,
     ResetToSales,
@@ -145,46 +146,73 @@ impl PreviewView {
                     format!("Comparison toggle set to {}", self.cmp_sales_mode),
                 ))
             }
-            PreviewMessage::GetSales(sales_results) => Task::perform(
-                async move {
-                    match sales_results {
-                        Ok(store_sales) => {
-                            let by_store = check_prices_for_display(&store_sales);
-                            let comparisons = compare_prices(&store_sales);
-                            Ok(SalesCache {
-                                store_sales,
-                                comparisons,
-                                by_store,
-                            })
-                        }
-                        Err(error) => Err(error),
-                    }
-                },
-                PreviewMessage::GetSalesUpdated,
-            ),
+            PreviewMessage::GetSales(sales_results) => {
+                Task::done(PreviewMessage::GetSalesUpdated(sales_results))
+            }
             PreviewMessage::GetSalesUpdated(cache_result) => {
                 self.is_price_check_in_progress = false;
                 self.price_check_loading_frame = 0;
                 let (level, log_msg) = match cache_result {
-                    Ok(new_sales_cache) => {
-                        self.sales_cache = new_sales_cache;
+                    Ok(fetch_result) => {
+                        // Retrieve search failures
+                        let all_lookups_failed = fetch_result.all_lookups_failed();
+                        let failure_summary = fetch_result.failure_summary();
+                        let errors = fetch_result.errors.join(", ");
+
+                        // Update the sales cache
+                        let by_store = check_prices_for_display(&fetch_result.sales);
+                        let comparisons = compare_prices(&fetch_result.sales);
+                        self.sales_cache = SalesCache {
+                            store_sales: fetch_result.sales,
+                            comparisons,
+                            by_store,
+                        };
                         let _ = self.filter_games();
-                        self.status_message.clear();
-                        self.message_details.clear();
-                        (
-                            LogLevel::INFO,
-                            format!("Game sale(s) found: {}", self.sales_cache.store_sales.len()),
-                        )
+
+                        if all_lookups_failed {
+                            self.status_message = LogLevel::ERROR.to_string();
+                            self.message_details = "An issue occurred while looking for game sales. \
+                                This application was unable to search any game store front. Please try again later."
+                                .into();
+                            self.show_dialog = true;
+                            (
+                                LogLevel::ERROR,
+                                format!("All game price lookups failed: {}", errors),
+                            )
+                        } else if let Some(summary) = failure_summary {
+                            self.status_message = LogLevel::WARN.to_string();
+                            self.message_details =
+                                summary.clone().replace(SALES_FAILURE_SEPARATOR, "\n");
+                            self.show_dialog = true;
+                            (
+                                LogLevel::WARN,
+                                format!(
+                                    "Some game prices could not be retrieved: {}, {}",
+                                    summary, errors
+                                ),
+                            )
+                        } else {
+                            self.show_dialog = false;
+                            self.status_message.clear();
+                            self.message_details.clear();
+                            (
+                                LogLevel::INFO,
+                                format!(
+                                    "Game sale(s) found: {}",
+                                    self.sales_cache.store_sales.len()
+                                ),
+                            )
+                        }
                     }
                     Err(err_msg) => {
-                        self.show_dialog = true;
-                        self.status_message = STATUS_ERR.into();
+                        self.status_message = LogLevel::ERROR.to_string();
                         self.message_details = "An issue occurred while looking for game sales. \
                             Please check your internet connection or try again later."
                             .into();
+                        self.show_dialog = true;
                         (
                             LogLevel::ERROR,
-                            format!("An error occurred while updating sales: {}", err_msg),
+                            format!("An error occurred while getting sales: {}", err_msg),
                         )
                     }
                 };
@@ -288,7 +316,10 @@ impl PreviewView {
             }
             PreviewMessage::HideDialog => {
                 self.show_dialog = false;
-                if self.status_message.eq_ignore_ascii_case(STATUS_ERR) {
+                if self
+                    .status_message
+                    .eq_ignore_ascii_case(LogLevel::ERROR.as_str())
+                {
                     self.status_message.clear();
                     self.message_details.clear();
                 }
@@ -387,7 +418,7 @@ impl PreviewView {
 
         let mut sales_rows: Column<'_, PreviewMessage> = column![];
 
-        if self.status_message.contains(STATUS_ERR) {
+        if self.status_message.contains(LogLevel::ERROR.as_str()) {
             sales_rows = sales_rows.push(text("Retrieving sales failed."));
         } else if self.sales_cache.store_sales.is_empty() {
             sales_rows = sales_rows.push(text("No games are on sale for your desired prices."));
@@ -439,7 +470,7 @@ impl PreviewView {
             .values()
             .any(|sales| !sales.is_empty());
 
-        if self.status_message.contains(STATUS_ERR) {
+        if self.status_message.contains(LogLevel::ERROR.as_str()) {
             sales_by_store = sales_by_store.push(text("Retrieving sales failed."));
         } else if !current_sales_exist {
             sales_by_store =
@@ -477,7 +508,7 @@ impl PreviewView {
 
         let mut sales_comparisons: Column<'_, PreviewMessage> = column![];
 
-        if self.status_message.contains(STATUS_ERR) {
+        if self.status_message.contains(LogLevel::ERROR.as_str()) {
             sales_comparisons = sales_comparisons.push(text("Retrieving sales failed."));
         } else if !current_sales_exist {
             sales_comparisons =

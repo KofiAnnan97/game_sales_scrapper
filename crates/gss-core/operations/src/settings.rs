@@ -51,12 +51,7 @@ pub fn load_data() -> Result<Value, FileOperationError> {
 }
 
 pub fn get_available_stores() -> Vec<GameStore> {
-    let available_stores = vec![
-        GameStore::STEAM,
-        GameStore::GOOD_OLD_GAMES,
-        GameStore::MICROSOFT_STORE_PC,
-    ];
-    available_stores
+    GameStore::get_all_stores().to_vec()
 }
 
 pub fn get_selected_stores() -> Result<Vec<GameStore>, FileOperationError> {

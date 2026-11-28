@@ -59,6 +59,18 @@ pub fn get_simple_prices_str(store_name: GameStore, sales: Vec<SaleInfo>) -> Str
     prices_str
 }
 
+fn format_email_output(sales: Vec<SaleInfo>, store_type: GameStore, use_html: bool) -> String {
+    if !sales.is_empty() {
+        if use_html {
+            email::create_store_cards(store_type, sales)
+        } else {
+            get_simple_prices_str(store_type, sales)
+        }
+    } else {
+        String::new()
+    }
+}
+
 pub async fn check_prices(
     use_html: bool,
     provider: &Arc<SearchProvider>,
@@ -182,36 +194,21 @@ pub async fn check_prices(
 
     // Format output
     let mut output = String::new();
-    if !steam_sales.is_empty() {
-        if use_html {
-            output.push_str(&email::create_store_cards(GameStore::STEAM, steam_sales));
-        } else {
-            output.push_str(&get_simple_prices_str(GameStore::STEAM, steam_sales));
-        }
-    }
-    if !gog_sales.is_empty() {
-        if use_html {
-            output.push_str(&email::create_store_cards(
-                GameStore::GOOD_OLD_GAMES,
-                gog_sales,
-            ));
-        } else {
-            output.push_str(&get_simple_prices_str(GameStore::GOOD_OLD_GAMES, gog_sales));
-        }
-    }
-    if !microsoft_store_sales.is_empty() {
-        if use_html {
-            output.push_str(&email::create_store_cards(
-                GameStore::MICROSOFT_STORE_PC,
-                microsoft_store_sales,
-            ));
-        } else {
-            output.push_str(&get_simple_prices_str(
-                GameStore::MICROSOFT_STORE_PC,
-                microsoft_store_sales,
-            ));
-        }
-    }
+    output.push_str(&format_email_output(
+        steam_sales,
+        GameStore::STEAM,
+        use_html,
+    ));
+    output.push_str(&format_email_output(
+        gog_sales,
+        GameStore::GOOD_OLD_GAMES,
+        use_html,
+    ));
+    output.push_str(&format_email_output(
+        microsoft_store_sales,
+        GameStore::MICROSOFT_STORE_PC,
+        use_html,
+    ));
     Ok(output)
 }
 

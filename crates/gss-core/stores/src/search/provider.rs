@@ -1,4 +1,4 @@
-use errors::api::ApiError;
+use std::fmt::{Display, Formatter};
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::{AcquireError, Semaphore};
@@ -14,14 +14,23 @@ pub struct SearchProvider {
     pub semaphore: Arc<Semaphore>,
 }
 
-pub enum SearchOutput<T> {
-    Result(Result<T, ApiError>),
+pub enum SearchOutput<T, E> {
+    Result(Result<T, E>),
     Option(Option<T>),
 }
 
 pub enum SearchError<E> {
     SemaphoreError(AcquireError),
     StoreError(E),
+}
+
+impl<E: Display> Display for SearchError<E> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            SearchError::SemaphoreError(e) => write!(f, "{}", e),
+            SearchError::StoreError(e) => write!(f, "{}", e),
+        }
+    }
 }
 
 impl SearchProvider {

@@ -6,7 +6,13 @@ use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::Semaphore;
 
-use crate::app::constants::{LOADING_FRAMES_SIZE, SKIP_STORE_SELECTION, STATUS_ERR};
+use files::csv;
+use operations::{settings, thresholds};
+use stores::search::provider::SearchProvider;
+use types::internal::data::{GameThreshold, SimpleGameThreshold};
+use types::internal::store::{DEFAULT_CONCURRENCY_LIMIT, GameStore};
+
+use crate::app::constants::{LOADING_FRAMES_SIZE, SKIP_STORE_SELECTION};
 use crate::app::enums::{SortColumn, SortOrder, Tab, View};
 use crate::app::message::{MainMessage, Message};
 use crate::app::state::App;
@@ -20,11 +26,6 @@ use crate::views::logs::Screen;
 use crate::views::logs::{LoggingMessage, LoggingView};
 use crate::views::preview::{PreviewMessage, PreviewView};
 use crate::views::settings::Page;
-use files::csv;
-use operations::{settings, thresholds};
-use stores::search::provider::SearchProvider;
-use types::internal::data::{GameThreshold, SimpleGameThreshold};
-use types::internal::store::{DEFAULT_CONCURRENCY_LIMIT, GameStore};
 
 impl App {
     pub fn new(log_file: String) -> (Self, Task<Message>) {
@@ -172,31 +173,57 @@ impl App {
                 } else {
                     self.selected_stores.retain(|id| id != &store);
                 }
-                let _ = settings::update_selected_stores(self.selected_stores.clone());
+                match settings::update_selected_stores(self.selected_stores.clone()) {
+                    Ok(_) => self.logger.info(Screen::Search, "Updated selected stores"),
+                    Err(e) => {
+                        let err_msg = format!("Could not update select stores due to {}", e);
+                        self.logger.error(Screen::Search, &err_msg);
+                        self.status_message = LogLevel::ERROR.to_string();
+                        self.message_details = err_msg;
+                        self.show_dialog = true;
+                    }
+                };
                 self.logger.info(Screen::Search, "Updated selected stores");
                 Task::none()
             }
             MainMessage::ToggleAliasEnabled(enabled) => {
                 self.alias_enabled = enabled;
-                let _ = settings::update_alias_state(if enabled { 1 } else { 0 });
-                self.logger.info(
-                    Screen::Search,
-                    &format!("Alias enabled: {}", self.alias_enabled),
-                );
+                match settings::update_alias_state(if enabled { 1 } else { 0 }) {
+                    Ok(_) => self.logger.info(
+                        Screen::Search,
+                        &format!("Alias enabled: {}", self.alias_enabled),
+                    ),
+                    Err(e) => {
+                        let err_msg = format!("Alias enabled could not be set due to {}", e);
+                        self.logger.error(Screen::Search, &err_msg);
+                        self.status_message = LogLevel::ERROR.to_string();
+                        self.message_details = err_msg;
+                        self.show_dialog = true;
+                    }
+                }
                 Task::none()
             }
             MainMessage::ToggleAliasReuse(enabled) => {
                 self.alias_reuse_enabled = enabled;
-                let _ = settings::update_alias_reuse_state(if enabled { 1 } else { 0 });
-                self.logger.info(
-                    Screen::Settings,
-                    &format!("Alias reuse enabled: {}", self.alias_reuse_enabled),
-                );
+                match settings::update_alias_reuse_state(if enabled { 1 } else { 0 }) {
+                    Ok(_) => self.logger.info(
+                        Screen::Settings,
+                        &format!("Alias reuse enabled: {}", self.alias_reuse_enabled),
+                    ),
+                    Err(e) => {
+                        let err_msg = format!("Alias reuse could not be update due to {}", e);
+                        self.logger.error(Screen::Settings, &err_msg);
+                        self.status_message = LogLevel::ERROR.to_string();
+                        self.message_details = err_msg;
+                        self.show_dialog = true;
+                    }
+                };
                 Task::none()
             }
             MainMessage::OpenBaseView => {
                 self.active_view = View::Base;
-                self.logger.info(Screen::Settings, "Switching to Base view");
+                self.logger
+                    .debug(Screen::Settings, "Switching to Base view");
                 Task::none()
             }
             MainMessage::OpenSettings => {
@@ -205,8 +232,10 @@ impl App {
                 }
                 self.active_view = View::Settings;
                 self.settings_page = Page::General;
+                self.status_message.clear();
+                self.message_details.clear();
                 self.logger
-                    .info(Screen::Settings, "Switching to Settings view");
+                    .debug(Screen::Settings, "Switching to Settings view");
                 Task::none()
             }
             MainMessage::CloseSettings => {
@@ -217,7 +246,7 @@ impl App {
                     *self.view_bar.last().unwrap()
                 };
                 self.show_dialog = false;
-                self.logger.info(Screen::Settings, "Closed settings view");
+                self.logger.debug(Screen::Settings, "Closed settings view");
                 Task::none()
             }
             MainMessage::OpenSalesPreview => {
@@ -225,7 +254,7 @@ impl App {
                 if self.view_bar.is_empty() || !self.view_bar.contains(&View::Preview) {
                     self.view_bar.push(View::Preview);
                 }
-                self.logger.info(Screen::Sales, "Open sales view");
+                self.logger.debug(Screen::Sales, "Open sales view");
                 Task::done(Message::Preview(PreviewMessage::ResetToSales))
             }
             MainMessage::CloseSalesPreview => {
@@ -235,7 +264,7 @@ impl App {
                 } else {
                     *self.view_bar.last().unwrap()
                 };
-                self.logger.info(Screen::Sales, "Close sales view");
+                self.logger.debug(Screen::Sales, "Close sales view");
                 Task::none()
             }
             MainMessage::SortThresholds(column) => {
@@ -273,7 +302,7 @@ impl App {
                         format!("Threshold column '{}' is in descending order", col_name)
                     }
                 };
-                self.logger.info(Screen::Search, &status_str);
+                self.logger.debug(Screen::Search, &status_str);
                 Task::none()
             }
             MainMessage::ProjectPathChanged(value) => {
@@ -342,12 +371,30 @@ impl App {
             }
             MainMessage::SelectAllStores => {
                 self.selected_stores = self.available_stores.clone();
-                let _ = settings::update_selected_stores(self.selected_stores.clone());
+                match settings::update_selected_stores(self.selected_stores.clone()) {
+                    Ok(_) => self.logger.info(Screen::Search, "All stores were selected"),
+                    Err(e) => {
+                        let err_msg = format!("Could not set all stores due to {}", e);
+                        self.logger.error(Screen::Search, &err_msg);
+                        self.status_message = LogLevel::ERROR.to_string();
+                        self.message_details = err_msg;
+                        self.show_dialog = true;
+                    }
+                };
                 Task::none()
             }
             MainMessage::SelectNoStores => {
                 self.selected_stores.clear();
-                let _ = settings::clear_selected_stores();
+                match settings::clear_selected_stores() {
+                    Ok(_) => self.logger.info(Screen::Search, "No stores were selected"),
+                    Err(e) => {
+                        let err_msg = format!("Could not clear stores due to {}", e);
+                        self.logger.error(Screen::Search, &err_msg);
+                        self.status_message = LogLevel::ERROR.to_string();
+                        self.message_details = err_msg;
+                        self.show_dialog = true;
+                    }
+                };
                 Task::none()
             }
             MainMessage::OpenCsv => {
@@ -453,11 +500,13 @@ impl App {
                                 &format!("Search completed for {}", game_store.get_name()),
                             );
                         }
-                        Err(err) => {
-                            self.logger.error(
-                                Screen::Search,
-                                &format!("Search failed for {}: {:?}", game_store.get_name(), err),
-                            );
+                        Err(e) => {
+                            let err_msg =
+                                format!("Search failed for {}: {:?}", game_store.get_name(), e);
+                            self.logger.error(Screen::Search, &err_msg);
+                            self.status_message = LogLevel::ERROR.to_string();
+                            self.message_details = err_msg;
+                            self.show_dialog = true;
                         }
                     }
                 }
@@ -578,7 +627,18 @@ impl App {
                 if added_count == 0 {
                     self.logger.info(Screen::Search, "No selected storefront titles were added. Choose a result before adding a threshold.");
                 } else {
-                    let _ = thresholds::update_thresholds(thresholds_list);
+                    match thresholds::update_thresholds(thresholds_list) {
+                        Ok(_) => self
+                            .logger
+                            .info(Screen::Thresholds, "Thresholds updated successfully"),
+                        Err(e) => {
+                            let err_msg = format!("Failed to update thresholds due to {}", e);
+                            self.logger.error(Screen::Thresholds, &err_msg);
+                            self.status_message = LogLevel::ERROR.to_string();
+                            self.message_details = err_msg;
+                            self.show_dialog = true;
+                        }
+                    };
                     added_titles.iter().for_each(|title| {
                         let _ = thresholds::update_threshold_alias(title.to_owned(), &alias);
                     });
@@ -615,18 +675,42 @@ impl App {
             }
             MainMessage::SaveSettings => {
                 if self.settings_page == Page::General {
+                    let mut err_msg = String::new();
                     if !self.project_path.is_empty() && Path::new(&self.project_path).is_dir() {
-                        properties::set_project_path(&self.project_path);
+                        match properties::set_project_path(&self.project_path) {
+                            Ok(_) => (),
+                            Err(_) => err_msg.push_str("Failed to set project path, "),
+                        };
                     }
                     if !self.test_path.is_empty() && Path::new(&self.test_path).is_dir() {
-                        properties::set_test_path(&self.test_path);
+                        match properties::set_test_path(&self.test_path) {
+                            Ok(_) => (),
+                            Err(_) => err_msg.push_str("Failed to set test path, "),
+                        };
                     }
-                    properties::set_test_mode(self.test_mode);
-                    self.logger
-                        .info(Screen::Settings, "Saving general settings");
+                    match properties::set_test_mode(self.test_mode) {
+                        Ok(_) => (),
+                        Err(_) => err_msg.push_str("Failed to set test mode, "),
+                    };
+                    if err_msg.is_empty() {
+                        self.logger
+                            .info(Screen::Settings, "Saving general settings");
+                    } else {
+                        self.logger.error(
+                            Screen::Settings,
+                            &format!("Saving general settings failed: {}", err_msg),
+                        );
+                        self.status_message = LogLevel::ERROR.to_string();
+                        self.message_details = err_msg.replace(", ", "\n");
+                        self.show_dialog = true;
+                    }
                 } else if self.settings_page == Page::Email {
+                    let mut err_msg = String::new();
                     if !self.recipient_email.is_empty() {
-                        properties::set_recipient(&self.recipient_email);
+                        match properties::set_recipient(&self.recipient_email) {
+                            Ok(_) => (),
+                            Err(_) => err_msg.push_str("Failed to set recipient email, "),
+                        };
                     }
                     let smtp_port = self.smtp_port.parse::<u16>().unwrap_or(0);
                     if smtp_port != 0
@@ -635,22 +719,48 @@ impl App {
                         || !self.smtp_user.is_empty()
                         || !self.smtp_password.is_empty()
                     {
-                        properties::set_stmp_vars(
+                        match properties::set_stmp_vars(
                             self.smtp_host.clone(),
                             smtp_port,
                             self.smtp_email.clone(),
                             self.smtp_user.clone(),
                             self.smtp_password.clone(),
+                        ) {
+                            Ok(_) => (),
+                            Err(_) => err_msg.push_str("Failed to set stmp vars, "),
+                        };
+                    }
+                    if !err_msg.is_empty() {
+                        self.logger.info(Screen::Settings, "Saving email settings");
+                    } else {
+                        self.logger.error(
+                            Screen::Settings,
+                            &format!("Saving email settings failed: {}", err_msg),
                         );
+                        self.status_message = LogLevel::ERROR.to_string();
+                        self.message_details = err_msg.replace(", ", "\n");
+                        self.show_dialog = true;
                     }
-                    self.logger.info(Screen::Settings, "Saving email settings");
                 } else if self.settings_page == Page::Stores(GameStore::STEAM) {
+                    let mut err_msg = String::new();
                     if !self.steam_api_key.is_empty() {
-                        properties::set_steam_api_key(self.steam_api_key.clone());
+                        match properties::set_steam_api_key(self.steam_api_key.clone()) {
+                            Ok(_) => (),
+                            Err(_) => err_msg.push_str("Failed to set steam api key, "),
+                        };
                     }
-                    self.logger.info(Screen::Settings, "Saving Steam settings");
+                    if !err_msg.is_empty() {
+                        self.logger.info(Screen::Settings, "Saving Steam settings");
+                    } else {
+                        self.logger.error(
+                            Screen::Settings,
+                            &format!("Saving Steam settings failed: {}", err_msg),
+                        );
+                        self.status_message = LogLevel::ERROR.to_string();
+                        self.message_details = err_msg.replace(", ", "\n");
+                        self.show_dialog = true;
+                    }
                 }
-
                 self.show_dialog = true;
                 Task::none()
             }
@@ -660,14 +770,14 @@ impl App {
                 let (level, details) = match result {
                     Ok(success) => {
                         self.logger.info(Screen::Sales, &success);
-                        level = "INFO".into();
+                        level = LogLevel::INFO.to_string();
                         details = "Email request has been successfully sent.".into();
                         (level, details)
                     }
                     Err(err) => {
                         self.logger.error(Screen::Sales, &err.to_string());
-                        level = STATUS_ERR.into();
-                        details = "An issue occured trying send an email. Please check your email settings or connection.".into();
+                        level = LogLevel::ERROR.to_string();
+                        details = err.to_string();
                         (level, details)
                     }
                 };
@@ -700,7 +810,7 @@ impl App {
                     Err(err) => {
                         self.logger
                             .error(Screen::Settings, &format!("Cache update failed, {:?}", err));
-                        self.status_message = STATUS_ERR.into();
+                        self.status_message = LogLevel::ERROR.to_string();
                         self.message_details = "An issue occurred trying to cache game titles. Please check your internet connection or try again later.".into();
                         self.show_dialog = true;
                     }
@@ -736,13 +846,30 @@ impl App {
                         .cloned()
                         .unwrap_or_default();
                     if alias != threshold.alias {
-                        let _ = thresholds::update_threshold_alias(threshold.title.clone(), &alias);
+                        match thresholds::update_threshold_alias(threshold.title.clone(), &alias) {
+                            Ok(_) => self.logger.info(Screen::Thresholds, ""),
+                            Err(e) => {
+                                let err_msg = format!("Failed to update threshold due to {}", e);
+                                self.logger.error(Screen::Thresholds, &err_msg);
+                                self.status_message = LogLevel::ERROR.to_string();
+                                self.message_details = err_msg;
+                                self.show_dialog = true;
+                            }
+                        };
                     }
                     if let Ok(price) = price_str.trim().parse::<f64>() {
-                        if threshold.alias.is_empty() {
-                            let _ = thresholds::update_price(&threshold.title, price);
-                        } else {
-                            let _ = thresholds::update_price(&threshold.alias, price);
+                        match thresholds::update_price(&threshold.title, price) {
+                            Ok(_) => self.logger.info(
+                                Screen::Thresholds,
+                                &format!("Updated threshold price for {}", threshold.title),
+                            ),
+                            Err(e) => {
+                                let err_msg = format!("Failed to update threshold due to {}", e);
+                                self.logger.error(Screen::Thresholds, &err_msg);
+                                self.status_message = LogLevel::ERROR.to_string();
+                                self.message_details = err_msg;
+                                self.show_dialog = true;
+                            }
                         }
                     }
                 }
@@ -758,7 +885,19 @@ impl App {
                     .get(idx)
                     .map(|threshold| threshold.title.clone())
                 {
-                    let _ = thresholds::remove(&title);
+                    match thresholds::remove(&title) {
+                        Ok(_) => self.logger.info(
+                            Screen::Thresholds,
+                            &format!("Successfully removed {}", title),
+                        ),
+                        Err(e) => {
+                            let err_msg = format!("Failed to remove due to {}", e);
+                            self.logger.error(Screen::Thresholds, &err_msg);
+                            self.status_message = LogLevel::ERROR.to_string();
+                            self.message_details = err_msg;
+                            self.show_dialog = true;
+                        }
+                    };
                     self.thresholds = thresholds::load_thresholds().unwrap_or_default();
                     self.sync_threshold_edits();
                     self.logger
@@ -779,7 +918,10 @@ impl App {
                 self.show_dialog = false;
                 self.is_caching_in_progress = true;
 
-                if self.status_message.eq_ignore_ascii_case(STATUS_ERR) {
+                if self
+                    .status_message
+                    .eq_ignore_ascii_case(LogLevel::ERROR.as_str())
+                {
                     self.message_details.clear();
                     self.status_message.clear();
                 }
@@ -883,6 +1025,8 @@ impl App {
                 if self.view_bar.is_empty() || !self.view_bar.contains(&View::Settings) {
                     self.view_bar.push(View::Settings);
                 }
+                self.status_message.clear();
+                self.message_details.clear();
                 Task::none()
             }
             PreviewMessage::SendLogEvent(level, msg) => {
